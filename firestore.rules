@@ -66,8 +66,20 @@ service cloud.firestore {
       allow delete: if isOwner();
 
       match /questions/{questionId} {
-        allow read: if isMember();
-        allow create, update, delete: if isEditorOrAbove();
+        function parentSet() {
+          return get(/databases/$(database)/documents/questionSets/$(setId)).data;
+        }
+        function isMemberOfParent() {
+          return request.auth != null && request.auth.uid in parentSet().members;
+        }
+        function isEditorOrAboveOfParent() {
+          return isMemberOfParent()
+            && (parentSet().members[request.auth.uid] == 'owner'
+                || parentSet().members[request.auth.uid] == 'editor');
+        }
+
+        allow read: if isMemberOfParent();
+        allow create, update, delete: if isEditorOrAboveOfParent();
       }
     }
 
