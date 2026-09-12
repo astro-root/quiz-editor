@@ -44,6 +44,7 @@ export function useQuestionSets() {
           name: data.name,
           ownerId: data.ownerId,
           members: data.members ?? {},
+          memberProfiles: data.memberProfiles ?? {},
           createdAt: toMillis(data.createdAt),
           updatedAt: toMillis(data.updatedAt),
         };
@@ -61,6 +62,12 @@ export function useQuestionSets() {
       name,
       ownerId: user.uid,
       members: { [user.uid]: "owner" },
+      memberProfiles: {
+        [user.uid]: {
+          email: user.email ?? "",
+          displayName: user.displayName ?? "",
+        },
+      },
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
