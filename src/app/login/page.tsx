@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Sparkles } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 
 export default function LoginPage() {
@@ -24,19 +25,27 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center">
+    <div className="flex min-h-screen items-center justify-center bg-slate-50">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-sm rounded-xl border border-gray-200 bg-white p-6 shadow-sm"
+        className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-7 shadow-sm"
       >
-        <h1 className="mb-4 text-xl font-semibold">ログイン</h1>
+        <div className="mb-5 flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white">
+            <Sparkles size={16} />
+          </div>
+          <div>
+            <p className="text-xs font-medium text-blue-600">Qraft</p>
+            <h1 className="text-lg font-semibold text-slate-800">ログイン</h1>
+          </div>
+        </div>
         <input
           type="email"
           placeholder="メールアドレス"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          className="mb-2 w-full rounded-lg border border-gray-200 p-2 text-sm"
+          className="mb-2 w-full rounded-lg border border-slate-200 p-2.5 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
         />
         <input
           type="password"
@@ -44,16 +53,16 @@ export default function LoginPage() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
-          className="mb-2 w-full rounded-lg border border-gray-200 p-2 text-sm"
+          className="mb-2 w-full rounded-lg border border-slate-200 p-2.5 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
         />
         {error && <p className="mb-2 text-xs text-red-500">{error}</p>}
         <button
           type="submit"
-          className="w-full rounded-lg bg-blue-600 p-2 text-sm font-medium text-white hover:bg-blue-700"
+          className="w-full rounded-lg bg-blue-600 p-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700"
         >
           ログイン
         </button>
-        <p className="mt-3 text-center text-xs text-gray-500">
+        <p className="mt-4 text-center text-xs text-slate-500">
           アカウントをお持ちでない方は{" "}
           <Link href="/signup" className="text-blue-600 underline">
             新規登録

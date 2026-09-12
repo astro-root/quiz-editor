@@ -41,8 +41,11 @@ export function useQuestions(setId: string) {
           body: data.body ?? "",
           answer: data.answer ?? "",
           altAnswers: data.altAnswers ?? [],
+          judgingCriteria: data.judgingCriteria ?? "",
+          genre: data.genre ?? "",
           explanation: data.explanation ?? "",
           source: data.source ?? "",
+          memo: data.memo ?? "",
           tags: data.tags ?? [],
           authorUid: data.authorUid ?? "",
           authorName: data.authorName ?? "",
@@ -64,6 +67,7 @@ export function useQuestions(setId: string) {
   // 挿入位置の前後のorderの平均値を使って全件書き換えを避けられる。
   async function createQuestion(defaults?: {
     tags?: string[];
+    genre?: string;
     authorName?: string;
   }) {
     if (!user) throw new Error("not authenticated");
@@ -74,8 +78,11 @@ export function useQuestions(setId: string) {
       body: "",
       answer: "",
       altAnswers: [],
+      judgingCriteria: "",
+      genre: defaults?.genre ?? "",
       explanation: "",
       source: "",
+      memo: "",
       tags: defaults?.tags ?? [],
       authorUid: user.uid,
       authorName: defaults?.authorName ?? user.displayName ?? "",
@@ -104,6 +111,48 @@ export function useQuestions(setId: string) {
     return (before + after) / 2;
   }
 
+  async function importQuestions(
+    list: {
+      body: string;
+      answer: string;
+      altAnswers: string[];
+      judgingCriteria: string;
+      explanation: string;
+      source: string;
+      genre: string;
+      tags: string[];
+      memo: string;
+      status: Question["status"];
+      proofreadStatus: Question["proofreadStatus"];
+    }[]
+  ) {
+    if (!user) throw new Error("not authenticated");
+    let order = questions.length ? questions[questions.length - 1].order : 0;
+    for (const item of list) {
+      order += 1;
+      await addDoc(collection(db, "questionSets", setId, "questions"), {
+        ...item,
+        authorUid: user.uid,
+        authorName: user.displayName ?? "",
+        order,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    }
+  }
+
+  // 完全一致の問題文がすでに存在するかどうかの簡易チェック。
+  // AIによる意味的な重複検出ではなく、素朴な文字列一致のみ
+  // （無料枠・追加コストなしで実現できる範囲にとどめている）。
+  function findDuplicate(body: string, excludeId?: string): Question | null {
+    const trimmed = body.trim();
+    if (!trimmed) return null;
+    return (
+      questions.find((q) => q.id !== excludeId && q.body.trim() === trimmed) ??
+      null
+    );
+  }
+
   async function deleteQuestion(questionId: string) {
     await deleteDoc(doc(db, "questionSets", setId, "questions", questionId));
   }
@@ -115,5 +164,7 @@ export function useQuestions(setId: string) {
     updateQuestion,
     deleteQuestion,
     orderBetween,
+    importQuestions,
+    findDuplicate,
   };
 }

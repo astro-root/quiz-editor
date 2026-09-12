@@ -6,6 +6,8 @@ service cloud.firestore {
     // ---- users ----
     // 自分自身のプロフィールのみ読み書きできる。
     // 他人のuidを指定して他人の情報を読めないようにする。
+    // （表示名・メールの共有はquestionSets.memberProfilesを使うため、
+    //   このコレクションを他人が読める必要はない）
     match /users/{uid} {
       allow read: if request.auth != null && request.auth.uid == uid;
       allow create: if request.auth != null && request.auth.uid == uid;
@@ -42,7 +44,7 @@ service cloud.firestore {
       allow read: if isMember();
 
       // 通常の更新（名前変更・updatedAtなど）はオーナーのみ。
-      // 例外：招待の承諾時は、招待の受信者本人が自分をmembersに
+      // 例外：招待の承諾時は、招待の受信者本人が自分をmembers/memberProfilesに
       // 追加することだけを許可する（Cloud Functions不使用の設計）。
       allow update: if isOwner()
         || acceptingOwnInvite();
@@ -50,11 +52,9 @@ service cloud.firestore {
       function acceptingOwnInvite() {
         let email = request.auth.token.email;
         let invitePath = /databases/$(database)/documents/invites/$(email);
-        let inviteExists = existsAfter(invitePath) == false && exists(invitePath);
-        let invite = exists(invitePath) ? get(invitePath).data : null;
         let onlyMembersAndTimestampChanged =
           request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['members', 'updatedAt']);
+            .hasOnly(['members', 'memberProfiles', 'updatedAt']);
         return request.auth != null
           && email != null
           && exists(invitePath)
@@ -80,6 +80,53 @@ service cloud.firestore {
 
         allow read: if isMemberOfParent();
         allow create, update, delete: if isEditorOrAboveOfParent();
+
+        // コメントは役割を問わず、そのセットのメンバーなら誰でも
+        // 投稿できる（校正・レビューのやり取りのため）。
+        // 削除・編集は投稿者本人のみ。
+        match /comments/{commentId} {
+          function commentParentSet() {
+            return get(/databases/$(database)/documents/questionSets/$(setId)).data;
+          }
+          function isMemberOfCommentParent() {
+            return request.auth != null && request.auth.uid in commentParentSet().members;
+          }
+
+          allow read: if isMemberOfCommentParent();
+          allow create: if isMemberOfCommentParent()
+            && request.resource.data.authorUid == request.auth.uid;
+          allow update, delete: if request.auth != null
+            && resource.data.authorUid == request.auth.uid;
+        }
+
+        // 変更履歴（ステータス・校正状態のみ）。
+        // 追記のみで、編集・削除は不可（監査ログとしての性質を保つ）。
+        match /history/{historyId} {
+          function historyParentSet() {
+            return get(/databases/$(database)/documents/questionSets/$(setId)).data;
+          }
+          function isEditorOrAboveOfHistoryParent() {
+            return request.auth != null
+              && request.auth.uid in historyParentSet().members
+              && (historyParentSet().members[request.auth.uid] == 'owner'
+                  || historyParentSet().members[request.auth.uid] == 'editor');
+          }
+
+          allow read: if isEditorOrAboveOfHistoryParent();
+          allow create: if isEditorOrAboveOfHistoryParent()
+            && request.resource.data.authorUid == request.auth.uid;
+          allow update, delete: if false;
+        }
+      }
+
+      // オーナーだけが自分のセットの招待中一覧を読み書きできる。
+      // ドキュメントIDはメールアドレス。
+      match /pendingInvites/{email} {
+        allow read: if isOwner();
+        allow create: if isOwner();
+        allow delete: if isOwner()
+          || (request.auth != null && request.auth.token.email == email);
+        allow update: if false;
       }
     }
 

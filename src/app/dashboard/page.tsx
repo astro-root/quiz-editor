@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { LogOut, Plus, FolderOpen, Sparkles } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useQuestionSets } from "@/lib/useQuestionSets";
 import { acceptInvite, useMyInvite } from "@/lib/useInvites";
@@ -32,72 +33,94 @@ export default function DashboardPage() {
   async function handleAcceptInvite() {
     if (!invite || !user?.email) return;
     setAccepting(true);
-    await acceptInvite(invite.setId, user.uid, invite.role, user.email);
+    await acceptInvite(
+      invite.setId,
+      user.uid,
+      invite.role,
+      user.email,
+      user.displayName ?? ""
+    );
     setAccepting(false);
     router.push(`/sets/${invite.setId}`);
   }
 
   return (
-    <div className="mx-auto max-w-2xl p-6">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-semibold">問題セット一覧</h1>
-        <button
-          onClick={logOut}
-          className="text-sm text-gray-500 hover:text-gray-700"
-        >
-          ログアウト
-        </button>
-      </div>
-
-      {!inviteLoading && invite && (
-        <div className="mb-6 flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm">
-          <span>
-            「{invite.setName}」への招待があります（
-            {invite.role === "editor" ? "編集者" : "閲覧者"}）
-          </span>
+    <div className="min-h-screen bg-slate-50">
+      <div className="mx-auto max-w-2xl px-6 py-8">
+        <div className="mb-8 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white">
+              <Sparkles size={16} />
+            </div>
+            <h1 className="text-lg font-semibold text-slate-800">
+              Qraft
+            </h1>
+          </div>
           <button
-            onClick={handleAcceptInvite}
-            disabled={accepting}
-            className="rounded-lg bg-blue-600 px-3 py-1 text-white hover:bg-blue-700"
+            onClick={logOut}
+            className="flex items-center gap-1 text-sm text-slate-400 hover:text-slate-600"
           >
-            参加する
+            <LogOut size={14} />
+            ログアウト
           </button>
         </div>
-      )}
 
-      <form onSubmit={handleCreate} className="mb-6 flex gap-2">
-        <input
-          value={newSetName}
-          onChange={(e) => setNewSetName(e.target.value)}
-          placeholder="新しい問題セット名（例：第10回○○高校クイズ大会）"
-          className="flex-1 rounded-lg border border-gray-200 p-2 text-sm"
-        />
-        <button
-          type="submit"
-          className="rounded-lg bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700"
-        >
-          作成
-        </button>
-      </form>
-
-      <div className="space-y-2">
-        {sets.map((s) => (
-          <Link
-            key={s.id}
-            href={`/sets/${s.id}`}
-            className="block rounded-lg border border-gray-200 bg-white p-4 hover:border-blue-300"
-          >
-            <p className="font-medium">{s.name}</p>
-            <p className="text-xs text-gray-400">
-              {s.ownerId === user.uid ? "自分が所有" : "共有されている"}
-            </p>
-          </Link>
-        ))}
-        {sets.length === 0 && (
-          <p className="p-4 text-center text-sm text-gray-400">
-            まだ問題セットがありません
-          </p>
+        {!inviteLoading && invite && (
+          <div className="mb-6 flex items-center justify-between rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm">
+            <span className="text-slate-700">
+              「{invite.setName}」への招待があります（
+              {invite.role === "editor" ? "編集者" : "閲覧者"}）
+            </span>
+            <button
+              onClick={handleAcceptInvite}
+              disabled={accepting}
+              className="rounded-lg bg-blue-600 px-3 py-1.5 text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
+            >
+              参加する
+            </button>
+          </div>
         )}
+
+        <form onSubmit={handleCreate} className="mb-8 flex gap-2">
+          <input
+            value={newSetName}
+            onChange={(e) => setNewSetName(e.target.value)}
+            placeholder="新しい問題セット名（例：第10回○○高校クイズ大会）"
+            className="flex-1 rounded-xl border border-slate-200 bg-white p-3 text-sm shadow-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+          />
+          <button
+            type="submit"
+            className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
+          >
+            <Plus size={16} />
+            作成
+          </button>
+        </form>
+
+        <div className="space-y-2">
+          {sets.map((s) => (
+            <Link
+              key={s.id}
+              href={`/sets/${s.id}`}
+              className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-blue-300 hover:shadow-md"
+            >
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-400">
+                <FolderOpen size={16} />
+              </div>
+              <div>
+                <p className="font-medium text-slate-800">{s.name}</p>
+                <p className="text-xs text-slate-400">
+                  {s.ownerId === user.uid ? "自分が所有" : "共有されている"}
+                </p>
+              </div>
+            </Link>
+          ))}
+          {sets.length === 0 && (
+            <p className="rounded-xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-400">
+              まだ問題セットがありません
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );

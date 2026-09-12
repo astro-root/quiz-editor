@@ -3,10 +3,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { ArrowLeft, PencilLine, LayoutGrid, Users2 } from "lucide-react";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { useQuestions } from "@/lib/useQuestions";
+import { useHistory } from "@/lib/useHistory";
 import { QuestionCard } from "@/components/QuestionCard";
 import { QuestionList } from "@/components/QuestionList";
 import { ShareDialog } from "@/components/ShareDialog";
@@ -19,7 +21,8 @@ export default function QuestionSetPage() {
   const { setId } = useParams<{ setId: string }>();
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
-  const { questions, createQuestion, updateQuestion } = useQuestions(setId);
+  const { questions, createQuestion, updateQuestion, importQuestions, findDuplicate } =
+    useQuestions(setId);
 
   const [set, setSet] = useState<QuestionSet | null>(null);
   const [mode, setMode] = useState<Mode>("write");
@@ -27,6 +30,7 @@ export default function QuestionSetPage() {
   const [draft, setDraft] = useState<Question | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [showShare, setShowShare] = useState(false);
+  const { history, logChange } = useHistory(setId, draft?.id ?? null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -43,6 +47,7 @@ export default function QuestionSetPage() {
           name: data.name,
           ownerId: data.ownerId,
           members: data.members ?? {},
+          memberProfiles: data.memberProfiles ?? {},
           createdAt: 0,
           updatedAt: 0,
         });
@@ -72,6 +77,12 @@ export default function QuestionSetPage() {
 
   function handleChange(patch: Partial<Question>) {
     if (!draft) return;
+    if (patch.status && patch.status !== draft.status) {
+      logChange(draft.id, "status", draft.status, patch.status);
+    }
+    if (patch.proofreadStatus && patch.proofreadStatus !== draft.proofreadStatus) {
+      logChange(draft.id, "proofreadStatus", draft.proofreadStatus, patch.proofreadStatus);
+    }
     const next = { ...draft, ...patch };
     setDraft(next);
     setSaveState("saving");
@@ -88,8 +99,9 @@ export default function QuestionSetPage() {
 
   async function handleCreateNext() {
     const lastAnswered = questions[questions.length - 1];
-    const nextId = await createQuestion({
+    await createQuestion({
       tags: lastAnswered?.tags ?? [],
+      genre: lastAnswered?.genre ?? "",
       authorName: user?.displayName ?? "",
     });
     setActiveIndex(questions.length); // 新規追加分は末尾に来る
@@ -106,94 +118,107 @@ export default function QuestionSetPage() {
 
   if (!role) {
     return (
-      <div className="p-6 text-center text-sm text-gray-500">
+      <div className="p-6 text-center text-sm text-slate-500">
         この問題セットへのアクセス権がありません。
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-2xl p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <Link href="/dashboard" className="text-xs text-gray-400 hover:underline">
-            ← 一覧へ戻る
-          </Link>
-          <h1 className="text-lg font-semibold">{set.name}</h1>
+    <div className="min-h-screen bg-slate-50">
+      <div className="mx-auto max-w-2xl px-6 pb-16 pt-6">
+        <div className="mb-5 flex items-center justify-between">
+          <div>
+            <Link
+              href="/dashboard"
+              className="mb-1 flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600"
+            >
+              <ArrowLeft size={12} /> 一覧へ戻る
+            </Link>
+            <h1 className="text-lg font-semibold text-slate-800">{set.name}</h1>
+          </div>
+          {isOwner && (
+            <button
+              onClick={() => setShowShare(true)}
+              className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-600 shadow-sm hover:border-blue-300 hover:text-blue-600"
+            >
+              <Users2 size={15} />
+              共有
+            </button>
+          )}
         </div>
-        {isOwner && (
+
+        <div className="mb-5 inline-flex rounded-xl bg-slate-100 p-1">
           <button
-            onClick={() => setShowShare(true)}
-            className="rounded-lg border border-gray-200 px-3 py-1 text-sm hover:bg-gray-50"
+            onClick={() => setMode("write")}
+            className={`flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-sm font-medium transition ${
+              mode === "write"
+                ? "bg-white text-blue-600 shadow-sm"
+                : "text-slate-500 hover:text-slate-700"
+            }`}
           >
-            共有
+            <PencilLine size={15} />
+            作問
           </button>
-        )}
-      </div>
+          <button
+            onClick={() => setMode("manage")}
+            className={`flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-sm font-medium transition ${
+              mode === "manage"
+                ? "bg-white text-blue-600 shadow-sm"
+                : "text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            <LayoutGrid size={15} />
+            管理
+          </button>
+        </div>
 
-      <div className="mb-4 flex gap-2">
-        <button
-          onClick={() => setMode("write")}
-          className={`rounded-lg px-3 py-1.5 text-sm ${
-            mode === "write"
-              ? "bg-blue-600 text-white"
-              : "text-gray-500 hover:bg-gray-100"
-          }`}
-        >
-          作問
-        </button>
-        <button
-          onClick={() => setMode("manage")}
-          className={`rounded-lg px-3 py-1.5 text-sm ${
-            mode === "manage"
-              ? "bg-blue-600 text-white"
-              : "text-gray-500 hover:bg-gray-100"
-          }`}
-        >
-          管理
-        </button>
-      </div>
-
-      {mode === "write" ? (
-        canEdit ? (
-          draft && (
-            <>
-              <QuestionCard
-                key={draft.id}
-                question={draft}
-                saveState={saveState}
-                onChange={handleChange}
-                onCreateNext={handleCreateNext}
-                onNavigate={handleNavigate}
-              />
-              <div className="mt-4 space-y-1 opacity-60">
-                {questions
-                  .filter((q) => q.id !== draft.id)
-                  .slice(-3)
-                  .map((q) => (
-                    <div
-                      key={q.id}
-                      className="flex justify-between rounded-lg border border-gray-100 p-2 text-xs"
-                    >
-                      <span className="truncate">{q.body || "（未入力）"}</span>
-                      <span className="text-gray-400">{q.answer}</span>
-                    </div>
-                  ))}
-              </div>
-            </>
+        {mode === "write" ? (
+          canEdit ? (
+            draft && (
+              <>
+                <QuestionCard
+                  key={draft.id}
+                  setId={setId}
+                  question={draft}
+                  saveState={saveState}
+                  duplicateOf={findDuplicate(draft.body, draft.id)}
+                  history={history}
+                  onChange={handleChange}
+                  onCreateNext={handleCreateNext}
+                  onNavigate={handleNavigate}
+                />
+                <div className="mt-4 space-y-1.5 opacity-60">
+                  {questions
+                    .filter((q) => q.id !== draft.id)
+                    .slice(-3)
+                    .map((q) => (
+                      <div
+                        key={q.id}
+                        className="flex justify-between rounded-lg border border-slate-100 bg-white p-2.5 text-xs"
+                      >
+                        <span className="truncate text-slate-500">
+                          {q.body || "（未入力）"}
+                        </span>
+                        <span className="text-slate-400">{q.answer}</span>
+                      </div>
+                    ))}
+                </div>
+              </>
+            )
+          ) : (
+            <p className="rounded-xl border border-dashed border-slate-200 bg-white p-6 text-center text-sm text-slate-400">
+              閲覧権限のため作問モードは利用できません。管理モードで内容を確認できます。
+            </p>
           )
         ) : (
-          <p className="p-4 text-center text-sm text-gray-400">
-            閲覧権限のため作問モードは利用できません。管理モードで内容を確認できます。
-          </p>
-        )
-      ) : (
-        <QuestionList questions={questions} />
-      )}
+          <QuestionList questions={questions} canEdit={canEdit} onImportRows={importQuestions} />
+        )}
 
-      {showShare && set && (
-        <ShareDialog set={set} isOwner={isOwner} onClose={() => setShowShare(false)} />
-      )}
+        {showShare && set && (
+          <ShareDialog set={set} isOwner={isOwner} onClose={() => setShowShare(false)} />
+        )}
+      </div>
     </div>
   );
 }
