@@ -1,6 +1,7 @@
-export type Role = "owner" | "editor" | "viewer";
+export type Role = "admin" | "supervisor" | "writer" | "viewer";
 
-export type QuestionStatus = "draft" | "adopted" | "rejected";
+// 下書き→作問完了（作問者）→採用/不採用（問題統括・管理者）という流れ。
+export type QuestionStatus = "draft" | "completed" | "adopted" | "rejected";
 export type ProofreadStatus =
   | "unchecked"
   | "in_review"
@@ -19,9 +20,13 @@ export interface QuestionSet {
   ownerId: string;
   members: Record<string, Role>;
   memberProfiles: Record<string, MemberProfile>;
+  genres: string[];
+  noticeBody: string;
   createdAt: number;
   updatedAt: number;
 }
+
+export const MAX_SOURCES = 5;
 
 export interface Question {
   id: string;
@@ -29,9 +34,9 @@ export interface Question {
   answer: string;
   altAnswers: string[];
   judgingCriteria: string; // 正誤判定基準
-  genre: string; // ジャンル（タグとは別に1つだけ持たせる大分類）
+  genre: string; // ジャンル（セットのgenresから選択）
   explanation: string;
-  source: string; // 出典（URLを含めてもよい）
+  sources: string[]; // 出典（最大5枠、空文字を含む固定長配列として扱う）
   memo: string; // 備考
   tags: string[];
   authorUid: string;
@@ -60,6 +65,16 @@ export interface HistoryEntry {
   to: string;
   authorUid: string;
   authorName: string;
+  createdAt: number;
+}
+
+// 問題文・答えの改訂版（問題統括・管理者が編集する際のスナップショット）。
+export interface Revision {
+  id: string;
+  body: string;
+  answer: string;
+  editedByUid: string;
+  editedByName: string;
   createdAt: number;
 }
 

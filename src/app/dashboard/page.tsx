@@ -7,6 +7,7 @@ import { LogOut, Plus, FolderOpen, Sparkles } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useQuestionSets } from "@/lib/useQuestionSets";
 import { acceptInvite, useMyInvite } from "@/lib/useInvites";
+import { roleLabel } from "@/lib/permissions";
 
 export default function DashboardPage() {
   const { user, loading, logOut } = useAuth();
@@ -67,7 +68,7 @@ export default function DashboardPage() {
           <div className="mb-6 flex items-center justify-between rounded-xl border border-brand-100 bg-brand-50 p-4 text-sm">
             <span className="text-slate-700">
               「{invite.setName}」への招待があります（
-              {invite.role === "editor" ? "編集者" : "閲覧者"}）
+              {roleLabel[invite.role]}）
             </span>
             <button
               onClick={handleAcceptInvite}

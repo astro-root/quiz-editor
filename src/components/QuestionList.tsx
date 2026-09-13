@@ -3,33 +3,21 @@
 import { useMemo, useRef, useState } from "react";
 import { CheckCircle2, CircleDashed, XCircle, Download, Upload } from "lucide-react";
 import { Question } from "@/lib/types";
-import { questionsToCsv, csvToQuestions, ImportedQuestion } from "@/lib/csv";
+import { statusLabel } from "@/lib/permissions";
+import { questionsToCsv, csvToQuestions, csvFileName, ImportedQuestion } from "@/lib/csv";
 
 interface Props {
   questions: Question[];
-  canEdit: boolean;
+  setName: string;
+  canImport: boolean;
   onImportRows: (rows: ImportedQuestion[]) => Promise<void>;
 }
 
-const statusStyle: Record<
-  Question["status"],
-  { label: string; className: string; icon: React.ReactNode }
-> = {
-  draft: {
-    label: "下書き",
-    className: "bg-slate-100 text-slate-500",
-    icon: <CircleDashed size={12} />,
-  },
-  adopted: {
-    label: "採用",
-    className: "bg-emerald-50 text-emerald-600",
-    icon: <CheckCircle2 size={12} />,
-  },
-  rejected: {
-    label: "不採用",
-    className: "bg-rose-50 text-rose-500",
-    icon: <XCircle size={12} />,
-  },
+const statusStyle: Record<Question["status"], { className: string; icon: React.ReactNode }> = {
+  draft: { className: "bg-slate-100 text-slate-500", icon: <CircleDashed size={12} /> },
+  completed: { className: "bg-sky-50 text-sky-600", icon: <CheckCircle2 size={12} /> },
+  adopted: { className: "bg-emerald-50 text-emerald-600", icon: <CheckCircle2 size={12} /> },
+  rejected: { className: "bg-rose-50 text-rose-500", icon: <XCircle size={12} /> },
 };
 
 const proofreadStyle: Record<Question["proofreadStatus"], string> = {
@@ -51,9 +39,7 @@ const proofreadLabel: Record<Question["proofreadStatus"], string> = {
 const selectClass =
   "rounded-lg border border-slate-200 bg-white p-2 text-sm text-slate-600 focus:border-brand-400 focus:outline-none";
 
-// 管理モード：俯瞰・整理用の簡易一覧。
-// 表計算ソフトのグリッドではなく、フィルタ付きのリスト表示にとどめる。
-export function QuestionList({ questions, canEdit, onImportRows }: Props) {
+export function QuestionList({ questions, setName, canImport, onImportRows }: Props) {
   const [authorFilter, setAuthorFilter] = useState("all");
   const [genreFilter, setGenreFilter] = useState("all");
   const [tagFilter, setTagFilter] = useState("all");
@@ -80,8 +66,7 @@ export function QuestionList({ questions, canEdit, onImportRows }: Props) {
     if (genreFilter !== "all" && q.genre !== genreFilter) return false;
     if (tagFilter !== "all" && !q.tags.includes(tagFilter)) return false;
     if (statusFilter !== "all" && q.status !== statusFilter) return false;
-    if (proofreadFilter !== "all" && q.proofreadStatus !== proofreadFilter)
-      return false;
+    if (proofreadFilter !== "all" && q.proofreadStatus !== proofreadFilter) return false;
     return true;
   });
 
@@ -91,7 +76,7 @@ export function QuestionList({ questions, canEdit, onImportRows }: Props) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "questions.csv";
+    a.download = csvFileName(setName);
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -115,25 +100,20 @@ export function QuestionList({ questions, canEdit, onImportRows }: Props) {
       <div className="mb-4 flex flex-wrap gap-2">
         <select value={authorFilter} onChange={(e) => setAuthorFilter(e.target.value)} className={selectClass}>
           <option value="all">作問者：すべて</option>
-          {authors.map((a) => (
-            <option key={a} value={a}>{a}</option>
-          ))}
+          {authors.map((a) => <option key={a} value={a}>{a}</option>)}
         </select>
         <select value={genreFilter} onChange={(e) => setGenreFilter(e.target.value)} className={selectClass}>
           <option value="all">ジャンル：すべて</option>
-          {genres.map((g) => (
-            <option key={g} value={g}>{g}</option>
-          ))}
+          {genres.map((g) => <option key={g} value={g}>{g}</option>)}
         </select>
         <select value={tagFilter} onChange={(e) => setTagFilter(e.target.value)} className={selectClass}>
           <option value="all">タグ：すべて</option>
-          {tags.map((t) => (
-            <option key={t} value={t}>{t}</option>
-          ))}
+          {tags.map((t) => <option key={t} value={t}>{t}</option>)}
         </select>
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={selectClass}>
           <option value="all">ステータス：すべて</option>
           <option value="draft">下書き</option>
+          <option value="completed">作問完了</option>
           <option value="adopted">採用</option>
           <option value="rejected">不採用</option>
         </select>
@@ -155,7 +135,7 @@ export function QuestionList({ questions, canEdit, onImportRows }: Props) {
           <Download size={13} />
           CSVエクスポート
         </button>
-        {canEdit && (
+        {canImport && (
           <>
             <button
               onClick={() => fileInputRef.current?.click()}
@@ -165,30 +145,19 @@ export function QuestionList({ questions, canEdit, onImportRows }: Props) {
               <Upload size={13} />
               {importing ? "取り込み中…" : "CSVインポート"}
             </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".csv"
-              onChange={handleImportFile}
-              className="hidden"
-            />
+            <input ref={fileInputRef} type="file" accept=".csv" onChange={handleImportFile} className="hidden" />
           </>
         )}
       </div>
 
       <div className="space-y-2">
         {filtered.map((q, i) => (
-          <div
-            key={q.id}
-            className="flex items-start justify-between gap-4 rounded-xl border border-slate-200 bg-white p-3.5 text-sm shadow-sm"
-          >
+          <div key={q.id} className="flex items-start justify-between gap-4 rounded-xl border border-slate-200 bg-white p-3.5 text-sm shadow-sm">
             <div className="min-w-0 flex-1">
               <p className="mb-1 text-xs text-slate-300">
                 Q{String(i + 1).padStart(3, "0")}
                 {q.genre && (
-                  <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-slate-500">
-                    {q.genre}
-                  </span>
+                  <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-slate-500">{q.genre}</span>
                 )}
               </p>
               <p className="truncate text-slate-700">{q.body || "（未入力）"}</p>
@@ -198,16 +167,12 @@ export function QuestionList({ questions, canEdit, onImportRows }: Props) {
               <span>{q.authorName || "―"}</span>
               <span className="flex gap-1">
                 {q.tags.map((t) => (
-                  <span key={t} className="rounded-full bg-brand-50 px-2 py-0.5 text-brand-600">
-                    {t}
-                  </span>
+                  <span key={t} className="rounded-full bg-brand-50 px-2 py-0.5 text-brand-600">{t}</span>
                 ))}
               </span>
-              <span
-                className={`flex items-center gap-1 rounded-full px-2 py-0.5 ${statusStyle[q.status].className}`}
-              >
+              <span className={`flex items-center gap-1 rounded-full px-2 py-0.5 ${statusStyle[q.status].className}`}>
                 {statusStyle[q.status].icon}
-                {statusStyle[q.status].label}
+                {statusLabel[q.status]}
               </span>
               <span className={`rounded-full px-2 py-0.5 ${proofreadStyle[q.proofreadStatus]}`}>
                 {proofreadLabel[q.proofreadStatus]}
@@ -216,9 +181,7 @@ export function QuestionList({ questions, canEdit, onImportRows }: Props) {
           </div>
         ))}
         {filtered.length === 0 && (
-          <p className="p-4 text-center text-sm text-slate-400">
-            条件に合う問題がありません
-          </p>
+          <p className="p-4 text-center text-sm text-slate-400">条件に合う問題がありません</p>
         )}
       </div>
     </div>

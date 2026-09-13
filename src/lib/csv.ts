@@ -1,4 +1,4 @@
-import { Question } from "./types";
+import { MAX_SOURCES, Question } from "./types";
 
 const CSV_HEADERS = [
   "body",
@@ -6,7 +6,7 @@ const CSV_HEADERS = [
   "altAnswers",
   "judgingCriteria",
   "explanation",
-  "source",
+  "sources",
   "genre",
   "tags",
   "memo",
@@ -22,8 +22,13 @@ function escapeCsvCell(value: string): string {
   return value;
 }
 
-// CSVエクスポート：外部ライブラリを使わずクライアント側だけで完結させる
-// （Cloud Functions不使用の方針、かつこの用途では十分軽量なため）。
+// ファイル名は「Qraft_大会名_questions.csv」の形式にする。
+// ファイル名に使えない文字は取り除く。
+export function csvFileName(setName: string): string {
+  const safe = setName.replace(/[\\/:*?"<>|]/g, "").trim() || "問題セット";
+  return `Qraft_${safe}_questions.csv`;
+}
+
 export function questionsToCsv(questions: Question[]): string {
   const rows = [CSV_HEADERS.join(",")];
   for (const q of questions) {
@@ -33,7 +38,7 @@ export function questionsToCsv(questions: Question[]): string {
       q.altAnswers.join("|"),
       q.judgingCriteria,
       q.explanation,
-      q.source,
+      q.sources.filter(Boolean).join("|"),
       q.genre,
       q.tags.join("|"),
       q.memo,
@@ -43,11 +48,9 @@ export function questionsToCsv(questions: Question[]): string {
     ].map((v) => escapeCsvCell(String(v ?? "")));
     rows.push(row.join(","));
   }
-  // Excelでの文字化けを避けるためBOMを付与する
   return "\uFEFF" + rows.join("\r\n");
 }
 
-// 簡易CSVパーサ（ダブルクォート・カンマ・改行を含むセルに対応）。
 export function parseCsv(text: string): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
@@ -96,7 +99,7 @@ export interface ImportedQuestion {
   altAnswers: string[];
   judgingCriteria: string;
   explanation: string;
-  source: string;
+  sources: string[];
   genre: string;
   tags: string[];
   memo: string;
@@ -104,7 +107,7 @@ export interface ImportedQuestion {
   proofreadStatus: Question["proofreadStatus"];
 }
 
-const validStatus = new Set(["draft", "adopted", "rejected"]);
+const validStatus = new Set(["draft", "completed", "adopted", "rejected"]);
 const validProofread = new Set([
   "unchecked",
   "in_review",
@@ -113,8 +116,6 @@ const validProofread = new Set([
   "on_hold",
 ]);
 
-// エクスポートしたCSVをそのまま読み込む想定のインポート。
-// ヘッダー行の並びは柔軟に許容し、列名で対応付ける。
 export function csvToQuestions(text: string): ImportedQuestion[] {
   const rows = parseCsv(text);
   if (rows.length === 0) return [];
@@ -128,13 +129,18 @@ export function csvToQuestions(text: string): ImportedQuestion[] {
     };
     const status = get("status");
     const proofreadStatus = get("proofreadStatus");
+    const sourcesRaw = idx("sources") >= 0 ? get("sources") : get("source");
     return {
       body: get("body"),
       answer: get("answer"),
       altAnswers: get("altAnswers").split("|").map((s) => s.trim()).filter(Boolean),
       judgingCriteria: get("judgingCriteria"),
       explanation: get("explanation"),
-      source: get("source"),
+      sources: sourcesRaw
+        .split("|")
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .slice(0, MAX_SOURCES),
       genre: get("genre"),
       tags: get("tags").split("|").map((s) => s.trim()).filter(Boolean),
       memo: get("memo"),

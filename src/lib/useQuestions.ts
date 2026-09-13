@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   addDoc,
   collection,
@@ -13,7 +13,7 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { db } from "./firebase";
-import { Question } from "./types";
+import { MAX_SOURCES, Question } from "./types";
 import { useAuth } from "./auth-context";
 
 function toMillis(v: any): number {
@@ -22,10 +22,18 @@ function toMillis(v: any): number {
   return 0;
 }
 
+function padSources(sources: string[] | undefined): string[] {
+  const arr = (sources ?? []).slice(0, MAX_SOURCES);
+  while (arr.length < MAX_SOURCES) arr.push("");
+  return arr;
+}
+
 export function useQuestions(setId: string) {
   const { user } = useAuth();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
+  // Ctrl/Cmd+Enter連打・キーリピートで複数回作成されるのを防ぐロック
+  const creatingRef = useRef(false);
 
   useEffect(() => {
     if (!setId) return;
@@ -44,7 +52,7 @@ export function useQuestions(setId: string) {
           judgingCriteria: data.judgingCriteria ?? "",
           genre: data.genre ?? "",
           explanation: data.explanation ?? "",
-          source: data.source ?? "",
+          sources: padSources(data.sources ?? (data.source ? [data.source] : [])),
           memo: data.memo ?? "",
           tags: data.tags ?? [],
           authorUid: data.authorUid ?? "",
@@ -62,37 +70,40 @@ export function useQuestions(setId: string) {
     return unsub;
   }, [setId]);
 
-  // 新しい問題は常に末尾に追加する。orderは連続した数値ではなく
-  // 「前の問題のorder + 1」を使うことで、将来の並び替え時に
-  // 挿入位置の前後のorderの平均値を使って全件書き換えを避けられる。
   async function createQuestion(defaults?: {
     tags?: string[];
     genre?: string;
     authorName?: string;
   }) {
     if (!user) throw new Error("not authenticated");
-    const lastOrder = questions.length
-      ? questions[questions.length - 1].order
-      : 0;
-    const ref = await addDoc(collection(db, "questionSets", setId, "questions"), {
-      body: "",
-      answer: "",
-      altAnswers: [],
-      judgingCriteria: "",
-      genre: defaults?.genre ?? "",
-      explanation: "",
-      source: "",
-      memo: "",
-      tags: defaults?.tags ?? [],
-      authorUid: user.uid,
-      authorName: defaults?.authorName ?? user.displayName ?? "",
-      status: "draft",
-      proofreadStatus: "unchecked",
-      order: lastOrder + 1,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
-    return ref.id;
+    if (creatingRef.current) return null;
+    creatingRef.current = true;
+    try {
+      const lastOrder = questions.length
+        ? questions[questions.length - 1].order
+        : 0;
+      const ref = await addDoc(collection(db, "questionSets", setId, "questions"), {
+        body: "",
+        answer: "",
+        altAnswers: [],
+        judgingCriteria: "",
+        genre: defaults?.genre ?? "",
+        explanation: "",
+        sources: ["", "", "", "", ""],
+        memo: "",
+        tags: defaults?.tags ?? [],
+        authorUid: user.uid,
+        authorName: defaults?.authorName ?? user.displayName ?? "",
+        status: "draft",
+        proofreadStatus: "unchecked",
+        order: lastOrder + 1,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      return ref.id;
+    } finally {
+      creatingRef.current = false;
+    }
   }
 
   async function updateQuestion(questionId: string, patch: Partial<Question>) {
@@ -102,15 +113,6 @@ export function useQuestions(setId: string) {
     });
   }
 
-  // 並び替え：移動先の前後2問のorderの平均値を新しいorderにする。
-  // 隙間が無くなった場合のみ、呼び出し側で再採番することを想定。
-  function orderBetween(before?: number, after?: number): number {
-    if (before === undefined && after === undefined) return 1;
-    if (before === undefined) return (after as number) - 1;
-    if (after === undefined) return before + 1;
-    return (before + after) / 2;
-  }
-
   async function importQuestions(
     list: {
       body: string;
@@ -118,7 +120,7 @@ export function useQuestions(setId: string) {
       altAnswers: string[];
       judgingCriteria: string;
       explanation: string;
-      source: string;
+      sources: string[];
       genre: string;
       tags: string[];
       memo: string;
@@ -132,6 +134,7 @@ export function useQuestions(setId: string) {
       order += 1;
       await addDoc(collection(db, "questionSets", setId, "questions"), {
         ...item,
+        sources: padSources(item.sources),
         authorUid: user.uid,
         authorName: user.displayName ?? "",
         order,
@@ -142,8 +145,6 @@ export function useQuestions(setId: string) {
   }
 
   // 完全一致の問題文がすでに存在するかどうかの簡易チェック。
-  // AIによる意味的な重複検出ではなく、素朴な文字列一致のみ
-  // （無料枠・追加コストなしで実現できる範囲にとどめている）。
   function findDuplicate(body: string, excludeId?: string): Question | null {
     const trimmed = body.trim();
     if (!trimmed) return null;
@@ -163,7 +164,6 @@ export function useQuestions(setId: string) {
     createQuestion,
     updateQuestion,
     deleteQuestion,
-    orderBetween,
     importQuestions,
     findDuplicate,
   };

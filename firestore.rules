@@ -4,10 +4,6 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ---- users ----
-    // 自分自身のプロフィールのみ読み書きできる。
-    // 他人のuidを指定して他人の情報を読めないようにする。
-    // （表示名・メールの共有はquestionSets.memberProfilesを使うため、
-    //   このコレクションを他人が読める必要はない）
     match /users/{uid} {
       allow read: if request.auth != null && request.auth.uid == uid;
       allow create: if request.auth != null && request.auth.uid == uid;
@@ -27,26 +23,30 @@ service cloud.firestore {
       function roleOf() {
         return membersMap()[request.auth.uid];
       }
-      function isOwner() {
-        return isMember() && roleOf() == 'owner';
+      function isAdmin() {
+        return isMember() && roleOf() == 'admin';
       }
-      function isEditorOrAbove() {
-        return isMember() && (roleOf() == 'owner' || roleOf() == 'editor');
+      function isSupervisorOrAbove() {
+        return isMember() && (roleOf() == 'admin' || roleOf() == 'supervisor');
+      }
+      function isWriterOrAbove() {
+        return isMember()
+          && (roleOf() == 'admin' || roleOf() == 'supervisor' || roleOf() == 'writer');
       }
 
-      // 新規作成時はまだresource.dataが無いので、送信データ側を検証する。
-      // 作成者自身がownerとしてmembersに含まれていることを必須にする。
       allow create: if request.auth != null
         && request.resource.data.ownerId == request.auth.uid
-        && request.resource.data.members[request.auth.uid] == 'owner';
+        && request.resource.data.members[request.auth.uid] == 'admin';
 
-      // 問題セットに所属していないユーザーはIDを知っていても読めない。
       allow read: if isMember();
 
-      // 通常の更新（名前変更・updatedAtなど）はオーナーのみ。
-      // 例外：招待の承諾時は、招待の受信者本人が自分をmembers/memberProfilesに
-      // 追加することだけを許可する（Cloud Functions不使用の設計）。
-      allow update: if isOwner()
+      // 通常の更新（名前・お知らせ）は管理者のみ。
+      // ジャンル追加は管理者・問題統括。
+      // 招待の承諾は本人が自分をmembers/memberProfilesに追加する場合のみ。
+      allow update: if isAdmin()
+        || (isSupervisorOrAbove()
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['genres', 'updatedAt']))
         || acceptingOwnInvite();
 
       function acceptingOwnInvite() {
@@ -63,92 +63,96 @@ service cloud.firestore {
           && onlyMembersAndTimestampChanged;
       }
 
-      allow delete: if isOwner();
+      allow delete: if isAdmin();
 
       match /questions/{questionId} {
         function parentSet() {
           return get(/databases/$(database)/documents/questionSets/$(setId)).data;
         }
+        function myRole() {
+          return parentSet().members[request.auth.uid];
+        }
         function isMemberOfParent() {
           return request.auth != null && request.auth.uid in parentSet().members;
         }
-        function isEditorOrAboveOfParent() {
+        function isWriterOrAboveOfParent() {
           return isMemberOfParent()
-            && (parentSet().members[request.auth.uid] == 'owner'
-                || parentSet().members[request.auth.uid] == 'editor');
+            && (myRole() == 'admin' || myRole() == 'supervisor' || myRole() == 'writer');
+        }
+        function isSupervisorOrAboveOfParent() {
+          return isMemberOfParent() && (myRole() == 'admin' || myRole() == 'supervisor');
+        }
+        // 作問者はステータスをdraft/completedにしか変更できない。
+        function statusChangeAllowed() {
+          let before = resource.data.status;
+          let after = request.resource.data.status;
+          return before == after
+            || isSupervisorOrAboveOfParent()
+            || (myRole() == 'writer' && after in ['draft', 'completed']);
+        }
+        // 校正状態は問題統括・管理者のみ変更できる。
+        function proofreadChangeAllowed() {
+          return resource.data.proofreadStatus == request.resource.data.proofreadStatus
+            || isSupervisorOrAboveOfParent();
         }
 
         allow read: if isMemberOfParent();
-        allow create, update, delete: if isEditorOrAboveOfParent();
+        allow create: if isWriterOrAboveOfParent()
+          && request.resource.data.authorUid == request.auth.uid;
+        allow update: if isSupervisorOrAboveOfParent()
+          || (myRole() == 'writer'
+              && resource.data.authorUid == request.auth.uid
+              && statusChangeAllowed()
+              && proofreadChangeAllowed());
+        allow delete: if isSupervisorOrAboveOfParent()
+          || (myRole() == 'writer' && resource.data.authorUid == request.auth.uid);
 
-        // コメントは役割を問わず、そのセットのメンバーなら誰でも
-        // 投稿できる（校正・レビューのやり取りのため）。
-        // 削除・編集は投稿者本人のみ。
+        // コメントは役割を問わず、そのセットのメンバーなら誰でも投稿できる。
         match /comments/{commentId} {
-          function commentParentSet() {
-            return get(/databases/$(database)/documents/questionSets/$(setId)).data;
-          }
-          function isMemberOfCommentParent() {
-            return request.auth != null && request.auth.uid in commentParentSet().members;
-          }
-
-          allow read: if isMemberOfCommentParent();
-          allow create: if isMemberOfCommentParent()
+          allow read: if isMemberOfParent();
+          allow create: if isMemberOfParent()
             && request.resource.data.authorUid == request.auth.uid;
           allow update, delete: if request.auth != null
             && resource.data.authorUid == request.auth.uid;
         }
 
-        // 変更履歴（ステータス・校正状態のみ）。
-        // 追記のみで、編集・削除は不可（監査ログとしての性質を保つ）。
+        // 変更履歴（ステータス・校正状態のみ）。追記のみで編集・削除は不可。
         match /history/{historyId} {
-          function historyParentSet() {
-            return get(/databases/$(database)/documents/questionSets/$(setId)).data;
-          }
-          function isEditorOrAboveOfHistoryParent() {
-            return request.auth != null
-              && request.auth.uid in historyParentSet().members
-              && (historyParentSet().members[request.auth.uid] == 'owner'
-                  || historyParentSet().members[request.auth.uid] == 'editor');
-          }
-
-          allow read: if isEditorOrAboveOfHistoryParent();
-          allow create: if isEditorOrAboveOfHistoryParent()
+          allow read: if isMemberOfParent();
+          allow create: if isMemberOfParent()
             && request.resource.data.authorUid == request.auth.uid;
+          allow update, delete: if false;
+        }
+
+        // 問題文・答えの改訂スナップショット。問題統括・管理者のみ作成できる。
+        match /revisions/{revisionId} {
+          allow read: if isMemberOfParent();
+          allow create: if isSupervisorOrAboveOfParent()
+            && request.resource.data.editedByUid == request.auth.uid;
           allow update, delete: if false;
         }
       }
 
-      // オーナーだけが自分のセットの招待中一覧を読み書きできる。
-      // ドキュメントIDはメールアドレス。
       match /pendingInvites/{email} {
-        allow read: if isOwner();
-        allow create: if isOwner();
-        allow delete: if isOwner()
+        allow read: if isAdmin();
+        allow create: if isAdmin();
+        allow delete: if isAdmin()
           || (request.auth != null && request.auth.token.email == email);
         allow update: if false;
       }
     }
 
     // ---- invites ----
-    // ドキュメントIDはメールアドレスそのもの。
-    // 本人（自分のメールアドレスに一致するトークンを持つユーザー）だけが
-    // 自分宛の招待を読める。招待の作成・削除はオーナーが行う想定だが、
-    // 招待の削除（承諾完了後のクリーンアップ）は本人にも許可する。
     match /invites/{email} {
       allow read: if request.auth != null && request.auth.token.email == email;
-      // 招待の作成は、招待先のquestionSetの実際のオーナーだけが行える。
-      // request.resource.data.invitedByを自分のuidに固定し、
-      // かつその問題セットで自分がownerロールであることを検証する
-      // （UI側の権限チェックだけに頼らず、Security Rulesでも認可する）。
       allow create: if request.auth != null
         && request.resource.data.invitedBy == request.auth.uid
         && get(/databases/$(database)/documents/questionSets/$(request.resource.data.setId))
-             .data.members[request.auth.uid] == 'owner';
+             .data.members[request.auth.uid] == 'admin';
       allow delete: if request.auth != null
         && (request.auth.token.email == email
             || get(/databases/$(database)/documents/questionSets/$(resource.data.setId))
-                 .data.members[request.auth.uid] == 'owner');
+                 .data.members[request.auth.uid] == 'admin');
       allow update: if false;
     }
   }

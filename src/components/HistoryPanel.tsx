@@ -14,6 +14,7 @@ const fieldLabel: Record<HistoryEntry["field"], string> = {
 
 const valueLabel: Record<string, string> = {
   draft: "下書き",
+  completed: "作問完了",
   adopted: "採用",
   rejected: "不採用",
   unchecked: "未確認",
