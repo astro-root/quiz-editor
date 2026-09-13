@@ -118,29 +118,29 @@ export default function QuestionSetPage() {
 
   if (!role) {
     return (
-      <div className="p-6 text-center text-sm text-slate-500">
+      <div className="p-6 text-center text-sm text-ink-soft">
         この問題セットへのアクセス権がありません。
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-paper">
       <div className="mx-auto max-w-2xl px-6 pb-16 pt-6">
-        <div className="mb-5 flex items-center justify-between">
+        <div className="mb-6 flex items-center justify-between">
           <div>
             <Link
               href="/dashboard"
-              className="mb-1 flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600"
+              className="mb-1 flex items-center gap-1 text-xs text-ink-faint hover:text-ink"
             >
               <ArrowLeft size={12} /> 一覧へ戻る
             </Link>
-            <h1 className="text-lg font-semibold text-slate-800">{set.name}</h1>
+            <h1 className="font-mincho text-xl text-ink">{set.name}</h1>
           </div>
           {isOwner && (
             <button
               onClick={() => setShowShare(true)}
-              className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-600 shadow-sm hover:border-blue-300 hover:text-blue-600"
+              className="flex items-center gap-1.5 rounded-md border border-kraft-dark bg-card px-3 py-1.5 text-sm text-ink-soft hover:border-ink hover:text-ink"
             >
               <Users2 size={15} />
               共有
@@ -148,13 +148,13 @@ export default function QuestionSetPage() {
           )}
         </div>
 
-        <div className="mb-5 inline-flex rounded-xl bg-slate-100 p-1">
+        <div className="mb-6 flex gap-6 border-b border-kraft-dark">
           <button
             onClick={() => setMode("write")}
-            className={`flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-sm font-medium transition ${
+            className={`flex items-center gap-1.5 border-b-2 pb-2 text-sm font-medium transition ${
               mode === "write"
-                ? "bg-white text-blue-600 shadow-sm"
-                : "text-slate-500 hover:text-slate-700"
+                ? "border-stamp text-ink"
+                : "border-transparent text-ink-faint hover:text-ink-soft"
             }`}
           >
             <PencilLine size={15} />
@@ -162,10 +162,10 @@ export default function QuestionSetPage() {
           </button>
           <button
             onClick={() => setMode("manage")}
-            className={`flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-sm font-medium transition ${
+            className={`flex items-center gap-1.5 border-b-2 pb-2 text-sm font-medium transition ${
               mode === "manage"
-                ? "bg-white text-blue-600 shadow-sm"
-                : "text-slate-500 hover:text-slate-700"
+                ? "border-stamp text-ink"
+                : "border-transparent text-ink-faint hover:text-ink-soft"
             }`}
           >
             <LayoutGrid size={15} />
@@ -188,26 +188,26 @@ export default function QuestionSetPage() {
                   onCreateNext={handleCreateNext}
                   onNavigate={handleNavigate}
                 />
-                <div className="mt-4 space-y-1.5 opacity-60">
+                <div className="mt-4 space-y-1.5 opacity-70">
                   {questions
                     .filter((q) => q.id !== draft.id)
                     .slice(-3)
                     .map((q) => (
                       <div
                         key={q.id}
-                        className="flex justify-between rounded-lg border border-slate-100 bg-white p-2.5 text-xs"
+                        className="flex justify-between rounded-md border border-kraft-line bg-card/60 p-2.5 text-xs"
                       >
-                        <span className="truncate text-slate-500">
+                        <span className="truncate text-ink-soft">
                           {q.body || "（未入力）"}
                         </span>
-                        <span className="text-slate-400">{q.answer}</span>
+                        <span className="text-ink-faint">{q.answer}</span>
                       </div>
                     ))}
                 </div>
               </>
             )
           ) : (
-            <p className="rounded-xl border border-dashed border-slate-200 bg-white p-6 text-center text-sm text-slate-400">
+            <p className="rounded-lg border border-dashed border-kraft-dark bg-card p-6 text-center text-sm text-ink-faint">
               閲覧権限のため作問モードは利用できません。管理モードで内容を確認できます。
             </p>
           )

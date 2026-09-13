@@ -1,18 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import {
-  ChevronDown,
-  ChevronUp,
-  CheckCircle2,
-  CircleDashed,
-  XCircle,
-  BadgeCheck,
-} from "lucide-react";
+import { ChevronDown, ChevronUp, BadgeCheck, AlertTriangle } from "lucide-react";
 import { Question, HistoryEntry } from "@/lib/types";
 import { CommentSection } from "./CommentSection";
 import { HistoryPanel } from "./HistoryPanel";
-import { AlertTriangle } from "lucide-react";
 
 interface Props {
   setId: string;
@@ -25,37 +17,21 @@ interface Props {
   onNavigate: (direction: "prev" | "next") => void;
 }
 
-const statusStyle: Record<
-  Question["status"],
-  { label: string; className: string; icon: React.ReactNode }
-> = {
-  draft: {
-    label: "下書き",
-    className: "bg-slate-100 text-slate-500",
-    icon: <CircleDashed size={13} />,
-  },
-  adopted: {
-    label: "採用",
-    className: "bg-emerald-50 text-emerald-600",
-    icon: <CheckCircle2 size={13} />,
-  },
-  rejected: {
-    label: "不採用",
-    className: "bg-red-50 text-red-500",
-    icon: <XCircle size={13} />,
-  },
+// 採点スタンプ：意思決定（採用/不採用）のときだけ紙に押す。
+// 下書きは無印のまま（何も押されていない紙、という状態そのものが情報）。
+const stamp: Record<Question["status"], { label: string; className: string } | null> = {
+  draft: null,
+  adopted: { label: "採用", className: "text-stamp" },
+  rejected: { label: "不採用", className: "text-ink-soft" },
 };
 
-const statusBorder: Record<Question["status"], string> = {
-  draft: "border-l-slate-300",
-  adopted: "border-l-emerald-400",
-  rejected: "border-l-red-300",
-};
+const inputBase =
+  "w-full rounded-md border border-kraft-line bg-card p-2.5 text-sm text-ink placeholder:text-ink-faint focus:border-ink focus:outline-none";
+const labelBase = "mb-1 block text-xs text-ink-soft";
 
-// 作問モードのメインカード。
+// 作問モードのメインカード（インデックスカードのメタファー）。
 // - contenteditableではなくtextareaを使う（日本語IME変換中の
-//   カーソル制御・変換破壊を避けるため。要件で明示されている通り、
-//   IMEとの相性を最優先してcontenteditableを避ける判断をした）。
+//   カーソル制御・変換破壊を避けるため）。
 // - Cmd/Ctrl+Enterで保存して次の問題へ、Cmd/Ctrl+D で詳細開閉、
 //   Cmd/Ctrl+矢印で前後の問題へ移動、Escで編集中断（フォーカスを外す）。
 export function QuestionCard({
@@ -104,22 +80,27 @@ export function QuestionCard({
       : "";
 
   const isUrl = /^https?:\/\//.test(question.source.trim());
+  const activeStamp = stamp[question.status];
 
   return (
     <div
       onKeyDown={handleKeyDown}
-      className={`rounded-2xl border border-l-4 border-slate-200 bg-white p-5 shadow-sm ring-1 ring-slate-900/5 transition ${statusBorder[question.status]}`}
+      className="relative overflow-hidden rounded-lg border border-kraft-dark bg-card px-6 pb-5 pt-8 shadow-[0_1px_0_#e7dcc3,0_8px_20px_-12px_rgba(32,42,59,0.25)]"
     >
+      <span className="punch-holes">
+        <span />
+        <span />
+      </span>
+
+      {activeStamp && <span className={`stamp ${activeStamp.className}`}>{activeStamp.label}</span>}
+
       <div className="mb-3 flex items-center justify-between">
-        <span
-          className={`flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${statusStyle[question.status].className}`}
-        >
-          {statusStyle[question.status].icon}
-          {statusStyle[question.status].label}
+        <span className="font-mincho text-sm tracking-wide text-ink-soft">
+          作問カード
         </span>
         <span
           className={`text-xs ${
-            saveState === "error" ? "text-red-500" : "text-slate-400"
+            saveState === "error" ? "text-stamp" : "text-ink-faint"
           }`}
         >
           {saveLabel}
@@ -131,16 +112,16 @@ export function QuestionCard({
         value={question.body}
         onChange={(e) => onChange({ body: e.target.value })}
         placeholder="問題文を入力"
-        rows={2}
-        className="mb-1 w-full resize-none rounded-xl border border-slate-200 p-3 text-base leading-relaxed focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+        rows={3}
+        className="ruled-paper mb-1 w-full resize-none rounded-md border border-kraft-line bg-card p-3 text-base leading-7 text-ink placeholder:text-ink-faint focus:border-ink focus:outline-none"
       />
       {duplicateOf && (
-        <p className="mb-1 flex items-center gap-1.5 rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs text-amber-700">
+        <p className="mb-1 flex items-center gap-1.5 rounded-md border border-kraft-dark bg-kraft/40 px-2.5 py-1.5 text-xs text-ink-soft">
           <AlertTriangle size={13} />
           同じ問題文が既にあります（{duplicateOf.authorName || "作問者不明"}）
         </p>
       )}
-      <p className="mb-2 text-right text-[11px] text-slate-300">
+      <p className="mb-2 text-right text-[11px] text-ink-faint">
         {question.body.length}文字
       </p>
       <textarea
@@ -148,24 +129,22 @@ export function QuestionCard({
         onChange={(e) => onChange({ answer: e.target.value })}
         placeholder="答え"
         rows={1}
-        className="mb-3 w-full resize-none rounded-xl border border-slate-200 bg-blue-50/40 p-3 text-base font-medium text-blue-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+        className="mb-3 w-full resize-none rounded-md border border-kraft-dark bg-moss-soft p-3 text-base font-medium text-ink focus:border-ink focus:outline-none"
       />
 
       <button
         type="button"
         onClick={() => setShowDetail((v) => !v)}
-        className="mb-1 flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-700"
+        className="mb-1 flex items-center gap-1 text-xs font-medium text-ink-soft hover:text-ink"
       >
         {showDetail ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         {showDetail ? "詳細を隠す" : "詳細を表示"}
       </button>
 
       {showDetail && (
-        <div className="mt-2 space-y-3 border-t border-slate-100 pt-4">
+        <div className="mt-2 space-y-3 border-t border-dashed border-kraft-dark pt-4">
           <div>
-            <label className="mb-1 block text-xs text-slate-400">
-              別解・表記揺れ（カンマ区切り）
-            </label>
+            <label className={labelBase}>別解・表記揺れ（カンマ区切り）</label>
             <input
               value={question.altAnswers.join(", ")}
               onChange={(e) =>
@@ -176,12 +155,12 @@ export function QuestionCard({
                     .filter(Boolean),
                 })
               }
-              className="w-full rounded-lg border border-slate-200 p-2 text-sm focus:border-blue-400 focus:outline-none"
+              className={inputBase}
             />
           </div>
 
           <div>
-            <label className="mb-1 flex items-center gap-1 text-xs text-slate-400">
+            <label className={`${labelBase} flex items-center gap-1`}>
               <BadgeCheck size={12} />
               正誤判定基準
             </label>
@@ -189,59 +168,53 @@ export function QuestionCard({
               value={question.judgingCriteria}
               onChange={(e) => onChange({ judgingCriteria: e.target.value })}
               placeholder="例：都道府県名まで正確に。「北海道」以外は不正解"
-              className="w-full rounded-lg border border-slate-200 p-2 text-sm focus:border-blue-400 focus:outline-none"
+              className={inputBase}
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-xs text-slate-400">解説</label>
+            <label className={labelBase}>解説</label>
             <textarea
               value={question.explanation}
               onChange={(e) => onChange({ explanation: e.target.value })}
               rows={2}
-              className="w-full resize-none rounded-lg border border-slate-200 p-2 text-sm focus:border-blue-400 focus:outline-none"
+              className={`${inputBase} resize-none`}
             />
           </div>
 
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="mb-1 block text-xs text-slate-400">
-                出典{isUrl && "（リンク）"}
-              </label>
+              <label className={labelBase}>出典{isUrl && "（リンク）"}</label>
               <input
                 value={question.source}
                 onChange={(e) => onChange({ source: e.target.value })}
                 placeholder="書籍名・URLなど"
-                className="w-full rounded-lg border border-slate-200 p-2 text-sm focus:border-blue-400 focus:outline-none"
+                className={inputBase}
               />
               {isUrl && (
                 <a
                   href={question.source}
                   target="_blank"
                   rel="noreferrer"
-                  className="mt-1 inline-block text-xs text-blue-500 underline"
+                  className="mt-1 inline-block text-xs text-ink underline"
                 >
                   リンクを開く
                 </a>
               )}
             </div>
             <div>
-              <label className="mb-1 block text-xs text-slate-400">
-                ジャンル
-              </label>
+              <label className={labelBase}>ジャンル</label>
               <input
                 value={question.genre}
                 onChange={(e) => onChange({ genre: e.target.value })}
                 placeholder="例：地理"
-                className="w-full rounded-lg border border-slate-200 p-2 text-sm focus:border-blue-400 focus:outline-none"
+                className={inputBase}
               />
             </div>
           </div>
 
           <div>
-            <label className="mb-1 block text-xs text-slate-400">
-              タグ（カンマ区切り）
-            </label>
+            <label className={labelBase}>タグ（カンマ区切り）</label>
             <input
               value={question.tags.join(", ")}
               onChange={(e) =>
@@ -252,32 +225,30 @@ export function QuestionCard({
                     .filter(Boolean),
                 })
               }
-              className="w-full rounded-lg border border-slate-200 p-2 text-sm focus:border-blue-400 focus:outline-none"
+              className={inputBase}
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-xs text-slate-400">備考</label>
+            <label className={labelBase}>備考</label>
             <textarea
               value={question.memo}
               onChange={(e) => onChange({ memo: e.target.value })}
               rows={2}
               placeholder="作問者向けのメモ"
-              className="w-full resize-none rounded-lg border border-slate-200 p-2 text-sm focus:border-blue-400 focus:outline-none"
+              className={`${inputBase} resize-none`}
             />
           </div>
 
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="mb-1 block text-xs text-slate-400">
-                ステータス
-              </label>
+              <label className={labelBase}>ステータス</label>
               <select
                 value={question.status}
                 onChange={(e) =>
                   onChange({ status: e.target.value as Question["status"] })
                 }
-                className="w-full rounded-lg border border-slate-200 p-2 text-sm"
+                className={inputBase}
               >
                 <option value="draft">下書き</option>
                 <option value="adopted">採用</option>
@@ -285,9 +256,7 @@ export function QuestionCard({
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-xs text-slate-400">
-                校正状態
-              </label>
+              <label className={labelBase}>校正状態</label>
               <select
                 value={question.proofreadStatus}
                 onChange={(e) =>
@@ -296,7 +265,7 @@ export function QuestionCard({
                       .value as Question["proofreadStatus"],
                   })
                 }
-                className="w-full rounded-lg border border-slate-200 p-2 text-sm"
+                className={inputBase}
               >
                 <option value="unchecked">未確認</option>
                 <option value="in_review">校正中</option>
@@ -312,12 +281,12 @@ export function QuestionCard({
         </div>
       )}
 
-      <p className="mt-3 text-xs text-slate-300">
-        <kbd className="rounded border border-slate-200 px-1">⌘/Ctrl</kbd>+
-        <kbd className="rounded border border-slate-200 px-1">Enter</kbd>{" "}
+      <p className="mt-4 text-xs text-ink-faint">
+        <kbd className="rounded border border-kraft-line px-1">⌘/Ctrl</kbd>+
+        <kbd className="rounded border border-kraft-line px-1">Enter</kbd>{" "}
         で保存して次の問題へ ・
-        <kbd className="rounded border border-slate-200 px-1">⌘/Ctrl</kbd>+
-        <kbd className="rounded border border-slate-200 px-1">D</kbd> で詳細表示切替
+        <kbd className="rounded border border-kraft-line px-1">⌘/Ctrl</kbd>+
+        <kbd className="rounded border border-kraft-line px-1">D</kbd> で詳細表示切替
       </p>
     </div>
   );

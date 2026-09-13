@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Sparkles } from "lucide-react";
+import { Stamp } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 
 export default function SignupPage() {
@@ -26,19 +26,18 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50">
+    <div className="flex min-h-screen items-center justify-center bg-paper">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-7 shadow-sm"
+        className="relative w-full max-w-sm rounded-lg border border-kraft-dark bg-card px-7 pb-7 pt-9 shadow-[0_1px_0_#e7dcc3,0_8px_20px_-12px_rgba(32,42,59,0.25)]"
       >
-        <div className="mb-5 flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white">
-            <Sparkles size={16} />
-          </div>
-          <div>
-            <p className="text-xs font-medium text-blue-600">Qraft</p>
-            <h1 className="text-lg font-semibold text-slate-800">新規登録</h1>
-          </div>
+        <span className="punch-holes">
+          <span />
+          <span />
+        </span>
+        <div className="mb-6 flex items-center gap-2">
+          <Stamp size={18} className="text-stamp" />
+          <h1 className="font-mincho text-xl text-ink">Qraft</h1>
         </div>
         <input
           type="text"
@@ -46,7 +45,7 @@ export default function SignupPage() {
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
           required
-          className="mb-2 w-full rounded-lg border border-slate-200 p-2.5 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+          className="mb-2 w-full rounded-md border border-kraft-line bg-card p-2.5 text-sm text-ink placeholder:text-ink-faint focus:border-ink focus:outline-none"
         />
         <input
           type="email"
@@ -54,7 +53,7 @@ export default function SignupPage() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          className="mb-2 w-full rounded-lg border border-slate-200 p-2.5 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+          className="mb-2 w-full rounded-md border border-kraft-line bg-card p-2.5 text-sm text-ink placeholder:text-ink-faint focus:border-ink focus:outline-none"
         />
         <input
           type="password"
@@ -62,18 +61,18 @@ export default function SignupPage() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
-          className="mb-2 w-full rounded-lg border border-slate-200 p-2.5 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+          className="mb-2 w-full rounded-md border border-kraft-line bg-card p-2.5 text-sm text-ink placeholder:text-ink-faint focus:border-ink focus:outline-none"
         />
-        {error && <p className="mb-2 text-xs text-red-500">{error}</p>}
+        {error && <p className="mb-2 text-xs text-stamp">{error}</p>}
         <button
           type="submit"
-          className="w-full rounded-lg bg-blue-600 p-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700"
+          className="w-full rounded-md bg-ink p-2.5 text-sm font-medium text-white hover:opacity-90"
         >
           登録する
         </button>
-        <p className="mt-4 text-center text-xs text-slate-500">
+        <p className="mt-4 text-center text-xs text-ink-soft">
           すでにアカウントをお持ちの方は{" "}
-          <Link href="/login" className="text-blue-600 underline">
+          <Link href="/login" className="text-ink underline">
             ログイン
           </Link>
         </p>
