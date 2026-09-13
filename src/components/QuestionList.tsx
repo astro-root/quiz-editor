@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { Download, Upload, Stamp } from "lucide-react";
+import { CheckCircle2, CircleDashed, XCircle, Download, Upload } from "lucide-react";
 import { Question } from "@/lib/types";
 import { questionsToCsv, csvToQuestions, ImportedQuestion } from "@/lib/csv";
 
@@ -11,16 +11,33 @@ interface Props {
   onImportRows: (rows: ImportedQuestion[]) => Promise<void>;
 }
 
-const statusLabel: Record<Question["status"], string> = {
-  draft: "下書き",
-  adopted: "採用",
-  rejected: "不採用",
+const statusStyle: Record<
+  Question["status"],
+  { label: string; className: string; icon: React.ReactNode }
+> = {
+  draft: {
+    label: "下書き",
+    className: "bg-slate-100 text-slate-500",
+    icon: <CircleDashed size={12} />,
+  },
+  adopted: {
+    label: "採用",
+    className: "bg-emerald-50 text-emerald-600",
+    icon: <CheckCircle2 size={12} />,
+  },
+  rejected: {
+    label: "不採用",
+    className: "bg-rose-50 text-rose-500",
+    icon: <XCircle size={12} />,
+  },
 };
 
-const statusStyle: Record<Question["status"], string> = {
-  draft: "border-kraft-line text-ink-faint",
-  adopted: "border-stamp text-stamp",
-  rejected: "border-ink-faint text-ink-soft",
+const proofreadStyle: Record<Question["proofreadStatus"], string> = {
+  unchecked: "bg-amber-50 text-amber-600",
+  in_review: "bg-sky-50 text-sky-600",
+  needs_fix: "bg-rose-50 text-rose-500",
+  approved: "bg-brand-50 text-brand-600",
+  on_hold: "bg-slate-100 text-slate-500",
 };
 
 const proofreadLabel: Record<Question["proofreadStatus"], string> = {
@@ -31,19 +48,11 @@ const proofreadLabel: Record<Question["proofreadStatus"], string> = {
   on_hold: "保留",
 };
 
-const proofreadStyle: Record<Question["proofreadStatus"], string> = {
-  unchecked: "bg-kraft/50 text-ink-soft",
-  in_review: "bg-moss-soft text-moss",
-  needs_fix: "bg-stamp/10 text-stamp",
-  approved: "bg-moss text-white",
-  on_hold: "bg-card text-ink-faint",
-};
-
 const selectClass =
-  "rounded-md border border-kraft-line bg-card p-2 text-sm text-ink-soft focus:border-ink focus:outline-none";
+  "rounded-lg border border-slate-200 bg-white p-2 text-sm text-slate-600 focus:border-brand-400 focus:outline-none";
 
-// 管理モード：俯瞰・整理用の一覧。作問モードのカードとは違い、
-// 情報密度を優先してフラットに保つ（装飾を持ち込まない）。
+// 管理モード：俯瞰・整理用の簡易一覧。
+// 表計算ソフトのグリッドではなく、フィルタ付きのリスト表示にとどめる。
 export function QuestionList({ questions, canEdit, onImportRows }: Props) {
   const [authorFilter, setAuthorFilter] = useState("all");
   const [genreFilter, setGenreFilter] = useState("all");
@@ -103,7 +112,7 @@ export function QuestionList({ questions, canEdit, onImportRows }: Props) {
 
   return (
     <div>
-      <div className="mb-3 flex flex-wrap gap-2">
+      <div className="mb-4 flex flex-wrap gap-2">
         <select value={authorFilter} onChange={(e) => setAuthorFilter(e.target.value)} className={selectClass}>
           <option value="all">作問者：すべて</option>
           {authors.map((a) => (
@@ -138,21 +147,20 @@ export function QuestionList({ questions, canEdit, onImportRows }: Props) {
         </select>
       </div>
 
-      <div className="mb-4 flex items-center gap-2 border-b border-dashed border-kraft-dark pb-3">
+      <div className="mb-4 flex items-center gap-2">
         <button
           onClick={handleExport}
-          className="flex items-center gap-1.5 text-xs text-ink-soft hover:text-ink"
+          className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 shadow-sm hover:border-brand-300 hover:text-brand-600"
         >
           <Download size={13} />
           CSVエクスポート
         </button>
         {canEdit && (
           <>
-            <span className="text-kraft-dark">|</span>
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={importing}
-              className="flex items-center gap-1.5 text-xs text-ink-soft hover:text-ink disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 shadow-sm hover:border-brand-300 hover:text-brand-600 disabled:opacity-50"
             >
               <Upload size={13} />
               {importing ? "取り込み中…" : "CSVインポート"}
@@ -168,35 +176,38 @@ export function QuestionList({ questions, canEdit, onImportRows }: Props) {
         )}
       </div>
 
-      <div className="divide-y divide-kraft-line rounded-lg border border-kraft-line bg-card">
+      <div className="space-y-2">
         {filtered.map((q, i) => (
-          <div key={q.id} className="flex items-start justify-between gap-4 p-3.5 text-sm">
+          <div
+            key={q.id}
+            className="flex items-start justify-between gap-4 rounded-xl border border-slate-200 bg-white p-3.5 text-sm shadow-sm"
+          >
             <div className="min-w-0 flex-1">
-              <p className="mb-1 flex items-center gap-2 font-mono text-xs text-ink-faint">
+              <p className="mb-1 text-xs text-slate-300">
                 Q{String(i + 1).padStart(3, "0")}
                 {q.genre && (
-                  <span className="rounded-full bg-kraft/50 px-2 py-0.5 text-ink-soft">
+                  <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-slate-500">
                     {q.genre}
                   </span>
                 )}
               </p>
-              <p className="truncate text-ink">{q.body || "（未入力）"}</p>
-              <p className="truncate text-ink-soft">{q.answer || "（未入力）"}</p>
+              <p className="truncate text-slate-700">{q.body || "（未入力）"}</p>
+              <p className="truncate text-brand-600">{q.answer || "（未入力）"}</p>
             </div>
-            <div className="flex shrink-0 flex-col items-end gap-1 text-xs">
-              <span className="text-ink-soft">{q.authorName || "―"}</span>
+            <div className="flex shrink-0 flex-col items-end gap-1 text-xs text-slate-500">
+              <span>{q.authorName || "―"}</span>
               <span className="flex gap-1">
                 {q.tags.map((t) => (
-                  <span key={t} className="rounded-full bg-kraft/50 px-2 py-0.5 text-ink-soft">
+                  <span key={t} className="rounded-full bg-brand-50 px-2 py-0.5 text-brand-600">
                     {t}
                   </span>
                 ))}
               </span>
               <span
-                className={`flex items-center gap-1 rounded-full border px-2 py-0.5 ${statusStyle[q.status]}`}
+                className={`flex items-center gap-1 rounded-full px-2 py-0.5 ${statusStyle[q.status].className}`}
               >
-                {q.status === "adopted" && <Stamp size={11} />}
-                {statusLabel[q.status]}
+                {statusStyle[q.status].icon}
+                {statusStyle[q.status].label}
               </span>
               <span className={`rounded-full px-2 py-0.5 ${proofreadStyle[q.proofreadStatus]}`}>
                 {proofreadLabel[q.proofreadStatus]}
@@ -205,7 +216,7 @@ export function QuestionList({ questions, canEdit, onImportRows }: Props) {
           </div>
         ))}
         {filtered.length === 0 && (
-          <p className="p-8 text-center text-sm text-ink-faint">
+          <p className="p-4 text-center text-sm text-slate-400">
             条件に合う問題がありません
           </p>
         )}

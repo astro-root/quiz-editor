@@ -37,15 +37,15 @@ function formatTime(ms: number) {
 export function HistoryPanel({ entries }: Props) {
   if (entries.length === 0) return null;
   return (
-    <div className="mt-3 border-t border-dashed border-kraft-dark pt-3">
-      <p className="mb-2 flex items-center gap-1.5 text-xs font-medium text-ink-soft">
+    <div className="mt-3 border-t border-slate-100 pt-3">
+      <p className="mb-2 flex items-center gap-1.5 text-xs font-medium text-slate-400">
         <History size={13} />
         変更履歴
       </p>
       <div className="max-h-32 space-y-1 overflow-y-auto">
         {entries.map((h) => (
-          <p key={h.id} className="text-xs text-ink-soft">
-            <span className="text-ink-faint">{formatTime(h.createdAt)}</span>{" "}
+          <p key={h.id} className="text-xs text-slate-500">
+            <span className="text-slate-400">{formatTime(h.createdAt)}</span>{" "}
             {h.authorName || "匿名"}が{fieldLabel[h.field]}を
             {valueLabel[h.from] ?? h.from}→{valueLabel[h.to] ?? h.to}に変更
           </p>

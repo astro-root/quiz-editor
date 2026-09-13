@@ -5,41 +5,18 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        paper: "#FAF6EE",
-        card: "#FFFDF7",
-        ink: {
-          DEFAULT: "#202A3B",
-          soft: "#5B6478",
-          faint: "#8B93A3",
-        },
-        stamp: {
-          DEFAULT: "#B23A2E",
-          soft: "#D9CFC0",
-        },
-        moss: {
-          DEFAULT: "#3F6B54",
-          soft: "#E4ECE6",
-        },
-        kraft: {
-          DEFAULT: "#E7DCC3",
-          dark: "#CBB98F",
-          line: "#DED0AF",
+        brand: {
+          50: "#eef2ff",
+          100: "#e0e7ff",
+          400: "#818cf8",
+          500: "#6366f1",
+          600: "#4f46e5",
+          700: "#4338ca",
         },
       },
-      fontFamily: {
-        mincho: [
-          '"Hiragino Mincho ProN"',
-          '"Yu Mincho"',
-          '"MS Mincho"',
-          "serif",
-        ],
-        gothic: [
-          "-apple-system",
-          "BlinkMacSystemFont",
-          '"Hiragino Kaku Gothic ProN"',
-          '"Yu Gothic"',
-          "sans-serif",
-        ],
+      boxShadow: {
+        card: "0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px -12px rgba(79, 70, 229, 0.18)",
+        pop: "0 2px 4px rgba(15, 23, 42, 0.06), 0 16px 40px -16px rgba(79, 70, 229, 0.28)",
       },
     },
   },

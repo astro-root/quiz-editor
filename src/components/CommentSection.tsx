@@ -31,24 +31,24 @@ export function CommentSection({ setId, questionId }: Props) {
   }
 
   return (
-    <div className="mt-3 border-t border-dashed border-kraft-dark pt-3">
-      <p className="mb-2 flex items-center gap-1.5 text-xs font-medium text-ink-soft">
+    <div className="mt-3 border-t border-slate-100 pt-3">
+      <p className="mb-2 flex items-center gap-1.5 text-xs font-medium text-slate-400">
         <MessageCircle size={13} />
         コメント {comments.length > 0 && `(${comments.length})`}
       </p>
       {comments.length > 0 && (
         <div className="mb-2 max-h-40 space-y-2 overflow-y-auto pr-1">
           {comments.map((c) => (
-            <div key={c.id} className="rounded-lg bg-kraft/30 px-3 py-2 text-sm">
+            <div key={c.id} className="rounded-lg bg-slate-50 px-3 py-2 text-sm">
               <div className="mb-0.5 flex items-center justify-between">
-                <span className="text-xs font-medium text-ink">
+                <span className="text-xs font-medium text-slate-600">
                   {c.authorName || "匿名"}
                 </span>
-                <span className="text-[10px] text-ink-faint">
+                <span className="text-[10px] text-slate-400">
                   {formatTime(c.createdAt)}
                 </span>
               </div>
-              <p className="whitespace-pre-wrap text-ink">{c.body}</p>
+              <p className="whitespace-pre-wrap text-slate-700">{c.body}</p>
             </div>
           ))}
         </div>
@@ -58,11 +58,11 @@ export function CommentSection({ setId, questionId }: Props) {
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="コメントを追加"
-          className="flex-1 rounded-md border border-kraft-line bg-card px-3 py-1.5 text-sm text-ink focus:border-ink focus:outline-none"
+          className="flex-1 rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-blue-400 focus:outline-none"
         />
         <button
           type="submit"
-          className="rounded-md bg-kraft/50 px-3 text-ink-soft hover:bg-kraft"
+          className="rounded-lg bg-slate-100 px-3 text-slate-500 hover:bg-slate-200"
         >
           <Send size={15} />
         </button>
