@@ -77,3 +77,8 @@ export const statusLabel: Record<QuestionStatus, string> = {
   adopted: "採用",
   rejected: "不採用",
 };
+
+// 問題文・答えの両方が空の問題は「未入力のまま放置されたカード」とみなす。
+export function isEmptyQuestion(q: Question): boolean {
+  return !q.body.trim() && !q.answer.trim();
+}

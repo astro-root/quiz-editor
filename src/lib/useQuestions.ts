@@ -14,6 +14,7 @@ import {
 } from "firebase/firestore";
 import { db } from "./firebase";
 import { MAX_SOURCES, Question } from "./types";
+import { isEmptyQuestion } from "./permissions";
 import { useAuth } from "./auth-context";
 
 function toMillis(v: any): number {
@@ -34,6 +35,8 @@ export function useQuestions(setId: string) {
   const [loading, setLoading] = useState(true);
   // Ctrl/Cmd+Enter連打・キーリピートで複数回作成されるのを防ぐロック
   const creatingRef = useRef(false);
+  // 空欄のまま残った問題の自動削除で、同じIDに何度も削除を試みないためのガード
+  const cleanupAttempted = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (!setId) return;
@@ -65,6 +68,22 @@ export function useQuestions(setId: string) {
         };
       });
       setQuestions(rows);
+
+      // 未入力（問題文・答えとも空欄）のまま残った問題が複数あれば、
+      // 直近の1件だけ残して残りは自動的に削除する。
+      // 削除権限がない（他人の問題を作問者が触れないなど）場合は
+      // 静かに失敗させ、以後同じIDへの再試行はしない。
+      const emptyOnes = rows.filter(isEmptyQuestion);
+      if (emptyOnes.length > 1) {
+        const toRemove = emptyOnes.slice(0, -1);
+        for (const q of toRemove) {
+          if (cleanupAttempted.current.has(q.id)) continue;
+          cleanupAttempted.current.add(q.id);
+          deleteDoc(doc(db, "questionSets", setId, "questions", q.id)).catch(() => {
+            // 権限不足などは無視する（他ユーザーのセッションが削除する可能性もある）
+          });
+        }
+      }
       setLoading(false);
     });
     return unsub;

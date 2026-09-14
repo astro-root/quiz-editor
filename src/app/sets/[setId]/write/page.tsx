@@ -6,7 +6,7 @@ import { useQuestions } from "@/lib/useQuestions";
 import { useHistory } from "@/lib/useHistory";
 import { useRevisions } from "@/lib/useRevisions";
 import { useSetContext } from "@/lib/SetContext";
-import { canCreateQuestion, shouldLogRevision } from "@/lib/permissions";
+import { canCreateQuestion, isEmptyQuestion, shouldLogRevision } from "@/lib/permissions";
 import { QuestionCard } from "@/components/QuestionCard";
 import { Question } from "@/lib/types";
 
@@ -31,6 +31,25 @@ export default function WritePage() {
   const { revisions, saveRevision } = useRevisions(setId, draft?.id ?? null);
 
   const canCreate = canCreateQuestion(role);
+
+  // アンマウント時（ページ離脱時）に未入力のカードを削除するため、
+  // 最新のdraft/questionsをrefで保持しておく
+  const latestDraft = useRef(draft);
+  const latestQuestionsLength = useRef(questions.length);
+  useEffect(() => {
+    latestDraft.current = draft;
+    latestQuestionsLength.current = questions.length;
+  }, [draft, questions.length]);
+
+  useEffect(() => {
+    return () => {
+      const d = latestDraft.current;
+      if (d && isEmptyQuestion(d) && latestQuestionsLength.current > 1) {
+        deleteQuestion(d.id).catch(() => {});
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (questions.length === 0 && canCreate) {
@@ -86,7 +105,9 @@ export default function WritePage() {
   }
 
   async function handleCreateNext() {
-    if (!canCreate) return;
+    if (!canCreate || !draft) return;
+    // 今のカードが未入力なら、新しい空欄をさらに作らず今のカードのままにする
+    if (isEmptyQuestion(draft)) return;
     const lastAnswered = questions[questions.length - 1];
     await createQuestion({
       tags: lastAnswered?.tags ?? [],
@@ -96,7 +117,17 @@ export default function WritePage() {
     setActiveIndex(questions.length);
   }
 
-  function handleNavigate(direction: "prev" | "next") {
+  async function handleNavigate(direction: "prev" | "next") {
+    if (!draft) return;
+    // 未入力のまま離れるカードは残さず削除してから移動する
+    if (isEmptyQuestion(draft) && questions.length > 1) {
+      const idx = activeIndex;
+      await deleteQuestion(draft.id);
+      setActiveIndex(
+        direction === "prev" ? Math.max(0, idx - 1) : Math.min(idx, questions.length - 2)
+      );
+      return;
+    }
     setActiveIndex((i) => {
       if (direction === "prev") return Math.max(0, i - 1);
       return Math.min(questions.length - 1, i + 1);
