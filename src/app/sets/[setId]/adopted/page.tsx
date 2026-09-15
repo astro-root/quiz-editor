@@ -1,92 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Shuffle, ChevronDown, ChevronUp } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useQuestions } from "@/lib/useQuestions";
-import { useHistory } from "@/lib/useHistory";
-import { useRevisions } from "@/lib/useRevisions";
 import { useSetContext } from "@/lib/SetContext";
-import { shouldLogRevision } from "@/lib/permissions";
-import { QuestionCard } from "@/components/QuestionCard";
-import { Question, Role } from "@/lib/types";
-
-type SaveState = "idle" | "saving" | "saved" | "error";
-
-// 展開時のみ、自分専用のdebounce保存・履歴・改訂ロジックを持つ小さなエディタ。
-function AdoptedEditor({
-  setId,
-  question,
-  role,
-  uid,
-  genres,
-  onUpdate,
-  onDelete,
-  findDuplicate,
-}: {
-  setId: string;
-  question: Question;
-  role: Role;
-  uid: string | undefined;
-  genres: string[];
-  onUpdate: (id: string, patch: Partial<Question>) => Promise<void>;
-  onDelete: (id: string) => Promise<void>;
-  findDuplicate: (body: string, excludeId?: string) => Question | null;
-}) {
-  const [draft, setDraft] = useState(question);
-  const [saveState, setSaveState] = useState<SaveState>("idle");
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const baseline = useRef({ body: question.body, answer: question.answer });
-  const revisionLogged = useRef(false);
-
-  const { history, logChange } = useHistory(setId, question.id);
-  const { revisions, saveRevision } = useRevisions(setId, question.id);
-
-  function handleChange(patch: Partial<Question>) {
-    if (patch.status && patch.status !== draft.status) {
-      logChange(question.id, "status", draft.status, patch.status);
-    }
-    if (patch.proofreadStatus && patch.proofreadStatus !== draft.proofreadStatus) {
-      logChange(question.id, "proofreadStatus", draft.proofreadStatus, patch.proofreadStatus);
-    }
-    const touchesContent = patch.body !== undefined || patch.answer !== undefined;
-    if (touchesContent && shouldLogRevision(role) && !revisionLogged.current) {
-      saveRevision(question.id, baseline.current.body, baseline.current.answer);
-      revisionLogged.current = true;
-    }
-
-    const next = { ...draft, ...patch };
-    setDraft(next);
-    setSaveState("saving");
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(async () => {
-      try {
-        await onUpdate(question.id, patch);
-        setSaveState("saved");
-      } catch {
-        setSaveState("error");
-      }
-    }, 600);
-  }
-
-  return (
-    <QuestionCard
-      setId={setId}
-      question={draft}
-      role={role}
-      uid={uid}
-      genres={genres}
-      saveState={saveState}
-      duplicateOf={findDuplicate(draft.body, draft.id)}
-      history={history}
-      revisions={revisions}
-      onChange={handleChange}
-      onCreateNext={() => {}}
-      onNavigate={() => {}}
-      onDelete={() => onDelete(question.id)}
-    />
-  );
-}
+import { InlineQuestionEditor } from "@/components/InlineQuestionEditor";
+import { Question } from "@/lib/types";
 
 export default function AdoptedPage() {
   const { set, role } = useSetContext();
@@ -153,7 +73,7 @@ export default function AdoptedPage() {
                   <ChevronUp size={13} />
                   閉じる
                 </button>
-                <AdoptedEditor
+                <InlineQuestionEditor
                   setId={set.id}
                   question={q}
                   role={role}

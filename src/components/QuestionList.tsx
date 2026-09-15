@@ -1,16 +1,24 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { CheckCircle2, CircleDashed, XCircle, Download, Upload } from "lucide-react";
-import { Question } from "@/lib/types";
+import { CheckCircle2, CircleDashed, XCircle, Download, Upload, ChevronDown, ChevronUp } from "lucide-react";
+import { Question, Role } from "@/lib/types";
 import { statusLabel } from "@/lib/permissions";
 import { questionsToCsv, csvToQuestions, csvFileName, ImportedQuestion } from "@/lib/csv";
+import { InlineQuestionEditor } from "./InlineQuestionEditor";
 
 interface Props {
   questions: Question[];
+  setId: string;
   setName: string;
+  role: Role;
+  uid: string | undefined;
+  genres: string[];
   canImport: boolean;
   onImportRows: (rows: ImportedQuestion[]) => Promise<void>;
+  onUpdate: (id: string, patch: Partial<Question>) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
+  findDuplicate: (body: string, excludeId?: string) => Question | null;
 }
 
 const statusStyle: Record<Question["status"], { className: string; icon: React.ReactNode }> = {
@@ -39,20 +47,33 @@ const proofreadLabel: Record<Question["proofreadStatus"], string> = {
 const selectClass =
   "rounded-lg border border-slate-200 bg-white p-2 text-sm text-slate-600 focus:border-brand-400 focus:outline-none";
 
-export function QuestionList({ questions, setName, canImport, onImportRows }: Props) {
+export function QuestionList({
+  questions,
+  setId,
+  setName,
+  role,
+  uid,
+  genres,
+  canImport,
+  onImportRows,
+  onUpdate,
+  onDelete,
+  findDuplicate,
+}: Props) {
   const [authorFilter, setAuthorFilter] = useState("all");
   const [genreFilter, setGenreFilter] = useState("all");
   const [tagFilter, setTagFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [proofreadFilter, setProofreadFilter] = useState("all");
   const [importing, setImporting] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const authors = useMemo(
     () => Array.from(new Set(questions.map((q) => q.authorName).filter(Boolean))),
     [questions]
   );
-  const genres = useMemo(
+  const genreOptions = useMemo(
     () => Array.from(new Set(questions.map((q) => q.genre).filter(Boolean))),
     [questions]
   );
@@ -104,7 +125,7 @@ export function QuestionList({ questions, setName, canImport, onImportRows }: Pr
         </select>
         <select value={genreFilter} onChange={(e) => setGenreFilter(e.target.value)} className={selectClass}>
           <option value="all">ジャンル：すべて</option>
-          {genres.map((g) => <option key={g} value={g}>{g}</option>)}
+          {genreOptions.map((g) => <option key={g} value={g}>{g}</option>)}
         </select>
         <select value={tagFilter} onChange={(e) => setTagFilter(e.target.value)} className={selectClass}>
           <option value="all">タグ：すべて</option>
@@ -150,34 +171,68 @@ export function QuestionList({ questions, setName, canImport, onImportRows }: Pr
         )}
       </div>
 
+      <p className="mb-2 text-xs text-slate-400">クリックすると詳細を開いて編集できます</p>
+
       <div className="space-y-2">
         {filtered.map((q, i) => (
-          <div key={q.id} className="flex items-start justify-between gap-4 rounded-xl border border-slate-200 bg-white p-3.5 text-sm shadow-sm">
-            <div className="min-w-0 flex-1">
-              <p className="mb-1 text-xs text-slate-300">
-                Q{String(i + 1).padStart(3, "0")}
-                {q.genre && (
-                  <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-slate-500">{q.genre}</span>
-                )}
-              </p>
-              <p className="truncate text-slate-700">{q.body || "（未入力）"}</p>
-              <p className="truncate text-brand-600">{q.answer || "（未入力）"}</p>
-            </div>
-            <div className="flex shrink-0 flex-col items-end gap-1 text-xs text-slate-500">
-              <span>{q.authorName || "―"}</span>
-              <span className="flex gap-1">
-                {q.tags.map((t) => (
-                  <span key={t} className="rounded-full bg-brand-50 px-2 py-0.5 text-brand-600">{t}</span>
-                ))}
-              </span>
-              <span className={`flex items-center gap-1 rounded-full px-2 py-0.5 ${statusStyle[q.status].className}`}>
-                {statusStyle[q.status].icon}
-                {statusLabel[q.status]}
-              </span>
-              <span className={`rounded-full px-2 py-0.5 ${proofreadStyle[q.proofreadStatus]}`}>
-                {proofreadLabel[q.proofreadStatus]}
-              </span>
-            </div>
+          <div key={q.id}>
+            {expandedId === q.id ? (
+              <div>
+                <button
+                  onClick={() => setExpandedId(null)}
+                  className="mb-1.5 flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600"
+                >
+                  <ChevronUp size={13} />
+                  閉じる
+                </button>
+                <InlineQuestionEditor
+                  setId={setId}
+                  question={q}
+                  role={role}
+                  uid={uid}
+                  genres={genres}
+                  onUpdate={onUpdate}
+                  onDelete={async (id) => {
+                    if (confirm("この問題を削除しますか？")) {
+                      await onDelete(id);
+                      setExpandedId(null);
+                    }
+                  }}
+                  findDuplicate={findDuplicate}
+                />
+              </div>
+            ) : (
+              <button
+                onClick={() => setExpandedId(q.id)}
+                className="flex w-full items-start justify-between gap-4 rounded-xl border border-slate-200 bg-white p-3.5 text-left text-sm shadow-sm hover:border-brand-300"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="mb-1 text-xs text-slate-300">
+                    Q{String(i + 1).padStart(3, "0")}
+                    {q.genre && (
+                      <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-slate-500">{q.genre}</span>
+                    )}
+                  </p>
+                  <p className="truncate text-slate-700">{q.body || "（未入力）"}</p>
+                  <p className="truncate text-brand-600">{q.answer || "（未入力）"}</p>
+                </div>
+                <div className="flex shrink-0 flex-col items-end gap-1 text-xs text-slate-500">
+                  <span>{q.authorName || "―"}</span>
+                  <span className="flex gap-1">
+                    {q.tags.map((t) => (
+                      <span key={t} className="rounded-full bg-brand-50 px-2 py-0.5 text-brand-600">{t}</span>
+                    ))}
+                  </span>
+                  <span className={`flex items-center gap-1 rounded-full px-2 py-0.5 ${statusStyle[q.status].className}`}>
+                    {statusStyle[q.status].icon}
+                    {statusLabel[q.status]}
+                  </span>
+                  <span className={`rounded-full px-2 py-0.5 ${proofreadStyle[q.proofreadStatus]}`}>
+                    {proofreadLabel[q.proofreadStatus]}
+                  </span>
+                </div>
+              </button>
+            )}
           </div>
         ))}
         {filtered.length === 0 && (
