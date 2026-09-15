@@ -47,7 +47,8 @@ service cloud.firestore {
         || (isSupervisorOrAbove()
             && request.resource.data.diff(resource.data).affectedKeys()
                  .hasOnly(['genres', 'updatedAt']))
-        || acceptingOwnInvite();
+        || acceptingOwnInvite()
+        || migratingOwnLegacyRole();
 
       function acceptingOwnInvite() {
         let email = request.auth.token.email;
@@ -61,6 +62,23 @@ service cloud.firestore {
           && get(invitePath).data.setId == setId
           && request.resource.data.members[request.auth.uid] == get(invitePath).data.role
           && onlyMembersAndTimestampChanged;
+      }
+
+      // 旧バージョン（owner/editor）のロール名が残っているドキュメントを、
+      // 本人が自分の分だけ新しいロール名（admin/writer）に自動移行できるようにする。
+      // 他人のロールを変更できないよう、変更後もmembersマップの中で
+      // 自分のキー以外が一切変わっていないことを検証する。
+      function legacyRoleFixed(before) {
+        return before == 'owner' ? 'admin' : 'writer';
+      }
+      function migratingOwnLegacyRole() {
+        let uid = request.auth.uid;
+        let before = resource.data.members[uid];
+        return request.auth != null
+          && (before == 'owner' || before == 'editor')
+          && request.resource.data.members[uid] == legacyRoleFixed(before)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'updatedAt'])
+          && request.resource.data.members.diff(resource.data.members).affectedKeys().hasOnly([uid]);
       }
 
       allow delete: if isAdmin();

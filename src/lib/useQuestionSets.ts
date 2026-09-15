@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   addDoc,
   arrayUnion,
@@ -15,6 +15,13 @@ import {
 import { db } from "./firebase";
 import { QuestionSet } from "./types";
 import { useAuth } from "./auth-context";
+
+// v1〜v2で使っていたロール名（owner/editor）を新ロール名に変換する対応表。
+// 新しいロール名（admin/supervisor/writer/viewer）はここに含めない。
+const LEGACY_ROLE_MAP: Record<string, string> = {
+  owner: "admin",
+  editor: "writer",
+};
 
 function toMillis(v: any): number {
   if (!v) return 0;
@@ -84,18 +91,44 @@ export function useQuestionSets() {
 }
 
 // 単一の問題セットをリアルタイム購読する（役割変更が即座に反映されるように）。
+// あわせて、開いたユーザー自身の役割が旧バージョンの名称（owner/editor）の
+// ままだった場合、自動的に新しい名称に移行する（手動でのFirestore編集を不要にする）。
 export function useQuestionSet(setId: string) {
+  const { user } = useAuth();
   const [set, setSet] = useState<QuestionSet | null>(null);
   const [loading, setLoading] = useState(true);
+  const migratingRef = useRef(false);
 
   useEffect(() => {
     if (!setId) return;
     const unsub = onSnapshot(doc(db, "questionSets", setId), (snap) => {
-      setSet(snap.exists() ? toSet(snap.id, snap.data()) : null);
+      if (!snap.exists()) {
+        setSet(null);
+        setLoading(false);
+        return;
+      }
+      const data = snap.data();
+      setSet(toSet(snap.id, data));
       setLoading(false);
+
+      if (user && !migratingRef.current) {
+        const rawRole = data.members?.[user.uid];
+        const mapped = LEGACY_ROLE_MAP[rawRole];
+        if (mapped) {
+          migratingRef.current = true;
+          updateDoc(doc(db, "questionSets", setId), {
+            [`members.${user.uid}`]: mapped,
+            updatedAt: serverTimestamp(),
+          })
+            .catch(() => {})
+            .finally(() => {
+              migratingRef.current = false;
+            });
+        }
+      }
     });
     return unsub;
-  }, [setId]);
+  }, [setId, user]);
 
   async function addGenre(genre: string) {
     const trimmed = genre.trim();
