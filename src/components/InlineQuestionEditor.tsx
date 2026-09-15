@@ -81,6 +81,7 @@ export function InlineQuestionEditor({
       onCreateNext={() => {}}
       onNavigate={() => {}}
       onDelete={() => onDelete(question.id)}
+      showNavigation={false}
     />
   );
 }

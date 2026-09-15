@@ -5,6 +5,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronDown,
   ChevronUp,
+  ChevronLeft as ChevronLeftIcon,
+  ChevronRight as ChevronRightIcon,
+  Plus as PlusIcon,
   CheckCircle2,
   CircleDashed,
   XCircle,
@@ -39,6 +42,11 @@ interface Props {
   onCreateNext: () => void;
   onNavigate: (direction: "prev" | "next") => void;
   onDelete: () => void;
+  // 作問モードでの連続作成フロー用のナビゲーションボタンを表示するかどうか。
+  // 一覧から個別に開いた編集（InlineQuestionEditor）では表示しない。
+  showNavigation?: boolean;
+  hasPrev?: boolean;
+  hasNext?: boolean;
 }
 
 const statusStyle: Record<
@@ -76,6 +84,9 @@ export function QuestionCard({
   onCreateNext,
   onNavigate,
   onDelete,
+  showNavigation = true,
+  hasPrev = false,
+  hasNext = false,
 }: Props) {
   const [showDetail, setShowDetail] = useState(false);
   const [showRevisions, setShowRevisions] = useState(false);
@@ -89,26 +100,6 @@ export function QuestionCard({
   useEffect(() => {
     if (editable) bodyRef.current?.focus();
   }, [question.id, editable]);
-
-  function handleKeyDown(e: React.KeyboardEvent) {
-    const mod = e.metaKey || e.ctrlKey;
-    if (e.repeat) return; // キーリピートで複数回発火するのを防ぐ
-    if (mod && e.key === "Enter") {
-      e.preventDefault();
-      onCreateNext();
-    } else if (mod && e.key.toLowerCase() === "d") {
-      e.preventDefault();
-      setShowDetail((v) => !v);
-    } else if (mod && e.key === "ArrowUp") {
-      e.preventDefault();
-      onNavigate("prev");
-    } else if (mod && e.key === "ArrowDown") {
-      e.preventDefault();
-      onNavigate("next");
-    } else if (e.key === "Escape") {
-      (e.target as HTMLElement).blur();
-    }
-  }
 
   const saveLabel =
     saveState === "saving"
@@ -131,7 +122,6 @@ export function QuestionCard({
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.18 }}
-      onKeyDown={handleKeyDown}
       className={`relative rounded-3xl border border-slate-100 bg-white p-5 shadow-card ring-1 transition ${statusRing[question.status]}`}
     >
       {saveState === "saving" && (
@@ -410,14 +400,35 @@ export function QuestionCard({
         )}
       </AnimatePresence>
 
-      {editable && (
-        <p className="mt-3 text-xs text-slate-300">
-          <kbd className="rounded border border-slate-200 px-1">⌘/Ctrl</kbd>+
-          <kbd className="rounded border border-slate-200 px-1">Enter</kbd>{" "}
-          で保存して次の問題へ ・
-          <kbd className="rounded border border-slate-200 px-1">⌘/Ctrl</kbd>+
-          <kbd className="rounded border border-slate-200 px-1">D</kbd> で詳細表示切替
-        </p>
+      {showNavigation && editable && (
+        <div className="mt-4 flex items-center gap-2 border-t border-slate-100 pt-3">
+          <button
+            type="button"
+            onClick={() => onNavigate("prev")}
+            disabled={!hasPrev}
+            className="flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 hover:border-brand-300 hover:text-brand-600 disabled:opacity-30"
+          >
+            <ChevronLeftIcon size={16} />
+            前へ
+          </button>
+          <button
+            type="button"
+            onClick={() => onNavigate("next")}
+            disabled={!hasNext}
+            className="flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 hover:border-brand-300 hover:text-brand-600 disabled:opacity-30"
+          >
+            次へ
+            <ChevronRightIcon size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={onCreateNext}
+            className="ml-auto flex items-center gap-1.5 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-brand-700"
+          >
+            <PlusIcon size={16} />
+            次の問題を作成
+          </button>
+        </div>
       )}
     </motion.div>
   );

@@ -168,6 +168,8 @@ export default function WritePage() {
         onCreateNext={handleCreateNext}
         onNavigate={handleNavigate}
         onDelete={handleDelete}
+        hasPrev={activeIndex > 0}
+        hasNext={activeIndex < questions.length - 1}
       />
       <div className="mt-4 space-y-1.5 opacity-60">
         {questions
