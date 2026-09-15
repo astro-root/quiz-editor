@@ -20,6 +20,7 @@ export default function WritePage() {
     useQuestions(setId);
 
   const [activeIndex, setActiveIndex] = useState(0);
+  const hasInitialized = useRef(false);
   const [draft, setDraft] = useState<Question | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -57,6 +58,15 @@ export default function WritePage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [questions.length, canCreate]);
+
+  // 作問ページを開いたときは、最初の問題ではなく直近（最後）の問題から始める。
+  // 一度だけ実行し、以降の並び替えや追加では自動移動しない。
+  useEffect(() => {
+    if (!hasInitialized.current && questions.length > 0) {
+      hasInitialized.current = true;
+      setActiveIndex(questions.length - 1);
+    }
+  }, [questions.length]);
 
   useEffect(() => {
     if (questions[activeIndex]) {
@@ -151,8 +161,19 @@ export default function WritePage() {
 
   if (!draft) return null;
 
+  function jumpTo(index: number) {
+    setActiveIndex(Math.max(0, Math.min(questions.length - 1, index)));
+  }
+
   return (
     <>
+      <div className="mb-3 flex items-center justify-between text-sm text-slate-500">
+        <span>
+          {activeIndex + 1} / {questions.length}問目
+        </span>
+        <JumpControl total={questions.length} onJump={jumpTo} />
+      </div>
+
       <QuestionCard
         key={draft.id}
         setId={setId}
@@ -171,17 +192,54 @@ export default function WritePage() {
         hasPrev={activeIndex > 0}
         hasNext={activeIndex < questions.length - 1}
       />
-      <div className="mt-4 space-y-1.5 opacity-60">
+      <div className="mt-4 space-y-1.5 opacity-70">
         {questions
           .filter((q) => q.id !== draft.id)
           .slice(-3)
           .map((q) => (
-            <div key={q.id} className="flex justify-between rounded-lg border border-slate-100 bg-white p-2.5 text-xs">
+            <button
+              key={q.id}
+              onClick={() => jumpTo(questions.findIndex((x) => x.id === q.id))}
+              className="flex w-full justify-between rounded-lg border border-slate-100 bg-white p-2.5 text-left text-xs hover:border-brand-300"
+            >
               <span className="truncate text-slate-500">{q.body || "（未入力）"}</span>
               <span className="text-slate-400">{q.answer}</span>
-            </div>
+            </button>
           ))}
       </div>
     </>
+  );
+}
+
+// 何十問もある場合に「前へ」を連打しなくても目的の問題へ直接移動できる、
+// 番号を入力してジャンプする簡易コントロール。
+function JumpControl({ total, onJump }: { total: number; onJump: (index: number) => void }) {
+  const [value, setValue] = useState("");
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        const n = parseInt(value, 10);
+        if (!isNaN(n)) onJump(n - 1);
+        setValue("");
+      }}
+      className="flex items-center gap-1.5"
+    >
+      <input
+        type="number"
+        min={1}
+        max={total}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder="番号"
+        className="w-16 rounded-lg border border-slate-200 p-1.5 text-sm focus:border-brand-400 focus:outline-none"
+      />
+      <button
+        type="submit"
+        className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 hover:border-brand-300 hover:text-brand-600"
+      >
+        へ移動
+      </button>
+    </form>
   );
 }

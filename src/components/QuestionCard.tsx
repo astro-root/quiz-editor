@@ -67,7 +67,7 @@ const statusRing: Record<Question["status"], string> = {
 };
 
 const inputBase =
-  "w-full rounded-xl border border-slate-200 bg-white p-2.5 text-sm text-slate-700 placeholder:text-slate-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100 disabled:bg-slate-50 disabled:text-slate-400";
+  "w-full rounded-xl border border-slate-200 bg-white p-2.5 text-base text-slate-700 placeholder:text-slate-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100 disabled:bg-slate-50 disabled:text-slate-400";
 const labelBase = "mb-1 block text-xs text-slate-400";
 
 export function QuestionCard({
