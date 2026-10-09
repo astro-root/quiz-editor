@@ -2,121 +2,152 @@
 
 import { useEffect, useState } from "react";
 import {
-  collection,
-  deleteDoc,
-  doc,
-  getDoc,
-  onSnapshot,
-  serverTimestamp,
-  setDoc,
-  updateDoc,
+  collection, deleteDoc, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, serverTimestamp,
+  setDoc, updateDoc, where, writeBatch, endAt, startAt,
 } from "firebase/firestore";
 import { db } from "./firebase";
-import { Invite, PendingInvite, Role } from "./types";
+import { Invite, PendingInvite, PublicProfile, QuestionSet, Role, SetInvite } from "./types";
 import { useAuth } from "./auth-context";
+import { normalizeText } from "./search";
 
-// 招待はCloud Functionsを使わず、2種類のドキュメントで実現する。
-// 1. invites/{メールアドレス}
-//    招待された本人だけが読める（ログイン時に自分宛の招待を確認するため）。
-// 2. questionSets/{setId}/pendingInvites/{メールアドレス}
-//    オーナーだけが読める（自分のセットの招待中一覧を確認するため）。
-// メールアドレス一覧を検索・列挙できるクエリは一切行わない。
-export function normalizeEmail(email: string) {
-  return email.trim().toLowerCase();
+// ---------- ユーザー検索（表示名の前方一致。メールアドレスは扱わない） ----------
+export async function searchUsers(text: string, max = 20): Promise<PublicProfile[]> {
+  const t = normalizeText(text.trim());
+  if (!t) return [];
+  const snap = await getDocs(
+    query(collection(db, "publicProfiles"), orderBy("displayNameLower"), startAt(t), endAt(t + "\uf8ff"), limit(max))
+  );
+  return snap.docs.map((d) => ({
+    uid: d.id,
+    displayName: d.data().displayName ?? "",
+    photoURL: d.data().photoURL ?? "",
+  }));
 }
 
-export function useMyInvite() {
-  const { user } = useAuth();
-  const [invite, setInvite] = useState<Invite | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function load() {
-      if (!user?.email) {
-        setInvite(null);
-        setLoading(false);
-        return;
-      }
-      const ref = doc(db, "invites", normalizeEmail(user.email));
-      const snap = await getDoc(ref);
-      setInvite(snap.exists() ? (snap.data() as Invite) : null);
-      setLoading(false);
-    }
-    load();
-  }, [user]);
-
-  return { invite, loading };
+// ---------- 新方式：ユーザーを選んで招待 ----------
+// setInvites/{setId}_{uid}  : 招待された本人が読む（ダッシュボードの通知）
+// questionSets/{setId}/pendingInvites/{uid} : 管理者が「招待中」一覧を見る
+export async function inviteUser(set: QuestionSet, inviter: { uid: string; name: string }, target: PublicProfile, role: Role) {
+  if (target.uid === inviter.uid) throw new Error("自分自身は招待できません");
+  if (set.members[target.uid]) throw new Error(`${target.displayName} さんはすでにメンバーです`);
+  const inviteRef = doc(db, "setInvites", `${set.id}_${target.uid}`);
+  const existing = await getDoc(inviteRef).catch(() => null);
+  if (existing?.exists()) throw new Error(`${target.displayName} さんはすでに招待済みです`);
+  const batch = writeBatch(db);
+  batch.set(inviteRef, {
+    setId: set.id, setName: set.name, role, inviteeUid: target.uid,
+    invitedBy: inviter.uid, inviterName: inviter.name, createdAt: serverTimestamp(),
+  });
+  batch.set(doc(db, "questionSets", set.id, "pendingInvites", target.uid), {
+    role, displayName: target.displayName, photoURL: target.photoURL, createdAt: serverTimestamp(),
+  });
+  await batch.commit();
 }
 
-// オーナーが自分のセットの招待中一覧をリアルタイムに見るためのフック。
-export function usePendingInvites(setId: string, isOwner: boolean) {
+export async function cancelUserInvite(setId: string, uid: string) {
+  const batch = writeBatch(db);
+  batch.delete(doc(db, "setInvites", `${setId}_${uid}`));
+  batch.delete(doc(db, "questionSets", setId, "pendingInvites", uid));
+  await batch.commit();
+}
+
+export function usePendingInvites(setId: string, isAdmin: boolean) {
   const [pending, setPending] = useState<PendingInvite[]>([]);
-
   useEffect(() => {
-    if (!setId || !isOwner) {
+    if (!setId || !isAdmin) {
       setPending([]);
       return;
     }
-    const unsub = onSnapshot(
+    return onSnapshot(
       collection(db, "questionSets", setId, "pendingInvites"),
-      (snap) => {
+      (snap) =>
         setPending(
           snap.docs.map((d) => ({
-            email: d.id,
+            uid: d.id,
             role: d.data().role,
-            createdAt: 0,
+            displayName: d.data().displayName ?? "",
+            photoURL: d.data().photoURL ?? "",
           }))
-        );
-      }
+        ),
+      (e) => console.error("招待中一覧の取得に失敗しました", e)
     );
-    return unsub;
-  }, [setId, isOwner]);
-
+  }, [setId, isAdmin]);
   return pending;
 }
 
-export async function inviteMember(
-  setId: string,
-  setName: string,
-  invitedByUid: string,
-  email: string,
-  role: Role
-) {
-  const normalized = normalizeEmail(email);
-  await setDoc(doc(db, "invites", normalized), {
-    setId,
-    setName,
-    role,
-    invitedBy: invitedByUid,
-    createdAt: serverTimestamp(),
-  });
-  await setDoc(doc(db, "questionSets", setId, "pendingInvites", normalized), {
-    role,
-    createdAt: serverTimestamp(),
-  });
+export function useMyInvites() {
+  const { user } = useAuth();
+  const [invites, setInvites] = useState<SetInvite[]>([]);
+  const [legacy, setLegacy] = useState<Invite | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) {
+      setInvites([]);
+      setLegacy(null);
+      setLoading(false);
+      return;
+    }
+    const unsub = onSnapshot(
+      query(collection(db, "setInvites"), where("inviteeUid", "==", user.uid)),
+      (snap) => {
+        setInvites(
+          snap.docs.map((d) => ({
+            id: d.id,
+            setId: d.data().setId,
+            setName: d.data().setName ?? "",
+            role: d.data().role,
+            inviteeUid: user.uid,
+            invitedBy: d.data().invitedBy ?? "",
+            inviterName: d.data().inviterName ?? "",
+          }))
+        );
+        setLoading(false);
+      },
+      (e) => {
+        console.error("招待の取得に失敗しました", e);
+        setLoading(false);
+      }
+    );
+    // 旧方式（メール宛）の招待が残っている場合のみ拾う
+    if (user.email) {
+      getDoc(doc(db, "invites", normalizeEmail(user.email)))
+        .then((s) => setLegacy(s.exists() ? (s.data() as Invite) : null))
+        .catch(() => setLegacy(null));
+    }
+    return unsub;
+  }, [user]);
+
+  return { invites, legacy, loading };
 }
 
-export async function cancelInvite(setId: string, email: string) {
-  const normalized = normalizeEmail(email);
-  await deleteDoc(doc(db, "invites", normalized));
-  await deleteDoc(doc(db, "questionSets", setId, "pendingInvites", normalized));
-}
-
-// 招待を承諾する：questionSets.members / memberProfiles に自分を追加し、
-// 自分宛のinvitesドキュメントとpendingInvitesドキュメントを削除する。
-export async function acceptInvite(
-  setId: string,
-  uid: string,
-  role: Role,
-  email: string,
-  displayName: string
-) {
-  await updateDoc(doc(db, "questionSets", setId), {
-    [`members.${uid}`]: role,
-    [`memberProfiles.${uid}`]: { email, displayName },
+export async function acceptUserInvite(inv: SetInvite, me: { uid: string; email: string; displayName: string; photoURL: string }) {
+  await updateDoc(doc(db, "questionSets", inv.setId), {
+    [`members.${me.uid}`]: inv.role,
+    [`memberProfiles.${me.uid}`]: { email: me.email, displayName: me.displayName, photoURL: me.photoURL },
     updatedAt: serverTimestamp(),
   });
-  const normalized = normalizeEmail(email);
-  await deleteDoc(doc(db, "invites", normalized));
-  await deleteDoc(doc(db, "questionSets", setId, "pendingInvites", normalized));
+  const batch = writeBatch(db);
+  batch.delete(doc(db, "setInvites", inv.id));
+  batch.delete(doc(db, "questionSets", inv.setId, "pendingInvites", me.uid));
+  await batch.commit().catch((e) => console.error("招待の後片付けに失敗しました", e));
+}
+
+export async function declineUserInvite(inv: SetInvite) {
+  await cancelUserInvite(inv.setId, inv.inviteeUid);
+}
+
+// ---------- 旧方式（メール）。既存の招待を受け取れるように残す ----------
+export function normalizeEmail(email: string) {
+  return email.trim().toLowerCase();
+}
+export async function acceptLegacyInvite(inv: Invite, me: { uid: string; email: string; displayName: string; photoURL: string }) {
+  await updateDoc(doc(db, "questionSets", inv.setId), {
+    [`members.${me.uid}`]: inv.role,
+    [`memberProfiles.${me.uid}`]: { email: me.email, displayName: me.displayName, photoURL: me.photoURL },
+    updatedAt: serverTimestamp(),
+  });
+  const n = normalizeEmail(me.email);
+  await deleteDoc(doc(db, "invites", n)).catch(() => {});
+  await deleteDoc(doc(db, "questionSets", inv.setId, "pendingInvites", n)).catch(() => {});
 }

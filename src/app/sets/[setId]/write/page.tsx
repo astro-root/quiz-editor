@@ -1,245 +1,153 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { useQuestions } from "@/lib/useQuestions";
-import { useHistory } from "@/lib/useHistory";
-import { useRevisions } from "@/lib/useRevisions";
 import { useSetContext } from "@/lib/SetContext";
-import { canCreateQuestion, isEmptyQuestion, shouldLogRevision } from "@/lib/permissions";
-import { QuestionCard } from "@/components/QuestionCard";
-import { Question } from "@/lib/types";
+import { useQuestionStore } from "@/lib/QuestionsContext";
+import { canCreateQuestion } from "@/lib/permissions";
+import { MAX_SOURCES, Question } from "@/lib/types";
+import { QuestionEditor } from "@/components/QuestionEditor";
 
-type SaveState = "idle" | "saving" | "saved" | "error";
+const input = "w-full rounded-lg border border-slate-200 bg-white p-2.5 text-base text-slate-700 placeholder:text-slate-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100";
+const label = "mb-1 block text-xs text-slate-400";
 
+// 作問モード。入力中の内容はブラウザ内の下書きにだけあり、［保存］するまでDBには何も作らない。
+// （以前は画面を開くだけで空の問題ドキュメントが作られ、それが空問題が増える原因だった）
 export default function WritePage() {
-  const { set, role } = useSetContext();
   const { user } = useAuth();
-  const setId = set.id;
-  const { questions, createQuestion, updateQuestion, deleteQuestion, findDuplicate } =
-    useQuestions(setId);
-
-  const [activeIndex, setActiveIndex] = useState(0);
-  const hasInitialized = useRef(false);
-  const [draft, setDraft] = useState<Question | null>(null);
-  const [saveState, setSaveState] = useState<SaveState>("idle");
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // 問題統括・管理者が編集を始めたときの「改訂前」の値を1問につき1回だけ記録する
-  const revisionBaseline = useRef<{ id: string; body: string; answer: string } | null>(null);
-  const revisionLogged = useRef<Set<string>>(new Set());
-
-  const { history, logChange } = useHistory(setId, draft?.id ?? null);
-  const { revisions, saveRevision } = useRevisions(setId, draft?.id ?? null);
-
+  const { set, role, tree, gi } = useSetContext();
+  const store = useQuestionStore();
   const canCreate = canCreateQuestion(role);
+  const draftKey = `qraft:draft:${set.id}`;
 
-  // アンマウント時（ページ離脱時）に未入力のカードを削除するため、
-  // 最新のdraft/questionsをrefで保持しておく
-  const latestDraft = useRef(draft);
-  const latestQuestionsLength = useRef(questions.length);
-  useEffect(() => {
-    latestDraft.current = draft;
-    latestQuestionsLength.current = questions.length;
-  }, [draft, questions.length]);
+  const [body, setBody] = useState("");
+  const [answer, setAnswer] = useState("");
+  const [explanation, setExplanation] = useState("");
+  const [altAnswers, setAltAnswers] = useState("");
+  const [source, setSource] = useState("");
+  const [genreId, setGenreId] = useState("");
+  const [subGenreId, setSubGenreId] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [savedCount, setSavedCount] = useState(0);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
 
+  // リロードや誤操作で書きかけが消えないよう、ブラウザ内（sessionStorage）にだけ退避する
   useEffect(() => {
-    return () => {
-      const d = latestDraft.current;
-      if (d && isEmptyQuestion(d) && latestQuestionsLength.current > 1) {
-        deleteQuestion(d.id).catch(() => {});
+    try {
+      const raw = sessionStorage.getItem(draftKey);
+      if (raw) {
+        const d = JSON.parse(raw);
+        setBody(d.body ?? ""); setAnswer(d.answer ?? ""); setExplanation(d.explanation ?? "");
+        setAltAnswers(d.altAnswers ?? ""); setSource(d.source ?? ""); setGenreId(d.genreId ?? ""); setSubGenreId(d.subGenreId ?? "");
       }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
+    } catch { /* noop */ }
+  }, [draftKey]);
   useEffect(() => {
-    if (questions.length === 0 && canCreate) {
-      createQuestion({ authorName: user?.displayName ?? "" });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [questions.length, canCreate]);
+    try { sessionStorage.setItem(draftKey, JSON.stringify({ body, answer, explanation, altAnswers, source, genreId, subGenreId })); } catch { /* noop */ }
+  }, [draftKey, body, answer, explanation, altAnswers, source, genreId, subGenreId]);
 
-  // 作問ページを開いたときは、最初の問題ではなく直近（最後）の問題から始める。
-  // 一度だけ実行し、以降の並び替えや追加では自動移動しない。
-  useEffect(() => {
-    if (!hasInitialized.current && questions.length > 0) {
-      hasInitialized.current = true;
-      setActiveIndex(questions.length - 1);
-    }
-  }, [questions.length]);
+  const dup = store.findDuplicate(body);
+  const empty = !body.trim() && !answer.trim();
 
-  useEffect(() => {
-    if (questions[activeIndex]) {
-      const q = questions[activeIndex];
-      setDraft(q);
-      if (revisionBaseline.current?.id !== q.id) {
-        revisionBaseline.current = { id: q.id, body: q.body, answer: q.answer };
-      }
+  async function handleSave() {
+    if (saving) return;
+    setError("");
+    if (empty) return setError("問題文か答えのどちらかを入力してください");
+    setSaving(true);
+    try {
+      await store.createQuestion({
+        body, answer, explanation, genreId, subGenreId,
+        altAnswers: altAnswers.split(",").map((s) => s.trim()).filter(Boolean),
+        sources: source.trim() ? [source.trim()] : [],
+        status: "draft",
+      });
+      setBody(""); setAnswer(""); setExplanation(""); setAltAnswers(""); setSource(""); // ジャンルは連続作問のため維持
+      setSavedCount((n) => n + 1);
+      bodyRef.current?.focus();
+    } catch (e: any) {
+      console.error("問題の作成に失敗しました", e);
+      setError(e?.code === "permission-denied" ? "問題を作成する権限がありません" : e?.message || "保存に失敗しました");
+    } finally {
+      setSaving(false);
     }
-  }, [activeIndex, questions]);
-
-  function handleChange(patch: Partial<Question>) {
-    if (!draft) return;
-
-    if (patch.status && patch.status !== draft.status) {
-      logChange(draft.id, "status", draft.status, patch.status);
-    }
-    if (patch.proofreadStatus && patch.proofreadStatus !== draft.proofreadStatus) {
-      logChange(draft.id, "proofreadStatus", draft.proofreadStatus, patch.proofreadStatus);
-    }
-
-    const touchesContent = patch.body !== undefined || patch.answer !== undefined;
-    if (
-      touchesContent &&
-      shouldLogRevision(role) &&
-      revisionBaseline.current &&
-      revisionBaseline.current.id === draft.id &&
-      !revisionLogged.current.has(draft.id)
-    ) {
-      saveRevision(draft.id, revisionBaseline.current.body, revisionBaseline.current.answer);
-      revisionLogged.current.add(draft.id);
-    }
-
-    const next = { ...draft, ...patch };
-    setDraft(next);
-    setSaveState("saving");
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(async () => {
-      try {
-        await updateQuestion(draft.id, patch);
-        setSaveState("saved");
-      } catch {
-        setSaveState("error");
-      }
-    }, 600);
   }
 
-  async function handleCreateNext() {
-    if (!canCreate || !draft) return;
-    // 今のカードが未入力なら、新しい空欄をさらに作らず今のカードのままにする
-    if (isEmptyQuestion(draft)) return;
-    const lastAnswered = questions[questions.length - 1];
-    await createQuestion({
-      tags: lastAnswered?.tags ?? [],
-      genre: lastAnswered?.genre ?? "",
-      authorName: user?.displayName ?? "",
-    });
-    setActiveIndex(questions.length);
-  }
+  const recent = useMemo(() => {
+    const mine = store.live.filter((q) => q.authorUid === user?.uid);
+    return mine.slice(-5).reverse();
+  }, [store.live, user]);
 
-  async function handleNavigate(direction: "prev" | "next") {
-    if (!draft) return;
-    // 未入力のまま離れるカードは残さず削除してから移動する
-    if (isEmptyQuestion(draft) && questions.length > 1) {
-      const idx = activeIndex;
-      await deleteQuestion(draft.id);
-      setActiveIndex(
-        direction === "prev" ? Math.max(0, idx - 1) : Math.min(idx, questions.length - 2)
-      );
-      return;
-    }
-    setActiveIndex((i) => {
-      if (direction === "prev") return Math.max(0, i - 1);
-      return Math.min(questions.length - 1, i + 1);
-    });
-  }
-
-  async function handleDelete() {
-    if (!draft) return;
-    if (!confirm("この問題を削除しますか？")) return;
-    await deleteQuestion(draft.id);
-    setActiveIndex((i) => Math.max(0, i - 1));
-  }
-
-  if (!canCreate && questions.length === 0) {
-    return (
-      <p className="rounded-xl border border-dashed border-slate-200 bg-white p-6 text-center text-sm text-slate-400">
-        閲覧権限のため作問モードは利用できません。管理モードで内容を確認できます。
-      </p>
-    );
-  }
-
-  if (!draft) return null;
-
-  function jumpTo(index: number) {
-    setActiveIndex(Math.max(0, Math.min(questions.length - 1, index)));
+  if (!canCreate) {
+    return <p className="rounded-xl border border-dashed border-slate-200 bg-white p-6 text-center text-sm text-slate-400">この権限では問題を作成できません。「問題」タブで内容を確認できます。</p>;
   }
 
   return (
-    <>
-      <div className="mb-3 flex items-center justify-between text-sm text-slate-500">
-        <span>
-          {activeIndex + 1} / {questions.length}問目
-        </span>
-        <JumpControl total={questions.length} onJump={jumpTo} />
+    <div className="mx-auto max-w-2xl">
+      <div onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); handleSave(); } }} className="rounded-2xl border border-slate-100 bg-white p-5 shadow-card">
+        <div className="mb-3 flex items-center justify-between text-xs text-slate-400">
+          <span>新しい問題（保存するまで登録されません）</span>
+          {savedCount > 0 && <span className="text-emerald-600">今回 {savedCount} 問を保存しました</span>}
+        </div>
+        <label className={label}>問題文</label>
+        <textarea ref={bodyRef} value={body} onChange={(e) => setBody(e.target.value)} rows={3} placeholder="問題文を入力" className={`${input} mb-1 resize-y leading-relaxed`} autoFocus />
+        {dup && <p className="mb-1 rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs text-amber-700">同じ問題文が既にあります（{set.memberProfiles?.[dup.authorUid]?.displayName || dup.authorName || "作問者不明"}）</p>}
+        <p className="mb-2 text-right text-[11px] text-slate-300">{body.length}文字</p>
+        <label className={label}>解答</label>
+        <textarea value={answer} onChange={(e) => setAnswer(e.target.value)} rows={1} placeholder="解答" className={`${input} mb-3 resize-y font-medium text-brand-700`} />
+        <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label className={label}>大ジャンル</label>
+            <select value={genreId} onChange={(e) => { setGenreId(e.target.value); setSubGenreId(""); }} className={input}>
+              <option value="">未設定</option>
+              {tree.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className={label}>小ジャンル</label>
+            <select value={subGenreId} disabled={!genreId} onChange={(e) => setSubGenreId(e.target.value)} className={input}>
+              <option value="">未設定</option>
+              {gi.subsOf(genreId).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </div>
+        </div>
+        <details className="mb-3">
+          <summary className="cursor-pointer text-xs text-slate-500">解説・別解・出典を追加（最大{MAX_SOURCES}件はあとで一覧から追加できます）</summary>
+          <div className="mt-2 space-y-2">
+            <input value={altAnswers} onChange={(e) => setAltAnswers(e.target.value)} placeholder="別解（カンマ区切り）" className={input} />
+            <textarea value={explanation} onChange={(e) => setExplanation(e.target.value)} rows={2} placeholder="解説" className={`${input} resize-y`} />
+            <input value={source} onChange={(e) => setSource(e.target.value)} placeholder="出典（URLなど）" className={input} />
+          </div>
+        </details>
+        {error && <p role="alert" className="mb-2 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600">{error}</p>}
+        <div className="flex items-center gap-3">
+          <button onClick={handleSave} disabled={saving || empty} className="flex min-h-[44px] items-center gap-1.5 rounded-lg bg-brand-600 px-6 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-40">
+            {saving && <Loader2 size={14} className="animate-spin" />}保存して次へ
+          </button>
+          <span className="hidden text-[11px] text-slate-300 sm:inline">Ctrl/⌘+Enter</span>
+          {!empty && <button onClick={() => { if (confirm("入力中の内容を破棄しますか？")) { setBody(""); setAnswer(""); setExplanation(""); setAltAnswers(""); setSource(""); } }} className="ml-auto text-xs text-slate-400 hover:text-slate-600">入力を破棄</button>}
+        </div>
       </div>
 
-      <QuestionCard
-        key={draft.id}
-        setId={setId}
-        question={draft}
-        role={role}
-        uid={user?.uid}
-        genres={set.genres}
-        saveState={saveState}
-        duplicateOf={findDuplicate(draft.body, draft.id)}
-        history={history}
-        revisions={revisions}
-        onChange={handleChange}
-        onCreateNext={handleCreateNext}
-        onNavigate={handleNavigate}
-        onDelete={handleDelete}
-        hasPrev={activeIndex > 0}
-        hasNext={activeIndex < questions.length - 1}
-      />
-      <div className="mt-4 space-y-1.5 opacity-70">
-        {questions
-          .filter((q) => q.id !== draft.id)
-          .slice(-3)
-          .map((q) => (
-            <button
-              key={q.id}
-              onClick={() => jumpTo(questions.findIndex((x) => x.id === q.id))}
-              className="flex w-full justify-between rounded-lg border border-slate-100 bg-white p-2.5 text-left text-xs hover:border-brand-300"
-            >
-              <span className="truncate text-slate-500">{q.body || "（未入力）"}</span>
-              <span className="text-slate-400">{q.answer}</span>
-            </button>
-          ))}
-      </div>
-    </>
-  );
-}
-
-// 何十問もある場合に「前へ」を連打しなくても目的の問題へ直接移動できる、
-// 番号を入力してジャンプする簡易コントロール。
-function JumpControl({ total, onJump }: { total: number; onJump: (index: number) => void }) {
-  const [value, setValue] = useState("");
-  return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        const n = parseInt(value, 10);
-        if (!isNaN(n)) onJump(n - 1);
-        setValue("");
-      }}
-      className="flex items-center gap-1.5"
-    >
-      <input
-        type="number"
-        min={1}
-        max={total}
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        placeholder="番号"
-        className="w-16 rounded-lg border border-slate-200 p-1.5 text-sm focus:border-brand-400 focus:outline-none"
-      />
-      <button
-        type="submit"
-        className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 hover:border-brand-300 hover:text-brand-600"
-      >
-        へ移動
-      </button>
-    </form>
+      {recent.length > 0 && (
+        <div className="mt-6">
+          <p className="mb-2 text-xs font-medium text-slate-400">最近作成した自分の問題</p>
+          <div className="space-y-2">
+            {recent.map((q: Question) =>
+              editingId === q.id ? (
+                <QuestionEditor key={q.id} question={q} onClose={() => setEditingId(null)} />
+              ) : (
+                <button key={q.id} onClick={() => setEditingId(q.id)} className="block w-full rounded-xl border border-slate-200 bg-white p-3 text-left text-sm hover:border-brand-300">
+                  <p className="line-clamp-2 text-slate-700">{q.body || "（問題文なし）"}</p>
+                  <p className="truncate text-brand-600">{q.answer}</p>
+                </button>
+              )
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
