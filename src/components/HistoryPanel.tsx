@@ -9,7 +9,9 @@ interface Props {
 
 const fieldLabel: Record<HistoryEntry["field"], string> = {
   status: "ステータス",
-  proofreadStatus: "校正状態",
+  proofreadStatus: "裏どり状態",
+  assignee: "裏どり担当",
+  round: "Round",
 };
 
 const valueLabel: Record<string, string> = {
@@ -17,10 +19,10 @@ const valueLabel: Record<string, string> = {
   completed: "作問完了",
   adopted: "採用",
   rejected: "不採用",
-  unchecked: "未確認",
-  in_review: "校正中",
+  unchecked: "未着手",
+  in_review: "確認中",
   needs_fix: "要修正",
-  approved: "承認済み",
+  approved: "確認済み",
   on_hold: "保留",
 };
 
@@ -47,8 +49,8 @@ export function HistoryPanel({ entries }: Props) {
         {entries.map((h) => (
           <p key={h.id} className="text-xs text-slate-500">
             <span className="text-slate-400">{formatTime(h.createdAt)}</span>{" "}
-            {h.authorName || "匿名"}が{fieldLabel[h.field]}を
-            {valueLabel[h.from] ?? h.from}→{valueLabel[h.to] ?? h.to}に変更
+            {h.authorName || "匿名"}が{fieldLabel[h.field] ?? h.field}を
+            {valueLabel[h.from] ?? (h.from || "なし")}→{valueLabel[h.to] ?? (h.to || "なし")}に変更
           </p>
         ))}
       </div>

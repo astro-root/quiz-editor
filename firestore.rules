@@ -3,175 +3,241 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ---- users ----
+    // ---- users（メールを含むため本人のみ）----
     match /users/{uid} {
-      allow read: if request.auth != null && request.auth.uid == uid;
-      allow create: if request.auth != null && request.auth.uid == uid;
-      allow update: if request.auth != null && request.auth.uid == uid;
+      allow read, create, update: if request.auth != null && request.auth.uid == uid;
+      allow delete: if false;
+    }
+
+    // ---- publicProfiles（招待のユーザー検索用。メールは含めない）----
+    // ログイン済みなら誰でも読める。書けるのは本人だけ・決められた項目だけ。
+    match /publicProfiles/{uid} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['displayName', 'displayNameLower', 'photoURL', 'updatedAt'])
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() > 0
+        && request.resource.data.displayName.size() <= 40
+        && request.resource.data.displayNameLower is string
+        && request.resource.data.displayNameLower.size() <= 80
+        && request.resource.data.photoURL is string
+        && request.resource.data.photoURL.size() <= 500
+        && (request.resource.data.photoURL == '' || request.resource.data.photoURL.matches('^https://.*'));
       allow delete: if false;
     }
 
     // ---- questionSets ----
     match /questionSets/{setId} {
 
-      function membersMap() {
-        return resource.data.members;
+      function members() { return resource.data.members; }
+      function myRole() { return request.auth == null ? null : members().get(request.auth.uid, null); }
+      function isMember() { return myRole() != null; }
+      function isAdmin() { return myRole() == 'admin'; }
+      function isSupervisorOrAbove() { return myRole() in ['admin', 'supervisor']; }
+
+      // 管理者は設定を変更できるが、オーナーの管理者権限は外せない・オーナーは付け替えられない
+      function ownerKept() {
+        return request.resource.data.ownerId == resource.data.ownerId
+          && request.resource.data.members.get(resource.data.ownerId, null) == 'admin';
       }
-      function isMember() {
-        return request.auth != null && request.auth.uid in membersMap();
+
+      // ジャンル・Round・出題順ルールは管理者・問題統括
+      function supervisorEditsTaxonomy() {
+        return isSupervisorOrAbove()
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['genres', 'genreTree', 'rounds', 'updatedAt']);
       }
-      function roleOf() {
-        return membersMap()[request.auth.uid];
-      }
-      function isAdmin() {
-        return isMember() && roleOf() == 'admin';
-      }
-      function isSupervisorOrAbove() {
-        return isMember() && (roleOf() == 'admin' || roleOf() == 'supervisor');
-      }
-      function isWriterOrAbove() {
+
+      // メンバー本人が自分の表示名・アイコンだけを更新（他人の欄は触れない）
+      function syncingOwnProfile() {
         return isMember()
-          && (roleOf() == 'admin' || roleOf() == 'supervisor' || roleOf() == 'writer');
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberProfiles', 'updatedAt'])
+          && request.resource.data.memberProfiles.diff(resource.data.memberProfiles).affectedKeys()
+               .hasOnly([request.auth.uid]);
       }
 
-      allow create: if request.auth != null
-        && request.resource.data.ownerId == request.auth.uid
-        && request.resource.data.members[request.auth.uid] == 'admin';
+      // 新方式の招待（setInvites/{setId}_{uid}）を本人が承諾する。
+      // 変更できるのは「自分のmembersとmemberProfilesの1キー」だけで、役割は招待で指定されたものに限る。
+      function acceptingUidInvite() {
+        let invPath = /databases/$(database)/documents/setInvites/$(setId + '_' + request.auth.uid);
+        return request.auth != null
+          && exists(invPath)
+          && get(invPath).data.setId == setId
+          && get(invPath).data.inviteeUid == request.auth.uid
+          && !(request.auth.uid in resource.data.members)
+          && request.resource.data.members[request.auth.uid] == get(invPath).data.role
+          && request.resource.data.members.diff(resource.data.members).affectedKeys().hasOnly([request.auth.uid])
+          && request.resource.data.memberProfiles.diff(resource.data.memberProfiles).affectedKeys().hasOnly([request.auth.uid])
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'memberProfiles', 'updatedAt']);
+      }
 
-      allow read: if isMember();
-
-      // 通常の更新（名前・お知らせ）は管理者のみ。
-      // ジャンル追加は管理者・問題統括。
-      // 招待の承諾は本人が自分をmembers/memberProfilesに追加する場合のみ。
-      allow update: if isAdmin()
-        || (isSupervisorOrAbove()
-            && request.resource.data.diff(resource.data).affectedKeys()
-                 .hasOnly(['genres', 'updatedAt']))
-        || acceptingOwnInvite()
-        || migratingOwnLegacyRole();
-
-      function acceptingOwnInvite() {
+      // 旧方式（メール宛 invites/{email}）。既存の招待を受け取れるよう残す。
+      // 以前はmembersマップ全体の変更を検証しておらず、承諾時に他人の役割まで書き換えられたため、
+      // 自分のキー以外が変わっていないことを必須にした。
+      function acceptingLegacyInvite() {
         let email = request.auth.token.email;
         let invitePath = /databases/$(database)/documents/invites/$(email);
-        let onlyMembersAndTimestampChanged =
-          request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['members', 'memberProfiles', 'updatedAt']);
         return request.auth != null
           && email != null
           && exists(invitePath)
           && get(invitePath).data.setId == setId
           && request.resource.data.members[request.auth.uid] == get(invitePath).data.role
-          && onlyMembersAndTimestampChanged;
+          && request.resource.data.members.diff(resource.data.members).affectedKeys().hasOnly([request.auth.uid])
+          && request.resource.data.memberProfiles.diff(resource.data.memberProfiles).affectedKeys().hasOnly([request.auth.uid])
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'memberProfiles', 'updatedAt']);
       }
 
-      // 旧バージョン（owner/editor）のロール名が残っているドキュメントを、
-      // 本人が自分の分だけ新しいロール名（admin/writer）に自動移行できるようにする。
-      // 他人のロールを変更できないよう、変更後もmembersマップの中で
-      // 自分のキー以外が一切変わっていないことを検証する。
-      function legacyRoleFixed(before) {
-        return before == 'owner' ? 'admin' : 'writer';
-      }
+      // 旧ロール名（owner/editor）を本人が自分の分だけ新ロール名へ移行
       function migratingOwnLegacyRole() {
         let uid = request.auth.uid;
-        let before = resource.data.members[uid];
-        return request.auth != null
-          && (before == 'owner' || before == 'editor')
-          && request.resource.data.members[uid] == legacyRoleFixed(before)
+        let before = resource.data.members.get(uid, null);
+        return (before == 'owner' || before == 'editor')
+          && request.resource.data.members[uid] == (before == 'owner' ? 'admin' : 'writer')
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'updatedAt'])
           && request.resource.data.members.diff(resource.data.members).affectedKeys().hasOnly([uid]);
       }
 
-      allow delete: if isAdmin();
+      allow create: if request.auth != null
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.members[request.auth.uid] == 'admin'
+        && request.resource.data.members.keys().hasOnly([request.auth.uid]);
 
+      allow read: if isMember();
+
+      allow update: if (isAdmin() && ownerKept())
+        || supervisorEditsTaxonomy()
+        || syncingOwnProfile()
+        || acceptingUidInvite()
+        || acceptingLegacyInvite()
+        || migratingOwnLegacyRole();
+
+      allow delete: if isAdmin() && request.auth.uid == resource.data.ownerId;
+
+      // ------------------------------------------------------------
       match /questions/{questionId} {
-        function parentSet() {
-          return get(/databases/$(database)/documents/questionSets/$(setId)).data;
+        function setData() { return get(/databases/$(database)/documents/questionSets/$(setId)).data; }
+        function role() { return request.auth == null ? null : setData().members.get(request.auth.uid, null); }
+        function isSup() { return role() in ['admin', 'supervisor']; }
+        function isWriter() { return role() == 'writer'; }
+        function isMemberOfSet() { return role() != null; }
+        function changed() { return request.resource.data.diff(resource.data).affectedKeys(); }
+        function hasContent(d) {
+          return (d.body is string && d.body.trim().size() > 0)
+            || (d.answer is string && d.answer.trim().size() > 0);
         }
-        function myRole() {
-          return parentSet().members[request.auth.uid];
+        function sizesOk(d) {
+          return d.body.size() <= 5000 && d.answer.size() <= 2000
+            && d.get('explanation', '').size() <= 5000;
         }
-        function isMemberOfParent() {
-          return request.auth != null && request.auth.uid in parentSet().members;
+        // 作問者が変更できるのは問題の内容と、下書き⇔作問完了の切替、ゴミ箱への移動/復元のみ。
+        // 採用・Round・裏どり担当・出題順・作成者は触れない。
+        function writerStatusOk() {
+          return request.resource.data.status == resource.data.status
+            || (resource.data.status in ['draft', 'completed'] && request.resource.data.status in ['draft', 'completed']);
         }
-        function isWriterOrAboveOfParent() {
-          return isMemberOfParent()
-            && (myRole() == 'admin' || myRole() == 'supervisor' || myRole() == 'writer');
+        function writerOwnEdit() {
+          return isWriter()
+            && resource.data.authorUid == request.auth.uid
+            && changed().hasOnly(['body', 'answer', 'altAnswers', 'judgingCriteria', 'explanation', 'sources',
+                                  'memo', 'tags', 'genre', 'genreId', 'subGenreId', 'status',
+                                  'deletedAt', 'deletedBy', 'updatedAt'])
+            && writerStatusOk()
+            && hasContent(request.resource.data);
         }
-        function isSupervisorOrAboveOfParent() {
-          return isMemberOfParent() && (myRole() == 'admin' || myRole() == 'supervisor');
-        }
-        // 作問者はステータスをdraft/completedにしか変更できない。
-        function statusChangeAllowed() {
-          let before = resource.data.status;
-          let after = request.resource.data.status;
-          return before == after
-            || isSupervisorOrAboveOfParent()
-            || (myRole() == 'writer' && after in ['draft', 'completed']);
-        }
-        // 校正状態は問題統括・管理者のみ変更できる。
-        function proofreadChangeAllowed() {
-          return resource.data.proofreadStatus == request.resource.data.proofreadStatus
-            || isSupervisorOrAboveOfParent();
+        // 担当者（裏どり担当・作問者）は、担当問題の裏どり状態と出典だけ更新できる
+        function assigneeProofread() {
+          return role() in ['admin', 'supervisor', 'writer', 'checker']
+            && resource.data.get('assigneeUid', '') == request.auth.uid
+            && changed().hasOnly(['proofreadStatus', 'sources', 'updatedAt'])
+            && request.resource.data.proofreadStatus in ['unchecked', 'in_review', 'needs_fix', 'approved', 'on_hold'];
         }
 
-        allow read: if isMemberOfParent();
-        allow create: if isWriterOrAboveOfParent()
-          && request.resource.data.authorUid == request.auth.uid;
-        allow update: if isSupervisorOrAboveOfParent()
-          || (myRole() == 'writer'
-              && resource.data.authorUid == request.auth.uid
-              && statusChangeAllowed()
-              && proofreadChangeAllowed());
-        allow delete: if isSupervisorOrAboveOfParent()
-          || (myRole() == 'writer' && resource.data.authorUid == request.auth.uid);
+        allow read: if isMemberOfSet();
 
-        // コメントは役割を問わず、そのセットのメンバーなら誰でも投稿できる。
+        // 問題文も答えも空のドキュメントは作れない（空問題が増える不具合の再発防止）
+        allow create: if (isSup() || isWriter())
+          && request.resource.data.authorUid == request.auth.uid
+          && hasContent(request.resource.data)
+          && sizesOk(request.resource.data)
+          && (isSup() || (request.resource.data.status in ['draft', 'completed']
+                          && request.resource.data.get('roundId', '') == ''
+                          && request.resource.data.get('assigneeUid', '') == ''
+                          && request.resource.data.get('playOrder', null) == null));
+
+        allow update: if isSup()
+          || writerOwnEdit()
+          || assigneeProofread();
+
+        // 完全削除：管理者・問題統括、または作問者が自分の「ゴミ箱内 or 空」の問題を削除
+        allow delete: if isSup()
+          || (isWriter() && resource.data.authorUid == request.auth.uid
+              && (resource.data.get('deletedAt', null) != null || !hasContent(resource.data)));
+
         match /comments/{commentId} {
-          allow read: if isMemberOfParent();
-          allow create: if isMemberOfParent()
-            && request.resource.data.authorUid == request.auth.uid;
-          allow update, delete: if request.auth != null
-            && resource.data.authorUid == request.auth.uid;
+          allow read: if isMemberOfSet();
+          allow create: if isMemberOfSet()
+            && request.resource.data.authorUid == request.auth.uid
+            && request.resource.data.body is string
+            && request.resource.data.body.size() <= 2000;
+          allow update, delete: if request.auth != null && resource.data.authorUid == request.auth.uid;
         }
 
-        // 変更履歴（ステータス・校正状態のみ）。追記のみで編集・削除は不可。
+        // 変更履歴（採用状態・裏どり状態・担当・Round）。追記のみ。閲覧者は書けない。
         match /history/{historyId} {
-          allow read: if isMemberOfParent();
-          allow create: if isMemberOfParent()
-            && request.resource.data.authorUid == request.auth.uid;
+          allow read: if isMemberOfSet();
+          allow create: if role() in ['admin', 'supervisor', 'writer', 'checker']
+            && request.resource.data.authorUid == request.auth.uid
+            && request.resource.data.field in ['status', 'proofreadStatus', 'assignee', 'round'];
           allow update, delete: if false;
         }
 
-        // 問題文・答えの改訂スナップショット。問題統括・管理者のみ作成できる。
         match /revisions/{revisionId} {
-          allow read: if isMemberOfParent();
-          allow create: if isSupervisorOrAboveOfParent()
-            && request.resource.data.editedByUid == request.auth.uid;
+          allow read: if isMemberOfSet();
+          allow create: if isSup() && request.resource.data.editedByUid == request.auth.uid;
           allow update, delete: if false;
         }
       }
 
-      match /pendingInvites/{email} {
+      // 招待中一覧（管理者のみ閲覧）。新方式のドキュメントIDは招待された人のuid。
+      match /pendingInvites/{pid} {
         allow read: if isAdmin();
         allow create: if isAdmin();
         allow delete: if isAdmin()
-          || (request.auth != null && request.auth.token.email == email);
+          || (request.auth != null && (request.auth.uid == pid || request.auth.token.email == pid));
         allow update: if false;
       }
     }
 
-    // ---- invites ----
+    // ---- setInvites（ユーザーを選んで招待）----
+    // ID は「{setId}_{招待される人のuid}」。重複招待はIDが同じなので作れない（上書き不可）。
+    match /setInvites/{inviteId} {
+      function setOf(sid) { return get(/databases/$(database)/documents/questionSets/$(sid)).data; }
+      allow read: if request.auth != null
+        && (resource.data.inviteeUid == request.auth.uid
+            || setOf(resource.data.setId).members.get(request.auth.uid, null) == 'admin');
+      allow create: if request.auth != null
+        && inviteId == request.resource.data.setId + '_' + request.resource.data.inviteeUid
+        && request.resource.data.invitedBy == request.auth.uid
+        && request.resource.data.inviteeUid != request.auth.uid
+        && request.resource.data.role in ['admin', 'supervisor', 'writer', 'checker', 'viewer']
+        && setOf(request.resource.data.setId).members.get(request.auth.uid, null) == 'admin'
+        && !(request.resource.data.inviteeUid in setOf(request.resource.data.setId).members);
+      allow update: if false;
+      allow delete: if request.auth != null
+        && (resource.data.inviteeUid == request.auth.uid
+            || setOf(resource.data.setId).members.get(request.auth.uid, null) == 'admin');
+    }
+
+    // ---- invites（旧方式：メールアドレス宛。新規作成はしない）----
     match /invites/{email} {
       allow read: if request.auth != null && request.auth.token.email == email;
-      allow create: if request.auth != null
-        && request.resource.data.invitedBy == request.auth.uid
-        && get(/databases/$(database)/documents/questionSets/$(request.resource.data.setId))
-             .data.members[request.auth.uid] == 'admin';
+      allow create: if false;
+      allow update: if false;
       allow delete: if request.auth != null
         && (request.auth.token.email == email
             || get(/databases/$(database)/documents/questionSets/$(resource.data.setId))
-                 .data.members[request.auth.uid] == 'admin');
-      allow update: if false;
+                 .data.members.get(request.auth.uid, null) == 'admin');
     }
   }
 }

@@ -1,42 +1,27 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import {
-  addDoc,
-  arrayUnion,
-  collection,
-  doc,
-  onSnapshot,
-  query,
-  serverTimestamp,
-  updateDoc,
-  where,
-} from "firebase/firestore";
+import { addDoc, arrayUnion, collection, doc, onSnapshot, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import { db } from "./firebase";
-import { QuestionSet } from "./types";
+import { GenreNode, QuestionSet, Round } from "./types";
 import { useAuth } from "./auth-context";
 
-// v1〜v2で使っていたロール名（owner/editor）を新ロール名に変換する対応表。
-// 新しいロール名（admin/supervisor/writer/viewer）はここに含めない。
-const LEGACY_ROLE_MAP: Record<string, string> = {
-  owner: "admin",
-  editor: "writer",
-};
+const LEGACY_ROLE_MAP: Record<string, string> = { owner: "admin", editor: "writer" };
 
 function toMillis(v: any): number {
-  if (!v) return 0;
-  if (typeof v.toMillis === "function") return v.toMillis();
-  return 0;
+  return v && typeof v.toMillis === "function" ? v.toMillis() : 0;
 }
 
 function toSet(id: string, data: any): QuestionSet {
   return {
     id,
-    name: data.name,
-    ownerId: data.ownerId,
+    name: data.name ?? "",
+    ownerId: data.ownerId ?? "",
     members: data.members ?? {},
     memberProfiles: data.memberProfiles ?? {},
     genres: data.genres ?? [],
+    genreTree: data.genreTree ?? [],
+    rounds: data.rounds ?? [],
     noticeBody: data.noticeBody ?? "",
     createdAt: toMillis(data.createdAt),
     updatedAt: toMillis(data.updatedAt),
@@ -56,14 +41,21 @@ export function useQuestionSets() {
     }
     const q = query(
       collection(db, "questionSets"),
-      where(`members.${user.uid}`, "in", ["admin", "supervisor", "writer", "viewer"])
+      where(`members.${user.uid}`, "in", ["admin", "supervisor", "writer", "checker", "viewer"])
     );
-    const unsub = onSnapshot(q, (snap) => {
-      const rows = snap.docs.map((d) => toSet(d.id, d.data()));
-      rows.sort((a, b) => b.updatedAt - a.updatedAt);
-      setSets(rows);
-      setLoading(false);
-    });
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const rows = snap.docs.map((d) => toSet(d.id, d.data()));
+        rows.sort((a, b) => b.updatedAt - a.updatedAt);
+        setSets(rows);
+        setLoading(false);
+      },
+      (err) => {
+        console.error("問題セットの取得に失敗しました", err);
+        setLoading(false);
+      }
+    );
     return unsub;
   }, [user]);
 
@@ -74,12 +66,11 @@ export function useQuestionSets() {
       ownerId: user.uid,
       members: { [user.uid]: "admin" },
       memberProfiles: {
-        [user.uid]: {
-          email: user.email ?? "",
-          displayName: user.displayName ?? "",
-        },
+        [user.uid]: { email: user.email ?? "", displayName: user.displayName ?? "", photoURL: user.photoURL ?? "" },
       },
       genres: [],
+      genreTree: [],
+      rounds: [],
       noticeBody: "",
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -90,61 +81,91 @@ export function useQuestionSets() {
   return { sets, loading, createQuestionSet };
 }
 
-// 単一の問題セットをリアルタイム購読する（役割変更が即座に反映されるように）。
-// あわせて、開いたユーザー自身の役割が旧バージョンの名称（owner/editor）の
-// ままだった場合、自動的に新しい名称に移行する（手動でのFirestore編集を不要にする）。
+export interface SetActions {
+  saveGenreTree: (tree: GenreNode[]) => Promise<void>;
+  saveRounds: (rounds: Round[]) => Promise<void>;
+  updateNotice: (body: string) => Promise<void>;
+  updateMembers: (patch: Record<string, unknown>) => Promise<void>;
+}
+
+// 単一の問題セットをリアルタイム購読する。
 export function useQuestionSet(setId: string) {
   const { user } = useAuth();
   const [set, setSet] = useState<QuestionSet | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const migratingRef = useRef(false);
+  const profileRef = useRef(false);
 
   useEffect(() => {
     if (!setId) return;
-    const unsub = onSnapshot(doc(db, "questionSets", setId), (snap) => {
-      if (!snap.exists()) {
-        setSet(null);
+    setLoading(true);
+    const unsub = onSnapshot(
+      doc(db, "questionSets", setId),
+      (snap) => {
+        if (!snap.exists()) {
+          setSet(null);
+          setLoading(false);
+          return;
+        }
+        const data = snap.data();
+        setSet(toSet(snap.id, data));
+        setError(null);
         setLoading(false);
-        return;
-      }
-      const data = snap.data();
-      setSet(toSet(snap.id, data));
-      setLoading(false);
 
-      if (user && !migratingRef.current) {
+        if (!user) return;
+        // 旧ロール名（owner/editor）の自己移行
         const rawRole = data.members?.[user.uid];
         const mapped = LEGACY_ROLE_MAP[rawRole];
-        if (mapped) {
+        if (mapped && !migratingRef.current) {
           migratingRef.current = true;
           updateDoc(doc(db, "questionSets", setId), {
             [`members.${user.uid}`]: mapped,
             updatedAt: serverTimestamp(),
           })
-            .catch(() => {})
-            .finally(() => {
-              migratingRef.current = false;
-            });
+            .catch((e) => console.error("ロール移行に失敗しました", e))
+            .finally(() => (migratingRef.current = false));
         }
+        // 自分の表示名・アイコンが変わっていたら自分の分だけ同期（他メンバーの表示を最新に保つ）
+        const mine = data.memberProfiles?.[user.uid];
+        const name = user.displayName ?? "";
+        const photo = user.photoURL ?? "";
+        if (
+          rawRole && !mapped && !profileRef.current && mine &&
+          (mine.displayName !== name || (mine.photoURL ?? "") !== photo)
+        ) {
+          profileRef.current = true;
+          updateDoc(doc(db, "questionSets", setId), {
+            [`memberProfiles.${user.uid}`]: { email: mine.email ?? user.email ?? "", displayName: name, photoURL: photo },
+            updatedAt: serverTimestamp(),
+          })
+            .catch((e) => console.error("プロフィール同期に失敗しました", e))
+            .finally(() => (profileRef.current = false));
+        }
+      },
+      (err) => {
+        console.error("問題セットの購読に失敗しました", err);
+        setError(err.code === "permission-denied" ? "denied" : "error");
+        setLoading(false);
       }
-    });
+    );
     return unsub;
   }, [setId, user]);
 
-  async function addGenre(genre: string) {
-    const trimmed = genre.trim();
-    if (!trimmed) return;
-    await updateDoc(doc(db, "questionSets", setId), {
-      genres: arrayUnion(trimmed),
-      updatedAt: serverTimestamp(),
-    });
-  }
+  const actions: SetActions = {
+    async saveGenreTree(tree) {
+      await updateDoc(doc(db, "questionSets", setId), { genreTree: tree, updatedAt: serverTimestamp() });
+    },
+    async saveRounds(rounds) {
+      await updateDoc(doc(db, "questionSets", setId), { rounds, updatedAt: serverTimestamp() });
+    },
+    async updateNotice(noticeBody) {
+      await updateDoc(doc(db, "questionSets", setId), { noticeBody, updatedAt: serverTimestamp() });
+    },
+    async updateMembers(patch) {
+      await updateDoc(doc(db, "questionSets", setId), { ...patch, updatedAt: serverTimestamp() });
+    },
+  };
 
-  async function updateNotice(noticeBody: string) {
-    await updateDoc(doc(db, "questionSets", setId), {
-      noticeBody,
-      updatedAt: serverTimestamp(),
-    });
-  }
-
-  return { set, loading, addGenre, updateNotice };
+  return { set, loading, error, actions };
 }
