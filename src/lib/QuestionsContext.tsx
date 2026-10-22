@@ -103,8 +103,7 @@ export function QuestionsProvider({ setId, children }: { setId: string; children
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const creating = useRef(false);
-  const allRef = useRef<Question[]>([]);
-  allRef.current = all;
+  const dupIndexRef = useRef<Map<string, Question[]>>(new Map());
 
   // セット単位で1回だけ購読する。タブを切り替えても読み直さない（2000問×タブ切替ごとの再読込を防ぐ）
   useEffect(() => {
@@ -141,6 +140,21 @@ export function QuestionsProvider({ setId, children }: { setId: string; children
     trash.sort((a, b) => b.deletedAt! - a.deletedAt!);
     return { live, trash, emptyLegacy, byId };
   }, [all]);
+
+  // 問題文（前後の空白除去）→ その問題文を持つ未削除の問題。入力のたびの全件走査を避ける
+  const dupIndex = useMemo(() => {
+    const m = new Map<string, Question[]>();
+    for (const q of all) {
+      if (q.deletedAt) continue;
+      const k = q.body.trim();
+      if (!k) continue;
+      const arr = m.get(k);
+      if (arr) arr.push(q);
+      else m.set(k, [q]);
+    }
+    return m;
+  }, [all]);
+  dupIndexRef.current = dupIndex;
 
   const col = useCallback((...p: string[]) => collection(db, "questionSets", setId, "questions", ...p), [setId]);
   const nameOfMe = () => user?.displayName || user?.email || "匿名";
@@ -255,7 +269,7 @@ export function QuestionsProvider({ setId, children }: { setId: string; children
   const findDuplicate = useCallback((body: string, excludeId?: string) => {
     const t = body.trim();
     if (!t) return null;
-    return allRef.current.find((q) => !q.deletedAt && q.id !== excludeId && q.body.trim() === t) ?? null;
+    return dupIndexRef.current.get(t)?.find((q) => q.id !== excludeId) ?? null;
   }, []);
 
   const value: Store = {
