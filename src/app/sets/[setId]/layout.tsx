@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, PencilLine, ListChecks, ShieldCheck, ListOrdered, Trash2, Users2, Megaphone, ArrowUpDown, Settings } from "lucide-react";
+import { ArrowLeft, PencilLine, ListChecks, ShieldCheck, ListOrdered, Trash2, Users2, Megaphone, ArrowUpDown, Settings, Printer } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useQuestionSet } from "@/lib/useQuestionSets";
 import { SetProvider, useSetContext } from "@/lib/SetContext";
@@ -20,6 +20,7 @@ const tabs = [
   { href: "/trash", label: "ゴミ箱", icon: Trash2, match: ["/trash"] },
   { href: "/members", label: "メンバー", icon: Users2, match: ["/members"] },
   { href: "/io", label: "入出力", icon: ArrowUpDown, match: ["/io"] },
+  { href: "/print", label: "印刷", icon: Printer, match: ["/print"] },
   { href: "/settings", label: "設定", icon: Settings, match: ["/settings"] },
 ];
 
@@ -32,9 +33,9 @@ function SetShell({ children }: { children: React.ReactNode }) {
   const rel = pathname.startsWith(base) ? pathname.slice(base.length) : "";
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="mx-auto max-w-4xl px-3 pb-16 pt-4 sm:px-6 sm:pt-6">
-        <div className="mb-4 flex items-center justify-between gap-2">
+    <div className="min-h-screen bg-slate-50 print:min-h-0 print:bg-white">
+      <div className="mx-auto max-w-4xl px-3 pb-16 pt-4 sm:px-6 sm:pt-6 print:max-w-none print:p-0">
+        <div className="mb-4 flex items-center justify-between gap-2 print:hidden">
           <div className="min-w-0">
             <Link href="/dashboard" className="mb-1 flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600">
               <ArrowLeft size={12} /> 一覧へ戻る
@@ -47,7 +48,7 @@ function SetShell({ children }: { children: React.ReactNode }) {
           </button>
         </div>
 
-        <nav aria-label="セクション" className="-mx-3 mb-4 overflow-x-auto px-3 sm:mx-0 sm:px-0">
+        <nav aria-label="セクション" className="-mx-3 mb-4 overflow-x-auto px-3 sm:mx-0 sm:px-0 print:hidden">
           <div className="inline-flex min-w-full gap-1 rounded-xl bg-slate-100 p-1 sm:min-w-0">
             {tabs.map((t) => {
               const active = t.match.includes(rel) || (t.href !== "" && t.match.some((m) => m && rel.startsWith(m + "/")));

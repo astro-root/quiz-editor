@@ -22,3 +22,12 @@ body {
     radial-gradient(600px circle at 15% 20%, rgba(99, 102, 241, 0.12), transparent 60%),
     radial-gradient(500px circle at 85% 0%, rgba(56, 189, 248, 0.12), transparent 55%);
 }
+
+@media print {
+  body {
+    background-color: #fff;
+  }
+  @page {
+    margin: 15mm;
+  }
+}
