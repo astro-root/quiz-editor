@@ -1,6 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/auth-context";
+import { deleteQuestionSet } from "@/lib/deleteSet";
 import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useSetContext } from "@/lib/SetContext";
 import { useQuestionStore } from "@/lib/QuestionsContext";
@@ -32,6 +35,25 @@ export default function SettingsPage() {
   const [newRound, setNewRound] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const { user } = useAuth();
+  const router = useRouter();
+  const [delText, setDelText] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const isOwner = !!user && set.ownerId === user.uid;
+
+  async function handleDeleteSet() {
+    if (!isOwner || delText !== "削除" || deleting) return;
+    setDeleting(true);
+    setError("");
+    try {
+      await deleteQuestionSet(set.id);
+      router.push("/dashboard");
+    } catch (e: any) {
+      console.error(e);
+      setError(e?.code === "permission-denied" ? "セットを削除する権限がありません（オーナーのみ）" : "削除に失敗しました。途中まで削除されている可能性があるので、もう一度お試しください");
+      setDeleting(false);
+    }
+  }
 
   // 使用数（ゴミ箱の問題も数える：復元したときに参照が壊れないように）
   const usage = useMemo(() => {
@@ -210,6 +232,17 @@ export default function SettingsPage() {
           </div>
         )}
       </section>
+
+      {isOwner && (
+        <section className="mb-5 rounded-2xl border border-rose-200 bg-white p-5">
+          <h2 className="mb-1 text-sm font-medium text-rose-600">問題セットの削除</h2>
+          <p className="mb-3 text-xs text-slate-400">このセットと、中のすべての問題を完全に削除します。元に戻せません。招待中のユーザーがいる場合は、先にメンバー画面で招待を解除してください。</p>
+          <div className="flex gap-2">
+            <input value={delText} onChange={(e) => setDelText(e.target.value)} placeholder="確認のため「削除」と入力" className={inputCls} />
+            <button disabled={delText !== "削除" || deleting} onClick={handleDeleteSet} className="rounded-lg bg-rose-600 px-3 text-sm text-white hover:bg-rose-700 disabled:opacity-40">{deleting ? "削除中…" : "セットを削除"}</button>
+          </div>
+        </section>
+      )}
     </div>
   );
 }
