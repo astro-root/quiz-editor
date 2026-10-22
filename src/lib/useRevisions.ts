@@ -1,5 +1,6 @@
 "use client";
 
+import { toMillis } from "./time";
 import { useEffect, useState } from "react";
 import {
   addDoc,
@@ -13,11 +14,6 @@ import { db } from "./firebase";
 import { Revision } from "./types";
 import { useAuth } from "./auth-context";
 
-function toMillis(v: any): number {
-  if (!v) return 0;
-  if (typeof v.toMillis === "function") return v.toMillis();
-  return 0;
-}
 
 // 問題文・答えの改訂スナップショット。問題統括・管理者が編集する際、
 // 変更前の内容をここに保存してから更新する（permissions.shouldLogRevision参照）。

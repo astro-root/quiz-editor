@@ -1,5 +1,6 @@
 "use client";
 
+import { toMillis } from "./time";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, ReactNode } from "react";
 import {
   collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp, writeBatch,
@@ -9,9 +10,6 @@ import { HistoryField, MAX_SOURCES, Question } from "./types";
 import { isEmptyQuestion } from "./permissions";
 import { useAuth } from "./auth-context";
 
-function toMillis(v: any): number {
-  return v && typeof v.toMillis === "function" ? v.toMillis() : 0;
-}
 function padSources(sources: string[] | undefined): string[] {
   const arr = (sources ?? []).slice(0, MAX_SOURCES);
   while (arr.length < MAX_SOURCES) arr.push("");
