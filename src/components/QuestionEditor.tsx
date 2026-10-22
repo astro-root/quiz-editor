@@ -59,6 +59,14 @@ export function QuestionEditor({ question, onClose }: { question: Question; onCl
     const b = toDraft(base.current);
     return (Object.keys(draft) as (keyof Draft)[]).some((k) => !same(draft[k], b[k]));
   }, [draft]);
+
+  // 未保存の変更があるまま閉じる／リロードする場合にブラウザの確認を出す
+  useEffect(() => {
+    if (!dirty) return;
+    const h = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", h);
+    return () => window.removeEventListener("beforeunload", h);
+  }, [dirty]);
   // 自分が編集中に他の人が同じ問題を更新した場合に知らせる
   const remoteChanged = question.updatedAt !== base.current.updatedAt && dirty;
 
