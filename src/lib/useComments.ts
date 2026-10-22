@@ -1,5 +1,6 @@
 "use client";
 
+import { toMillis } from "./time";
 import { useEffect, useState } from "react";
 import {
   addDoc,
@@ -13,11 +14,6 @@ import { db } from "./firebase";
 import { QuestionComment } from "./types";
 import { useAuth } from "./auth-context";
 
-function toMillis(v: any): number {
-  if (!v) return 0;
-  if (typeof v.toMillis === "function") return v.toMillis();
-  return 0;
-}
 
 // コメントは役割を問わず（閲覧者でも）自由に付けられるようにする。
 // 校正・レビューのやり取りを問題オブジェクトに直接紐付けるための機能。

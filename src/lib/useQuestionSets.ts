@@ -1,5 +1,6 @@
 "use client";
 
+import { toMillis } from "./time";
 import { useEffect, useRef, useState } from "react";
 import { addDoc, arrayUnion, collection, doc, onSnapshot, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import { db } from "./firebase";
@@ -8,9 +9,6 @@ import { useAuth } from "./auth-context";
 
 const LEGACY_ROLE_MAP: Record<string, string> = { owner: "admin", editor: "writer" };
 
-function toMillis(v: any): number {
-  return v && typeof v.toMillis === "function" ? v.toMillis() : 0;
-}
 
 function toSet(id: string, data: any): QuestionSet {
   return {

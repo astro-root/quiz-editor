@@ -1,5 +1,6 @@
 "use client";
 
+import { toMillis } from "./time";
 import { useEffect, useState } from "react";
 import {
   collection,
@@ -10,11 +11,6 @@ import {
 import { db } from "./firebase";
 import { HistoryEntry } from "./types";
 
-function toMillis(v: any): number {
-  if (!v) return 0;
-  if (typeof v.toMillis === "function") return v.toMillis();
-  return 0;
-}
 
 // 変更履歴はステータス／校正状態の変更のみを記録する。
 // 本文・解説などは打鍵のたびにdebounce保存されるため、
