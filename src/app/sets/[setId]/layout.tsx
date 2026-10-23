@@ -33,7 +33,7 @@ function SetShell({ children }: { children: React.ReactNode }) {
   const rel = pathname.startsWith(base) ? pathname.slice(base.length) : "";
 
   return (
-    <div className="min-h-screen bg-slate-50 print:min-h-0 print:bg-white">
+    <div className="min-h-screen bg-slate-50 print:min-h-0 print:bg-surface">
       <div className="mx-auto max-w-4xl px-3 pb-16 pt-4 sm:px-6 sm:pt-6 print:max-w-none print:p-0">
         <div className="mb-4 flex items-center justify-between gap-2 print:hidden">
           <div className="min-w-0">
@@ -42,7 +42,7 @@ function SetShell({ children }: { children: React.ReactNode }) {
             </Link>
             <h1 className="truncate text-lg font-semibold text-slate-800">{set.name}</h1>
           </div>
-          <button onClick={() => setShowShare(true)} className="flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-600 shadow-sm hover:border-brand-300 hover:text-brand-600">
+          <button onClick={() => setShowShare(true)} className="flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-surface px-3 py-1.5 text-sm text-slate-600 shadow-sm hover:border-brand-300 hover:text-accent">
             <Users2 size={15} />
             {canManageMembers(role) ? "招待・権限" : "メンバー"}
           </button>
@@ -54,7 +54,7 @@ function SetShell({ children }: { children: React.ReactNode }) {
               const active = t.match.includes(rel) || (t.href !== "" && t.match.some((m) => m && rel.startsWith(m + "/")));
               return (
                 <Link key={t.href} href={base + t.href} aria-current={active ? "page" : undefined}
-                  className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition ${active ? "bg-white text-brand-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+                  className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition ${active ? "bg-surface text-accent shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
                   <t.icon size={15} />
                   {t.label}
                   {t.href === "/trash" && store.trash.length > 0 && <span className="rounded-full bg-slate-200 px-1.5 text-[10px] text-slate-500">{store.trash.length}</span>}
@@ -64,7 +64,7 @@ function SetShell({ children }: { children: React.ReactNode }) {
           </div>
         </nav>
 
-        {store.error && <p role="alert" className="mb-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600">{store.error}</p>}
+        {store.error && <p role="alert" className="mb-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-400">{store.error}</p>}
         {store.loading ? <p className="p-8 text-center text-sm text-slate-400">読み込み中…</p> : children}
 
         {showShare && <ShareDialog set={set} isAdmin={canManageMembers(role)} onClose={() => setShowShare(false)} />}

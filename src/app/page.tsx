@@ -75,7 +75,7 @@ export default function Home() {
   if (loading || user) return null;
 
   return (
-    <div className="min-h-screen overflow-hidden bg-white">
+    <div className="min-h-screen overflow-hidden bg-surface">
       <header className="mx-auto flex max-w-5xl items-center justify-between px-6 py-6">
         <div className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-sky-400 text-white shadow-sm">
@@ -134,7 +134,7 @@ export default function Home() {
               </Link>
               <Link
                 href="/login"
-                className="rounded-lg border border-slate-200 bg-white px-5 py-3 text-sm font-medium text-slate-600 hover:border-brand-300 hover:text-brand-600"
+                className="rounded-lg border border-slate-200 bg-surface px-5 py-3 text-sm font-medium text-slate-600 hover:border-brand-300 hover:text-accent"
               >
                 ログイン
               </Link>
@@ -145,7 +145,7 @@ export default function Home() {
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="rounded-2xl border border-slate-100 bg-white p-5 shadow-pop"
+            className="rounded-2xl border border-slate-100 bg-surface p-5 shadow-pop"
           >
             <div className="mb-3 flex items-center justify-between">
               <span className="flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-500">
@@ -162,7 +162,7 @@ export default function Home() {
             <div className="mb-2 rounded-xl border border-slate-200 p-3 text-sm leading-relaxed text-slate-700">
               日本で最も面積の大きい都道府県はどこでしょう？
             </div>
-            <div className="mb-4 rounded-xl border border-brand-100 bg-brand-50/50 p-3 text-sm font-medium text-brand-700">
+            <div className="mb-4 rounded-xl border border-brand-100 bg-brand-50/50 p-3 text-sm font-medium text-accent-strong">
               北海道
             </div>
             <div className="flex items-center justify-between text-xs text-slate-400">
@@ -202,9 +202,9 @@ export default function Home() {
               variants={fadeUp}
               transition={{ duration: 0.4, delay: i * 0.08 }}
               whileHover={{ y: -3 }}
-              className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm transition-shadow hover:shadow-pop"
+              className="rounded-2xl border border-slate-100 bg-surface p-6 shadow-sm transition-shadow hover:shadow-pop"
             >
-              <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+              <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-brand-50 text-accent">
                 <f.icon size={18} />
               </div>
               <h3 className="mb-1 font-medium text-slate-800">{f.title}</h3>
@@ -235,13 +235,13 @@ export default function Home() {
                 viewport={{ once: true, amount: 0.4 }}
                 variants={fadeUp}
                 transition={{ duration: 0.4, delay: i * 0.12 }}
-                className="relative rounded-2xl border border-slate-100 bg-white p-6 shadow-sm"
+                className="relative rounded-2xl border border-slate-100 bg-surface p-6 shadow-sm"
               >
                 <span className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-sky-400 text-xs font-semibold text-white">
                   {i + 1}
                 </span>
                 <div className="mb-2 flex items-center gap-2">
-                  <w.icon size={16} className="text-brand-600" />
+                  <w.icon size={16} className="text-accent" />
                   <h3 className="font-medium text-slate-800">{w.role}</h3>
                 </div>
                 <p className="text-sm text-slate-500">{w.body}</p>
@@ -291,7 +291,7 @@ export default function Home() {
         <p className="relative mb-8 text-brand-50">アカウント登録は1分で終わる。</p>
         <Link
           href="/signup"
-          className="relative rounded-lg bg-white px-6 py-3 text-sm font-medium text-brand-600 shadow-sm transition hover:bg-brand-50"
+          className="relative rounded-lg bg-surface px-6 py-3 text-sm font-medium text-accent shadow-sm transition hover:bg-brand-50"
         >
           無料で始める
         </Link>

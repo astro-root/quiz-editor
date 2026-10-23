@@ -11,7 +11,7 @@ import { canManageGenres } from "@/lib/permissions";
 import { newId } from "@/lib/genres";
 import { GenreNode, Round } from "@/lib/types";
 
-const card = "mb-5 rounded-2xl border border-slate-100 bg-white p-5 shadow-card";
+const card = "mb-5 rounded-2xl border border-slate-100 bg-surface p-5 shadow-card";
 const inputCls = "min-w-0 flex-1 rounded-lg border border-slate-200 p-2 text-sm focus:border-brand-400 focus:outline-none";
 
 function InlineName({ value, onSave, onCancel }: { value: string; onSave: (v: string) => void; onCancel: () => void }) {
@@ -19,7 +19,7 @@ function InlineName({ value, onSave, onCancel }: { value: string; onSave: (v: st
   return (
     <span className="flex flex-1 items-center gap-1">
       <input autoFocus value={v} onChange={(e) => setV(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") onSave(v); if (e.key === "Escape") onCancel(); }} className={inputCls} />
-      <button onClick={() => onSave(v)} aria-label="確定" className="text-emerald-600"><Check size={16} /></button>
+      <button onClick={() => onSave(v)} aria-label="確定" className="text-emerald-400"><Check size={16} /></button>
       <button onClick={onCancel} aria-label="キャンセル" className="text-slate-400"><X size={16} /></button>
     </span>
   );
@@ -155,7 +155,7 @@ export default function SettingsPage() {
   return (
     <div className="mx-auto max-w-2xl">
       {!editable && <p className="mb-4 rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-500">ジャンルとRoundの編集は管理者・問題統括のみ行えます。</p>}
-      {error && <p role="alert" className="mb-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600">{error}</p>}
+      {error && <p role="alert" className="mb-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-400">{error}</p>}
 
       <section className={card}>
         <h2 className="mb-1 text-sm font-medium text-slate-600">ジャンル（大ジャンル → 小ジャンル）</h2>
@@ -180,10 +180,10 @@ export default function SettingsPage() {
                   editing === `s:${g.id}/${s.id}` ? (
                     <span key={s.id} className="flex w-full"><InlineName value={s.name} onSave={(v) => renameSub(g, s.id, v)} onCancel={() => setEditing(null)} /></span>
                   ) : (
-                    <span key={s.id} className="flex items-center gap-1 rounded-full bg-brand-50 px-2.5 py-1 text-xs text-brand-600">
-                      {s.name}<span className="text-brand-400">{usage.sub.get(`${g.id}/${s.id}`) ?? 0}</span>
-                      {editable && <><button disabled={busy} onClick={() => setEditing(`s:${g.id}/${s.id}`)} aria-label="名前を変更" className="text-brand-400 hover:text-brand-600"><Pencil size={11} /></button>
-                      <button disabled={busy} onClick={() => deleteSub(g, s.id, s.name)} aria-label="削除" className="text-brand-400 hover:text-rose-500"><X size={12} /></button></>}
+                    <span key={s.id} className="flex items-center gap-1 rounded-full bg-brand-50 px-2.5 py-1 text-xs text-accent">
+                      {s.name}<span className="text-accent-dim">{usage.sub.get(`${g.id}/${s.id}`) ?? 0}</span>
+                      {editable && <><button disabled={busy} onClick={() => setEditing(`s:${g.id}/${s.id}`)} aria-label="名前を変更" className="text-accent-dim hover:text-accent"><Pencil size={11} /></button>
+                      <button disabled={busy} onClick={() => deleteSub(g, s.id, s.name)} aria-label="削除" className="text-accent-dim hover:text-rose-400"><X size={12} /></button></>}
                     </span>
                   )
                 )}
@@ -234,8 +234,8 @@ export default function SettingsPage() {
       </section>
 
       {isOwner && (
-        <section className="mb-5 rounded-2xl border border-rose-200 bg-white p-5">
-          <h2 className="mb-1 text-sm font-medium text-rose-600">問題セットの削除</h2>
+        <section className="mb-5 rounded-2xl border border-rose-200 bg-surface p-5">
+          <h2 className="mb-1 text-sm font-medium text-rose-400">問題セットの削除</h2>
           <p className="mb-3 text-xs text-slate-400">このセットと、中のすべての問題を完全に削除します。元に戻せません。招待中のユーザーがいる場合は、先にメンバー画面で招待を解除してください。</p>
           <div className="flex gap-2">
             <input value={delText} onChange={(e) => setDelText(e.target.value)} placeholder="確認のため「削除」と入力" className={inputCls} />

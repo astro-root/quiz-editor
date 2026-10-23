@@ -5,7 +5,7 @@ import { Printer } from "lucide-react";
 import { useSetContext } from "@/lib/SetContext";
 import { useQuestionStore } from "@/lib/QuestionsContext";
 
-const sel = "rounded-lg border border-slate-200 bg-white p-2 text-sm";
+const sel = "rounded-lg border border-slate-200 bg-surface p-2 text-sm";
 
 export default function PrintPage() {
   const { set, gi } = useSetContext();
@@ -40,7 +40,7 @@ export default function PrintPage() {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <section className="mb-5 rounded-2xl border border-slate-100 bg-white p-5 shadow-card print:hidden">
+      <section className="mb-5 rounded-2xl border border-slate-100 bg-surface p-5 shadow-card print:hidden">
         <h2 className="mb-3 flex items-center gap-1.5 text-sm font-medium text-slate-600">
           <Printer size={15} />印刷・PDF出力
         </h2>
@@ -63,7 +63,7 @@ export default function PrintPage() {
           {list.length}問を出力します。「印刷」を押し、印刷画面の送信先で「PDFに保存」を選ぶとPDFになります。
         </p>
         {unordered > 0 && (
-          <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+          <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-300">
             出題順が未設定の問題が{unordered}問あります（作成順で末尾に並びます）。先に「出題順」タブで並びを保存してください。
           </p>
         )}
@@ -76,7 +76,7 @@ export default function PrintPage() {
         </button>
       </section>
 
-      <article className="rounded-2xl border border-slate-100 bg-white p-6 print:rounded-none print:border-0 print:p-0">
+      <article className="rounded-2xl border border-slate-100 bg-surface p-6 print:rounded-none print:border-0 print:p-0">
         <header className="mb-6 border-b border-slate-300 pb-3">
           <h1 className="text-xl font-semibold text-slate-800">{set.name}</h1>
           <p className="text-sm text-slate-500">{label}　{modeLabel}　全{list.length}問</p>

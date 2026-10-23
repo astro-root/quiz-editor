@@ -27,11 +27,11 @@ export default function SetNoticePage() {
 
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="mx-auto max-w-2xl">
-      <div className="mb-6 rounded-2xl border border-slate-100 bg-white p-6 shadow-card">
+      <div className="mb-6 rounded-2xl border border-slate-100 bg-surface p-6 shadow-card">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-medium text-slate-500">お知らせ</h2>
           {canEditNotice(role) && !editing && (
-            <button onClick={() => { setDraft(set.noticeBody); setEditing(true); }} className="flex items-center gap-1 text-xs text-slate-400 hover:text-brand-600">
+            <button onClick={() => { setDraft(set.noticeBody); setEditing(true); }} className="flex items-center gap-1 text-xs text-slate-400 hover:text-accent">
               <Pencil size={12} />編集
             </button>
           )}
@@ -39,7 +39,7 @@ export default function SetNoticePage() {
         {editing ? (
           <div>
             <textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={8} placeholder="メンバーに読んでほしいこと（作問方針、締切、注意事項など）を自由に書けます" className="mb-3 w-full resize-none rounded-xl border border-slate-200 p-3 text-sm text-slate-700 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100" />
-            {error && <p role="alert" className="mb-2 text-sm text-rose-500">{error}</p>}
+            {error && <p role="alert" className="mb-2 text-sm text-rose-400">{error}</p>}
             <div className="flex gap-2">
               <button onClick={handleSave} className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">保存</button>
               <button onClick={() => setEditing(false)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-500 hover:bg-slate-50">キャンセル</button>

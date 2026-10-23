@@ -112,7 +112,7 @@ export default function OrderPage() {
 
   const tabBtn = (id: string, label: string) => (
     <button key={id || "none"} onClick={() => !dirty || confirm("未保存の並び替えを破棄してRoundを切り替えますか？") ? setRoundId(id) : null}
-      className={`rounded-full border px-3 py-1 text-sm ${roundId === id ? "border-brand-600 bg-brand-600 text-white" : "border-slate-200 bg-white text-slate-600 hover:border-brand-300"}`}>
+      className={`rounded-full border px-3 py-1 text-sm ${roundId === id ? "border-brand-600 bg-brand-600 text-white" : "border-slate-200 bg-surface text-slate-600 hover:border-brand-300"}`}>
       {label}<span className="ml-1.5 text-xs opacity-70">{counts.get(id) ?? 0}</span>
     </button>
   );
@@ -125,7 +125,7 @@ export default function OrderPage() {
         {tabBtn("", "Round未指定")}
       </div>
 
-      <div className="mb-3 rounded-xl border border-slate-200 bg-white p-3">
+      <div className="mb-3 rounded-xl border border-slate-200 bg-surface p-3">
         <p className="mb-2 text-xs font-medium text-slate-500">出題順ルール{round ? `（${round.name}）` : "（Round未指定は保存されません）"}</p>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-slate-600">
           {RULE_DEFS.map((d) => (
@@ -146,7 +146,7 @@ export default function OrderPage() {
         <p className="text-sm text-slate-500">{list.length}問</p>
         {reorderable && (
           <>
-            <button onClick={doShuffle} disabled={list.length < 2} className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 hover:border-brand-300 hover:text-brand-600 disabled:opacity-40">
+            <button onClick={doShuffle} disabled={list.length < 2} className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-surface px-3 py-1.5 text-xs text-slate-600 hover:border-brand-300 hover:text-accent disabled:opacity-40">
               <Shuffle size={13} />ルールを考慮してシャッフル
             </button>
             {dirty && (
@@ -160,22 +160,22 @@ export default function OrderPage() {
       </div>
 
       {shuffled && (
-        <p className="mb-3 rounded-lg bg-sky-50 px-3 py-2 text-sm text-sky-700">
+        <p className="mb-3 rounded-lg bg-sky-50 px-3 py-2 text-sm text-sky-300">
           シャッフル結果をプレビュー中です（まだ保存されていません）。{shuffled.violations > 0 ? `条件を完全には満たせず、違反が${shuffled.violations}件残っています。再度シャッフルするか手動で調整してください。` : "すべてのルールを満たしています。"}
         </p>
       )}
-      {error && <p role="alert" className="mb-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600">{error}</p>}
+      {error && <p role="alert" className="mb-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-400">{error}</p>}
       {violations.length > 0 ? (
-        <div className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+        <div className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-300">
           <p className="mb-1 flex items-center gap-1 font-medium"><AlertTriangle size={13} />ルール違反 {violations.length}件</p>
           <ul className="list-inside list-disc">{violations.slice(0, 20).map((v, i) => <li key={i}>{v.message}</li>)}</ul>
           {violations.length > 20 && <p>…ほか{violations.length - 20}件</p>}
         </div>
       ) : list.length > 1 ? (
-        <p className="mb-3 text-xs text-emerald-600">ルール違反はありません</p>
+        <p className="mb-3 text-xs text-emerald-400">ルール違反はありません</p>
       ) : null}
 
-      {list.length === 0 && <p className="rounded-xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm text-slate-400">このRoundに採用された問題がありません。「問題」タブで採用とRoundを設定してください。</p>}
+      {list.length === 0 && <p className="rounded-xl border border-dashed border-slate-200 bg-surface p-8 text-center text-sm text-slate-400">このRoundに採用された問題がありません。「問題」タブで採用とRoundを設定してください。</p>}
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={working} strategy={verticalListSortingStrategy}>
@@ -198,7 +198,7 @@ function SortableRow({ q, index, bad, disabled, onEdit, gi, author }: { q: Quest
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: q.id, disabled });
   return (
     <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.6 : 1 }}
-      className={`flex items-center gap-2 rounded-xl border bg-white p-2.5 text-sm shadow-sm ${bad ? "border-amber-300 bg-amber-50/40" : "border-slate-200"}`}>
+      className={`flex items-center gap-2 rounded-xl border bg-surface p-2.5 text-sm shadow-sm ${bad ? "border-amber-300 bg-amber-50/40" : "border-slate-200"}`}>
       {!disabled && (
         <button {...attributes} {...listeners} aria-label={`${index + 1}問目をドラッグして並び替え`} className="touch-none cursor-grab rounded p-2 text-slate-300 hover:bg-slate-50 hover:text-slate-500 active:cursor-grabbing">
           <GripVertical size={18} />
@@ -207,7 +207,7 @@ function SortableRow({ q, index, bad, disabled, onEdit, gi, author }: { q: Quest
       <span className="w-8 shrink-0 text-center text-xs font-medium text-slate-400">{index + 1}</span>
       <div className="min-w-0 flex-1">
         <p className="line-clamp-2 break-words text-slate-700">{q.body}</p>
-        <p className="truncate text-brand-600">{q.answer}</p>
+        <p className="truncate text-accent">{q.answer}</p>
         <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-slate-400">
           {q.genreId && <span>{gi.majorName(q.genreId)}{q.subGenreId && ` / ${gi.subName(q.genreId, q.subGenreId)}`}</span>}
           <PersonChip name={author.name} photoURL={author.photoURL} size={14} muted />

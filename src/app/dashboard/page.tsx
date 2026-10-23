@@ -85,20 +85,20 @@ export default function DashboardPage() {
         </div>
 
         {showProfile && (
-          <form onSubmit={saveProfile} className="mb-6 space-y-2 rounded-xl border border-slate-200 bg-white p-4">
+          <form onSubmit={saveProfile} className="mb-6 space-y-2 rounded-xl border border-slate-200 bg-surface p-4">
             <p className="text-xs font-medium text-slate-400">プロフィール（招待の検索・問題の作成者表示に使われます）</p>
             <input value={pName} onChange={(e) => setPName(e.target.value)} placeholder="表示名" required maxLength={40} className="w-full rounded-lg border border-slate-200 p-2 text-sm" />
             <input value={pPhoto} onChange={(e) => setPPhoto(e.target.value)} placeholder="アイコン画像のURL（https://…、空欄なら頭文字）" className="w-full rounded-lg border border-slate-200 p-2 text-sm" />
             <button type="submit" className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">保存</button>
           </form>
         )}
-        {error && <p role="alert" className="mb-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600">{error}</p>}
+        {error && <p role="alert" className="mb-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-400">{error}</p>}
 
         {invites.map((inv) => (
           <div key={inv.id} className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-brand-100 bg-brand-50 p-4 text-sm">
             <span className="text-slate-700">{inv.inviterName && `${inv.inviterName}さんから`}「{inv.setName}」への招待（{roleLabel[inv.role] ?? inv.role}）</span>
             <span className="flex gap-2">
-              <button onClick={() => declineUserInvite(inv).catch(() => setError("辞退に失敗しました"))} disabled={busyId === inv.id} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-slate-500 hover:bg-slate-50">辞退</button>
+              <button onClick={() => declineUserInvite(inv).catch(() => setError("辞退に失敗しました"))} disabled={busyId === inv.id} className="rounded-lg border border-slate-200 bg-surface px-3 py-1.5 text-slate-500 hover:bg-slate-50">辞退</button>
               <button onClick={() => accept(inv.id, () => acceptUserInvite(inv, me), inv.setId)} disabled={busyId === inv.id} className="rounded-lg bg-brand-600 px-3 py-1.5 text-white shadow-sm hover:bg-brand-700 disabled:opacity-50">参加する</button>
             </span>
           </div>
@@ -111,13 +111,13 @@ export default function DashboardPage() {
         )}
 
         <form onSubmit={handleCreate} className="mb-8 flex gap-2">
-          <input value={newSetName} onChange={(e) => setNewSetName(e.target.value)} placeholder="新しい問題セット名（例：第10回○○高校クイズ大会）" className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white p-3 text-sm shadow-sm focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100" />
+          <input value={newSetName} onChange={(e) => setNewSetName(e.target.value)} placeholder="新しい問題セット名（例：第10回○○高校クイズ大会）" className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-surface p-3 text-sm shadow-sm focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100" />
           <button type="submit" className="flex shrink-0 items-center gap-1.5 rounded-xl bg-brand-600 px-4 text-sm font-medium text-white shadow-sm hover:bg-brand-700"><Plus size={16} />作成</button>
         </form>
 
         <div className="space-y-2">
           {sets.map((s) => (
-            <Link key={s.id} href={`/sets/${s.id}`} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-brand-300 hover:shadow-pop">
+            <Link key={s.id} href={`/sets/${s.id}`} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-surface p-4 shadow-sm transition hover:border-brand-300 hover:shadow-pop">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-400"><FolderOpen size={16} /></div>
               <div>
                 <p className="font-medium text-slate-800">{s.name}</p>
