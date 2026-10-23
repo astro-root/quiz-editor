@@ -63,8 +63,8 @@ export default function MembersPage() {
                   <td className="p-2"><span className="flex items-center gap-2"><Avatar name={p.name} photoURL={p.photoURL} size={24} /><span className={p.known ? "text-slate-700" : "text-slate-400"}>{p.name}</span></span></td>
                   <td className="p-2 text-xs text-slate-500">{r ? roleLabel[r] : "退出"}</td>
                   <td className="p-2 text-right tabular-nums">{s?.created ?? 0}</td>
-                  <td className="p-2 text-right tabular-nums text-emerald-400">{s?.adopted ?? 0}</td>
-                  <td className="p-2 text-right tabular-nums text-rose-400">{s?.rejected ?? 0}</td>
+                  <td className="p-2 text-right tabular-nums text-ok">{s?.adopted ?? 0}</td>
+                  <td className="p-2 text-right tabular-nums text-danger">{s?.rejected ?? 0}</td>
                   <td className="p-2 text-right tabular-nums" title={`判定済みのうちの採用率：${pct(s?.decidedRate ?? null)}`}>{pct(s?.adoptRate ?? null)}</td>
                   <td className="p-2 text-right tabular-nums">{s?.assigned ?? 0}</td>
                   <td className="p-2 text-right tabular-nums">{s?.approved ?? 0}</td>

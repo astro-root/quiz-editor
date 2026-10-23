@@ -8,6 +8,10 @@ import {
   signInWithEmailAndPassword,
   signOut,
   updateProfile,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  updatePassword,
+  sendPasswordResetEmail,
 } from "firebase/auth";
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { auth, db } from "./firebase";
@@ -20,6 +24,8 @@ interface AuthContextValue {
   logIn: (email: string, password: string) => Promise<void>;
   logOut: () => Promise<void>;
   updateMyProfile: (displayName: string, photoURL: string) => Promise<void>;
+  changePassword: (current: string, next: string) => Promise<void>;
+  sendPasswordReset: (email: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -100,8 +106,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(Object.assign(Object.create(Object.getPrototypeOf(auth.currentUser)), auth.currentUser));
   }
 
+  // パスワード変更は、現在のパスワードで本人確認（再認証）してから行う
+  async function changePassword(current: string, next: string) {
+    const u = auth.currentUser;
+    if (!u || !u.email) throw new Error("not authenticated");
+    await reauthenticateWithCredential(u, EmailAuthProvider.credential(u.email, current));
+    await updatePassword(u, next);
+  }
+
+  async function sendPasswordReset(email: string) {
+    await sendPasswordResetEmail(auth, email.trim());
+  }
+
   return (
-    <AuthContext.Provider value={{ user, loading, signUp, logIn, logOut, updateMyProfile }}>
+    <AuthContext.Provider value={{ user, loading, signUp, logIn, logOut, updateMyProfile, changePassword, sendPasswordReset }}>
       {children}
     </AuthContext.Provider>
   );

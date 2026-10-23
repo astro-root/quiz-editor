@@ -15,14 +15,14 @@ import { QuestionEditor } from "./QuestionEditor";
 const sel = "rounded-lg border border-slate-200 bg-surface p-2 text-sm text-slate-600 focus:border-brand-400 focus:outline-none";
 
 const judgeStyle: Record<string, string> = {
-  adopted: "bg-emerald-50 text-emerald-400",
-  rejected: "bg-rose-50 text-rose-400",
+  adopted: "bg-emerald-50 text-ok",
+  rejected: "bg-rose-50 text-danger",
   undecided: "bg-slate-100 text-slate-500",
 };
 const proofStyle: Record<string, string> = {
-  unchecked: "bg-amber-50 text-amber-400",
-  in_review: "bg-sky-50 text-sky-300",
-  needs_fix: "bg-rose-50 text-rose-400",
+  unchecked: "bg-amber-50 text-warn",
+  in_review: "bg-sky-50 text-info",
+  needs_fix: "bg-rose-50 text-danger",
   approved: "bg-brand-50 text-accent",
   on_hold: "bg-slate-100 text-slate-500",
 };
@@ -241,7 +241,7 @@ const Row = memo(function Row({ q, index, showAuthor, onOpen }: { q: Question; i
           <p className="mb-1 flex flex-wrap items-center gap-1.5 text-xs text-slate-300">
             <span>#{index + 1}</span>
             {q.genreId && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-500">{gi.majorName(q.genreId)}{q.subGenreId && ` / ${gi.subName(q.genreId, q.subGenreId)}`}</span>}
-            {round && <span className="rounded-full bg-violet-50 px-2 py-0.5 text-violet-300">{round}</span>}
+            {round && <span className="rounded-full bg-violet-50 px-2 py-0.5 text-tag">{round}</span>}
           </p>
           <p className="line-clamp-2 break-words text-slate-700">{q.body || "（問題文なし）"}</p>
           <p className="truncate text-accent">{q.answer || "（解答なし）"}</p>
@@ -266,12 +266,12 @@ const Row = memo(function Row({ q, index, showAuthor, onOpen }: { q: Question; i
       </div>
       {judge && (
         <div className="flex items-center gap-1.5 border-t border-slate-100 px-3 py-1.5">
-          <button disabled={busy} onClick={() => setJudge("adopted")} className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs ${q.status === "adopted" ? "bg-emerald-600 text-white" : "text-emerald-400 hover:bg-emerald-50"}`}><Check size={12} />採用</button>
-          <button disabled={busy} onClick={() => setJudge("rejected")} className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs ${q.status === "rejected" ? "bg-rose-500 text-white" : "text-rose-400 hover:bg-rose-50"}`}><Ban size={12} />却下</button>
+          <button disabled={busy} onClick={() => setJudge("adopted")} className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs ${q.status === "adopted" ? "bg-emerald-600 text-white" : "text-ok hover:bg-emerald-50"}`}><Check size={12} />採用</button>
+          <button disabled={busy} onClick={() => setJudge("rejected")} className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs ${q.status === "rejected" ? "bg-rose-500 text-white" : "text-danger hover:bg-rose-50"}`}><Ban size={12} />却下</button>
           {(q.status === "adopted" || q.status === "rejected") && (
             <button disabled={busy} onClick={() => setJudge("undecided")} className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-slate-400 hover:bg-slate-50"><RotateCcw size={12} />未判定に戻す</button>
           )}
-          {err && <span className="text-xs text-rose-400">{err}</span>}
+          {err && <span className="text-xs text-danger">{err}</span>}
           <ChevronDown size={14} className="ml-auto text-slate-300" />
         </div>
       )}

@@ -1,47 +1,33 @@
 import type { Config } from "tailwindcss";
 
-// ダークテーマ。既存の bg-slate-* / text-slate-* などのクラス名はそのままに、色の値だけを差し替えている。
-//  slate : 50=ページ背景 / 100,200=区切り・チップ / 300〜500=薄い文字 / 600〜900=本文・見出し（明るい順）
-//  surface : カードや入力欄の面（旧 bg-white）
-//  accent  : 暗い背景上のブランド色の文字（旧 text-brand-*）。ボタンの背景は brand のまま
+// 色は globals.css の CSS 変数で定義し、ライト/ダークは <html data-theme="..."> で切り替える。
+// クラス名は従来のまま（bg-slate-50 など）。役割ごとの名前は次のとおり。
+//  surface        : カード・入力欄の面（旧 bg-white）
+//  accent         : ブランド色の「文字」（ボタンの背景は brand-*）
+//  danger/ok/warn/info/tag : 状態を表す「文字」の色（エラー・成功・注意・情報・Round表示）
 const config: Config = {
   content: ["./src/**/*.{js,ts,jsx,tsx,mdx}"],
   theme: {
     extend: {
       colors: {
-        surface: "#121821",
-        accent: { DEFAULT: "#a5b4fc", strong: "#c7d2fe", dim: "#818cf8" },
-        slate: {
-          50: "#0d1218",
-          100: "#171e29",
-          200: "#273142",
-          300: "#566175",
-          400: "#8793a5",
-          500: "#9ba6b8",
-          600: "#b4bdcc",
-          700: "#d4dae4",
-          800: "#e6eaf1",
-          900: "#f4f6fa",
-        },
-        brand: {
-          50: "#1a1e3d",
-          100: "#2a3068",
-          200: "#343b78",
-          300: "#4a53a8",
-          400: "#818cf8",
-          500: "#6366f1",
-          600: "#4f46e5",
-          700: "#4338ca",
-        },
-        rose: { 50: "#2a1319", 100: "#3a1822", 200: "#5c2430", 300: "#8a3446" },
-        amber: { 50: "#2b2210", 100: "#3a2d12", 200: "#5c4616", 300: "#8a6a1f" },
-        emerald: { 50: "#10261d", 100: "#133224", 200: "#1b4d37", 300: "#287a56" },
-        sky: { 50: "#0f2230", 100: "#122c3f", 200: "#1b4560", 300: "#2a6a92" },
-        violet: { 50: "#1e1a33", 100: "#2a2347", 200: "#3d3366", 300: "#5b4d99" },
+        surface: "rgb(var(--surface) / <alpha-value>)",
+        accent: { DEFAULT: "rgb(var(--accent) / <alpha-value>)", strong: "rgb(var(--accent-strong) / <alpha-value>)", dim: "rgb(var(--accent-dim) / <alpha-value>)" },
+        danger: "rgb(var(--danger) / <alpha-value>)",
+        ok: "rgb(var(--ok) / <alpha-value>)",
+        warn: { DEFAULT: "rgb(var(--warn) / <alpha-value>)", strong: "rgb(var(--warn-strong) / <alpha-value>)" },
+        info: "rgb(var(--info) / <alpha-value>)",
+        tag: "rgb(var(--tag) / <alpha-value>)",
+        slate: { 50: "rgb(var(--slate-50) / <alpha-value>)", 100: "rgb(var(--slate-100) / <alpha-value>)", 200: "rgb(var(--slate-200) / <alpha-value>)", 300: "rgb(var(--slate-300) / <alpha-value>)", 400: "rgb(var(--slate-400) / <alpha-value>)", 500: "rgb(var(--slate-500) / <alpha-value>)", 600: "rgb(var(--slate-600) / <alpha-value>)", 700: "rgb(var(--slate-700) / <alpha-value>)", 800: "rgb(var(--slate-800) / <alpha-value>)", 900: "rgb(var(--slate-900) / <alpha-value>)" },
+        brand: { 50: "rgb(var(--brand-50) / <alpha-value>)", 100: "rgb(var(--brand-100) / <alpha-value>)", 200: "rgb(var(--brand-200) / <alpha-value>)", 300: "rgb(var(--brand-300) / <alpha-value>)", 400: "rgb(var(--brand-400) / <alpha-value>)", 500: "rgb(var(--brand-500) / <alpha-value>)", 600: "rgb(var(--brand-600) / <alpha-value>)", 700: "rgb(var(--brand-700) / <alpha-value>)" },
+        rose: { 50: "rgb(var(--rose-50) / <alpha-value>)", 100: "rgb(var(--rose-100) / <alpha-value>)", 200: "rgb(var(--rose-200) / <alpha-value>)", 300: "rgb(var(--rose-300) / <alpha-value>)" },
+        amber: { 50: "rgb(var(--amber-50) / <alpha-value>)", 100: "rgb(var(--amber-100) / <alpha-value>)", 200: "rgb(var(--amber-200) / <alpha-value>)", 300: "rgb(var(--amber-300) / <alpha-value>)" },
+        emerald: { 50: "rgb(var(--emerald-50) / <alpha-value>)", 100: "rgb(var(--emerald-100) / <alpha-value>)", 200: "rgb(var(--emerald-200) / <alpha-value>)", 300: "rgb(var(--emerald-300) / <alpha-value>)" },
+        sky: { 50: "rgb(var(--sky-50) / <alpha-value>)", 100: "rgb(var(--sky-100) / <alpha-value>)", 200: "rgb(var(--sky-200) / <alpha-value>)", 300: "rgb(var(--sky-300) / <alpha-value>)" },
+        violet: { 50: "rgb(var(--violet-50) / <alpha-value>)", 100: "rgb(var(--violet-100) / <alpha-value>)", 200: "rgb(var(--violet-200) / <alpha-value>)", 300: "rgb(var(--violet-300) / <alpha-value>)" },
       },
       boxShadow: {
-        card: "0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -12px rgba(0, 0, 0, 0.6)",
-        pop: "0 2px 4px rgba(0, 0, 0, 0.45), 0 16px 40px -16px rgba(0, 0, 0, 0.7)",
+        card: "var(--shadow-card)",
+        pop: "var(--shadow-pop)",
       },
     },
   },

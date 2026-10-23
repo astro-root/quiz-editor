@@ -64,7 +64,7 @@ function SetShell({ children }: { children: React.ReactNode }) {
           </div>
         </nav>
 
-        {store.error && <p role="alert" className="mb-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-400">{store.error}</p>}
+        {store.error && <p role="alert" className="mb-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-danger">{store.error}</p>}
         {store.loading ? <p className="p-8 text-center text-sm text-slate-400">読み込み中…</p> : children}
 
         {showShare && <ShareDialog set={set} isAdmin={canManageMembers(role)} onClose={() => setShowShare(false)} />}

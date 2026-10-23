@@ -39,7 +39,7 @@ export default function SetNoticePage() {
         {editing ? (
           <div>
             <textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={8} placeholder="メンバーに読んでほしいこと（作問方針、締切、注意事項など）を自由に書けます" className="mb-3 w-full resize-none rounded-xl border border-slate-200 p-3 text-sm text-slate-700 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100" />
-            {error && <p role="alert" className="mb-2 text-sm text-rose-400">{error}</p>}
+            {error && <p role="alert" className="mb-2 text-sm text-danger">{error}</p>}
             <div className="flex gap-2">
               <button onClick={handleSave} className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">保存</button>
               <button onClick={() => setEditing(false)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-500 hover:bg-slate-50">キャンセル</button>

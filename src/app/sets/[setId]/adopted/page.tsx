@@ -160,19 +160,19 @@ export default function OrderPage() {
       </div>
 
       {shuffled && (
-        <p className="mb-3 rounded-lg bg-sky-50 px-3 py-2 text-sm text-sky-300">
+        <p className="mb-3 rounded-lg bg-sky-50 px-3 py-2 text-sm text-info">
           シャッフル結果をプレビュー中です（まだ保存されていません）。{shuffled.violations > 0 ? `条件を完全には満たせず、違反が${shuffled.violations}件残っています。再度シャッフルするか手動で調整してください。` : "すべてのルールを満たしています。"}
         </p>
       )}
-      {error && <p role="alert" className="mb-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-400">{error}</p>}
+      {error && <p role="alert" className="mb-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-danger">{error}</p>}
       {violations.length > 0 ? (
-        <div className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-300">
+        <div className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-warn-strong">
           <p className="mb-1 flex items-center gap-1 font-medium"><AlertTriangle size={13} />ルール違反 {violations.length}件</p>
           <ul className="list-inside list-disc">{violations.slice(0, 20).map((v, i) => <li key={i}>{v.message}</li>)}</ul>
           {violations.length > 20 && <p>…ほか{violations.length - 20}件</p>}
         </div>
       ) : list.length > 1 ? (
-        <p className="mb-3 text-xs text-emerald-400">ルール違反はありません</p>
+        <p className="mb-3 text-xs text-ok">ルール違反はありません</p>
       ) : null}
 
       {list.length === 0 && <p className="rounded-xl border border-dashed border-slate-200 bg-surface p-8 text-center text-sm text-slate-400">このRoundに採用された問題がありません。「問題」タブで採用とRoundを設定してください。</p>}

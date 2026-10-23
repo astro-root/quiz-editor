@@ -63,7 +63,7 @@ export default function PrintPage() {
           {list.length}問を出力します。「印刷」を押し、印刷画面の送信先で「PDFに保存」を選ぶとPDFになります。
         </p>
         {unordered > 0 && (
-          <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-300">
+          <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-warn-strong">
             出題順が未設定の問題が{unordered}問あります（作成順で末尾に並びます）。先に「出題順」タブで並びを保存してください。
           </p>
         )}

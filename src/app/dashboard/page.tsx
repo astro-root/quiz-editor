@@ -11,16 +11,13 @@ import { roleLabel } from "@/lib/permissions";
 import { Avatar } from "@/components/Avatar";
 
 export default function DashboardPage() {
-  const { user, loading, logOut, updateMyProfile } = useAuth();
+  const { user, loading, logOut } = useAuth();
   const router = useRouter();
   const { sets, loading: setsLoading, createQuestionSet } = useQuestionSets();
   const { invites, legacy } = useMyInvites();
   const [newSetName, setNewSetName] = useState("");
   const [busyId, setBusyId] = useState("");
   const [error, setError] = useState("");
-  const [showProfile, setShowProfile] = useState(false);
-  const [pName, setPName] = useState("");
-  const [pPhoto, setPPhoto] = useState("");
 
   useEffect(() => {
     if (!loading && !user) router.replace("/login");
@@ -57,17 +54,6 @@ export default function DashboardPage() {
     }
   }
 
-  async function saveProfile(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-    try {
-      await updateMyProfile(pName, pPhoto.trim());
-      setShowProfile(false);
-    } catch (err: any) {
-      setError(err?.message || "プロフィールを保存できませんでした");
-    }
-  }
-
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6">
@@ -77,22 +63,14 @@ export default function DashboardPage() {
             <h1 className="text-lg font-semibold text-slate-800">Qraft</h1>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={() => { setPName(user.displayName ?? ""); setPPhoto(user.photoURL ?? ""); setShowProfile((v) => !v); }} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700">
+            <Link href="/account" aria-label="アカウント設定" className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700">
               <Avatar name={me.displayName || me.email} photoURL={me.photoURL} size={22} /><UserCog size={14} />
-            </button>
+            </Link>
             <button onClick={logOut} className="flex items-center gap-1 text-sm text-slate-400 hover:text-slate-600"><LogOut size={14} />ログアウト</button>
           </div>
         </div>
 
-        {showProfile && (
-          <form onSubmit={saveProfile} className="mb-6 space-y-2 rounded-xl border border-slate-200 bg-surface p-4">
-            <p className="text-xs font-medium text-slate-400">プロフィール（招待の検索・問題の作成者表示に使われます）</p>
-            <input value={pName} onChange={(e) => setPName(e.target.value)} placeholder="表示名" required maxLength={40} className="w-full rounded-lg border border-slate-200 p-2 text-sm" />
-            <input value={pPhoto} onChange={(e) => setPPhoto(e.target.value)} placeholder="アイコン画像のURL（https://…、空欄なら頭文字）" className="w-full rounded-lg border border-slate-200 p-2 text-sm" />
-            <button type="submit" className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">保存</button>
-          </form>
-        )}
-        {error && <p role="alert" className="mb-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-400">{error}</p>}
+        {error && <p role="alert" className="mb-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-danger">{error}</p>}
 
         {invites.map((inv) => (
           <div key={inv.id} className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-brand-100 bg-brand-50 p-4 text-sm">
