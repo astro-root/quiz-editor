@@ -28,18 +28,18 @@ export default function TrashPage() {
 
   return (
     <div>
-      {err && <p role="alert" className="mb-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-400">{err}</p>}
+      {err && <p role="alert" className="mb-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-danger">{err}</p>}
 
       {emptyLegacy.length > 0 && (
         <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm">
-          <p className="mb-1 font-medium text-amber-300">問題文も解答も空の問題が {emptyLegacy.length} 件あります</p>
-          <p className="mb-3 text-xs text-amber-300">過去の不具合で自動作成された空カードです。一覧・検索・出題順には表示されません。</p>
+          <p className="mb-1 font-medium text-warn-strong">問題文も解答も空の問題が {emptyLegacy.length} 件あります</p>
+          <p className="mb-3 text-xs text-warn-strong">過去の不具合で自動作成された空カードです。一覧・検索・出題順には表示されません。</p>
           {canClearEmpty ? (
             <button disabled={busy} onClick={() => run(() => hardDelete(emptyLegacy.map((q) => q.id)))} className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 disabled:opacity-50">
               空の問題をすべて削除
             </button>
           ) : (
-            <p className="text-xs text-amber-300">削除できるのは管理者・問題統括です。</p>
+            <p className="text-xs text-warn-strong">削除できるのは管理者・問題統括です。</p>
           )}
         </div>
       )}
@@ -47,7 +47,7 @@ export default function TrashPage() {
       <div className="mb-3 flex items-center justify-between">
         <p className="text-sm text-slate-500">ゴミ箱 {trash.length}件</p>
         {purge && trash.length > 0 && (
-          <button disabled={busy} onClick={() => confirm(`ゴミ箱の${trash.length}件を完全に削除します。元に戻せません。`) && run(() => hardDelete(trash.map((q) => q.id)))} className="flex items-center gap-1 text-xs text-rose-400 hover:underline disabled:opacity-50">
+          <button disabled={busy} onClick={() => confirm(`ゴミ箱の${trash.length}件を完全に削除します。元に戻せません。`) && run(() => hardDelete(trash.map((q) => q.id)))} className="flex items-center gap-1 text-xs text-danger hover:underline disabled:opacity-50">
             <Trash2 size={12} />ゴミ箱を空にする
           </button>
         )}
@@ -71,7 +71,7 @@ export default function TrashPage() {
               </div>
               <div className="flex shrink-0 flex-col gap-1">
                 {can && <button disabled={busy} onClick={() => run(() => restore(q.id))} className="flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-xs text-slate-600 hover:border-brand-300 hover:text-accent disabled:opacity-50"><RotateCcw size={12} />復元</button>}
-                {purge && <button disabled={busy} onClick={() => confirm("この問題を完全に削除します。元に戻せません。") && run(() => hardDelete([q.id]))} className="flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-xs text-rose-400 hover:bg-rose-50 disabled:opacity-50"><Trash2 size={12} />完全削除</button>}
+                {purge && <button disabled={busy} onClick={() => confirm("この問題を完全に削除します。元に戻せません。") && run(() => hardDelete([q.id]))} className="flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-xs text-danger hover:bg-rose-50 disabled:opacity-50"><Trash2 size={12} />完全削除</button>}
               </div>
             </div>
           );

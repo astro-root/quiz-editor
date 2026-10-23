@@ -153,7 +153,7 @@ export function QuestionEditor({ question, onClose }: { question: Question; onCl
       </div>
 
       {remoteChanged && (
-        <p className="mb-2 flex items-center gap-1.5 rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs text-amber-300">
+        <p className="mb-2 flex items-center gap-1.5 rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs text-warn-strong">
           <AlertTriangle size={13} />編集中に他の人がこの問題を更新しました。保存すると、あなたが変更した項目だけが上書きされます。
         </p>
       )}
@@ -161,7 +161,7 @@ export function QuestionEditor({ question, onClose }: { question: Question; onCl
       <label className={label}>問題文</label>
       <textarea ref={bodyRef} value={draft.body} onChange={(e) => set_("body", e.target.value)} disabled={!canEdit} rows={3} className={`${input} mb-1 resize-y leading-relaxed`} />
       {dup && (
-        <p className="mb-1 flex items-center gap-1.5 rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs text-amber-300">
+        <p className="mb-1 flex items-center gap-1.5 rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs text-warn-strong">
           <AlertTriangle size={13} />同じ問題文が既にあります（{personOf(dup.authorUid, dup.authorName).name}）
         </p>
       )}
@@ -271,7 +271,7 @@ export function QuestionEditor({ question, onClose }: { question: Question; onCl
         </div>
       </div>
 
-      {error && <p role="alert" className="mb-2 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-400">{error}</p>}
+      {error && <p role="alert" className="mb-2 rounded-lg bg-rose-50 px-3 py-2 text-sm text-danger">{error}</p>}
 
       <div className="flex flex-wrap items-center gap-2">
         <button onClick={handleSave} disabled={saving || !dirty} className="flex min-h-[40px] items-center gap-1.5 rounded-lg bg-brand-600 px-5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-40">
@@ -285,7 +285,7 @@ export function QuestionEditor({ question, onClose }: { question: Question; onCl
           <History size={13} />履歴・コメント
         </button>
         {canDel && (
-          <button onClick={handleDelete} className="flex items-center gap-1 text-xs text-slate-400 hover:text-rose-400">
+          <button onClick={handleDelete} className="flex items-center gap-1 text-xs text-slate-400 hover:text-danger">
             <Trash2 size={13} />削除
           </button>
         )}

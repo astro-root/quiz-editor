@@ -89,11 +89,11 @@ export default function WritePage() {
       <div onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); handleSave(); } }} className="rounded-2xl border border-slate-100 bg-surface p-5 shadow-card">
         <div className="mb-3 flex items-center justify-between text-xs text-slate-400">
           <span>新しい問題（保存するまで登録されません）</span>
-          {savedCount > 0 && <span className="text-emerald-400">今回 {savedCount} 問を保存しました</span>}
+          {savedCount > 0 && <span className="text-ok">今回 {savedCount} 問を保存しました</span>}
         </div>
         <label className={label}>問題文</label>
         <textarea ref={bodyRef} value={body} onChange={(e) => setBody(e.target.value)} rows={3} placeholder="問題文を入力" className={`${input} mb-1 resize-y leading-relaxed`} autoFocus />
-        {dup && <p className="mb-1 rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs text-amber-300">同じ問題文が既にあります（{set.memberProfiles?.[dup.authorUid]?.displayName || dup.authorName || "作問者不明"}）</p>}
+        {dup && <p className="mb-1 rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs text-warn-strong">同じ問題文が既にあります（{set.memberProfiles?.[dup.authorUid]?.displayName || dup.authorName || "作問者不明"}）</p>}
         <p className="mb-2 text-right text-[11px] text-slate-300">{body.length}文字</p>
         <label className={label}>解答</label>
         <textarea value={answer} onChange={(e) => setAnswer(e.target.value)} rows={1} placeholder="解答" className={`${input} mb-3 resize-y font-medium text-accent-strong`} />
@@ -121,7 +121,7 @@ export default function WritePage() {
             <input value={source} onChange={(e) => setSource(e.target.value)} placeholder="出典（URLなど）" className={input} />
           </div>
         </details>
-        {error && <p role="alert" className="mb-2 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-400">{error}</p>}
+        {error && <p role="alert" className="mb-2 rounded-lg bg-rose-50 px-3 py-2 text-sm text-danger">{error}</p>}
         <div className="flex items-center gap-3">
           <button onClick={handleSave} disabled={saving || empty} className="flex min-h-[44px] items-center gap-1.5 rounded-lg bg-brand-600 px-6 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-40">
             {saving && <Loader2 size={14} className="animate-spin" />}保存して次へ

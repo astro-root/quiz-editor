@@ -61,7 +61,7 @@ export default function SignupPage() {
           required
           className="mb-2 w-full rounded-lg border border-slate-200 p-2.5 text-sm focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
         />
-        {error && <p className="mb-2 text-xs text-red-400">{error}</p>}
+        {error && <p className="mb-2 text-xs text-danger">{error}</p>}
         <button
           type="submit"
           className="w-full rounded-lg bg-brand-600 p-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700"

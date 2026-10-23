@@ -19,7 +19,7 @@ function InlineName({ value, onSave, onCancel }: { value: string; onSave: (v: st
   return (
     <span className="flex flex-1 items-center gap-1">
       <input autoFocus value={v} onChange={(e) => setV(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") onSave(v); if (e.key === "Escape") onCancel(); }} className={inputCls} />
-      <button onClick={() => onSave(v)} aria-label="確定" className="text-emerald-400"><Check size={16} /></button>
+      <button onClick={() => onSave(v)} aria-label="確定" className="text-ok"><Check size={16} /></button>
       <button onClick={onCancel} aria-label="キャンセル" className="text-slate-400"><X size={16} /></button>
     </span>
   );
@@ -155,7 +155,7 @@ export default function SettingsPage() {
   return (
     <div className="mx-auto max-w-2xl">
       {!editable && <p className="mb-4 rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-500">ジャンルとRoundの編集は管理者・問題統括のみ行えます。</p>}
-      {error && <p role="alert" className="mb-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-400">{error}</p>}
+      {error && <p role="alert" className="mb-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-danger">{error}</p>}
 
       <section className={card}>
         <h2 className="mb-1 text-sm font-medium text-slate-600">ジャンル（大ジャンル → 小ジャンル）</h2>
@@ -183,7 +183,7 @@ export default function SettingsPage() {
                     <span key={s.id} className="flex items-center gap-1 rounded-full bg-brand-50 px-2.5 py-1 text-xs text-accent">
                       {s.name}<span className="text-accent-dim">{usage.sub.get(`${g.id}/${s.id}`) ?? 0}</span>
                       {editable && <><button disabled={busy} onClick={() => setEditing(`s:${g.id}/${s.id}`)} aria-label="名前を変更" className="text-accent-dim hover:text-accent"><Pencil size={11} /></button>
-                      <button disabled={busy} onClick={() => deleteSub(g, s.id, s.name)} aria-label="削除" className="text-accent-dim hover:text-rose-400"><X size={12} /></button></>}
+                      <button disabled={busy} onClick={() => deleteSub(g, s.id, s.name)} aria-label="削除" className="text-accent-dim hover:text-danger"><X size={12} /></button></>}
                     </span>
                   )
                 )}
@@ -235,7 +235,7 @@ export default function SettingsPage() {
 
       {isOwner && (
         <section className="mb-5 rounded-2xl border border-rose-200 bg-surface p-5">
-          <h2 className="mb-1 text-sm font-medium text-rose-400">問題セットの削除</h2>
+          <h2 className="mb-1 text-sm font-medium text-danger">問題セットの削除</h2>
           <p className="mb-3 text-xs text-slate-400">このセットと、中のすべての問題を完全に削除します。元に戻せません。招待中のユーザーがいる場合は、先にメンバー画面で招待を解除してください。</p>
           <div className="flex gap-2">
             <input value={delText} onChange={(e) => setDelText(e.target.value)} placeholder="確認のため「削除」と入力" className={inputCls} />
