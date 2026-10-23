@@ -44,7 +44,7 @@ export default function ProofreadPage() {
           </p>
           <div className="flex flex-wrap gap-1.5">
             {presets.map((p) => (
-              <button key={p.label} onClick={() => applyPreset(p.f)} className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600 hover:border-brand-300 hover:text-brand-600">
+              <button key={p.label} onClick={() => applyPreset(p.f)} className="rounded-full border border-slate-200 bg-surface px-3 py-1 text-xs text-slate-600 hover:border-brand-300 hover:text-accent">
                 {p.label}
               </button>
             ))}

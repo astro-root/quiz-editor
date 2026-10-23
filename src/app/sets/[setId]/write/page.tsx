@@ -9,7 +9,7 @@ import { canCreateQuestion } from "@/lib/permissions";
 import { MAX_SOURCES, Question } from "@/lib/types";
 import { QuestionEditor } from "@/components/QuestionEditor";
 
-const input = "w-full rounded-lg border border-slate-200 bg-white p-2.5 text-base text-slate-700 placeholder:text-slate-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100";
+const input = "w-full rounded-lg border border-slate-200 bg-surface p-2.5 text-base text-slate-700 placeholder:text-slate-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100";
 const label = "mb-1 block text-xs text-slate-400";
 
 // 作問モード。入力中の内容はブラウザ内の下書きにだけあり、［保存］するまでDBには何も作らない。
@@ -81,22 +81,22 @@ export default function WritePage() {
   }, [store.live, user]);
 
   if (!canCreate) {
-    return <p className="rounded-xl border border-dashed border-slate-200 bg-white p-6 text-center text-sm text-slate-400">この権限では問題を作成できません。「問題」タブで内容を確認できます。</p>;
+    return <p className="rounded-xl border border-dashed border-slate-200 bg-surface p-6 text-center text-sm text-slate-400">この権限では問題を作成できません。「問題」タブで内容を確認できます。</p>;
   }
 
   return (
     <div className="mx-auto max-w-2xl">
-      <div onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); handleSave(); } }} className="rounded-2xl border border-slate-100 bg-white p-5 shadow-card">
+      <div onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); handleSave(); } }} className="rounded-2xl border border-slate-100 bg-surface p-5 shadow-card">
         <div className="mb-3 flex items-center justify-between text-xs text-slate-400">
           <span>新しい問題（保存するまで登録されません）</span>
-          {savedCount > 0 && <span className="text-emerald-600">今回 {savedCount} 問を保存しました</span>}
+          {savedCount > 0 && <span className="text-emerald-400">今回 {savedCount} 問を保存しました</span>}
         </div>
         <label className={label}>問題文</label>
         <textarea ref={bodyRef} value={body} onChange={(e) => setBody(e.target.value)} rows={3} placeholder="問題文を入力" className={`${input} mb-1 resize-y leading-relaxed`} autoFocus />
-        {dup && <p className="mb-1 rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs text-amber-700">同じ問題文が既にあります（{set.memberProfiles?.[dup.authorUid]?.displayName || dup.authorName || "作問者不明"}）</p>}
+        {dup && <p className="mb-1 rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs text-amber-300">同じ問題文が既にあります（{set.memberProfiles?.[dup.authorUid]?.displayName || dup.authorName || "作問者不明"}）</p>}
         <p className="mb-2 text-right text-[11px] text-slate-300">{body.length}文字</p>
         <label className={label}>解答</label>
-        <textarea value={answer} onChange={(e) => setAnswer(e.target.value)} rows={1} placeholder="解答" className={`${input} mb-3 resize-y font-medium text-brand-700`} />
+        <textarea value={answer} onChange={(e) => setAnswer(e.target.value)} rows={1} placeholder="解答" className={`${input} mb-3 resize-y font-medium text-accent-strong`} />
         <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <label className={label}>大ジャンル</label>
@@ -121,7 +121,7 @@ export default function WritePage() {
             <input value={source} onChange={(e) => setSource(e.target.value)} placeholder="出典（URLなど）" className={input} />
           </div>
         </details>
-        {error && <p role="alert" className="mb-2 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600">{error}</p>}
+        {error && <p role="alert" className="mb-2 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-400">{error}</p>}
         <div className="flex items-center gap-3">
           <button onClick={handleSave} disabled={saving || empty} className="flex min-h-[44px] items-center gap-1.5 rounded-lg bg-brand-600 px-6 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-40">
             {saving && <Loader2 size={14} className="animate-spin" />}保存して次へ
@@ -139,9 +139,9 @@ export default function WritePage() {
               editingId === q.id ? (
                 <QuestionEditor key={q.id} question={q} onClose={() => setEditingId(null)} />
               ) : (
-                <button key={q.id} onClick={() => setEditingId(q.id)} className="block w-full rounded-xl border border-slate-200 bg-white p-3 text-left text-sm hover:border-brand-300">
+                <button key={q.id} onClick={() => setEditingId(q.id)} className="block w-full rounded-xl border border-slate-200 bg-surface p-3 text-left text-sm hover:border-brand-300">
                   <p className="line-clamp-2 text-slate-700">{q.body || "（問題文なし）"}</p>
-                  <p className="truncate text-brand-600">{q.answer}</p>
+                  <p className="truncate text-accent">{q.answer}</p>
                 </button>
               )
             )}

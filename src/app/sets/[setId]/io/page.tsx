@@ -9,8 +9,8 @@ import { downloadQuestions, downloadTemplate, ExportCtx, ImportResult, parseImpo
 import { normalizeText } from "@/lib/search";
 import { Question } from "@/lib/types";
 
-const card = "mb-5 rounded-2xl border border-slate-100 bg-white p-5 shadow-card";
-const btn = "flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-600 hover:border-brand-300 hover:text-brand-600 disabled:opacity-40";
+const card = "mb-5 rounded-2xl border border-slate-100 bg-surface p-5 shadow-card";
+const btn = "flex items-center gap-1.5 rounded-lg border border-slate-200 bg-surface px-3 py-1.5 text-sm text-slate-600 hover:border-brand-300 hover:text-accent disabled:opacity-40";
 
 export default function IoPage() {
   const { set, role, tree, gi, personOf } = useSetContext();
@@ -89,7 +89,7 @@ export default function IoPage() {
       <section className={card}>
         <h2 className="mb-3 flex items-center gap-1.5 text-sm font-medium text-slate-600"><FileDown size={15} />エクスポート</h2>
         <div className="mb-3 flex flex-wrap items-center gap-3 text-sm">
-          <select value={scope} onChange={(e) => setScope(e.target.value)} className="rounded-lg border border-slate-200 bg-white p-2 text-sm">
+          <select value={scope} onChange={(e) => setScope(e.target.value)} className="rounded-lg border border-slate-200 bg-surface p-2 text-sm">
             <option value="all">全問題（作成順）</option>
             <option value="adopted">採用問題すべて（出題順）</option>
             {set.rounds.map((r) => <option key={r.id} value={`round:${r.id}`}>{r.name} の採用問題（出題順）</option>)}
@@ -116,24 +116,24 @@ export default function IoPage() {
               <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" onChange={onFile} className="hidden" />
             </div>
 
-            {result?.fatal && <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600">{result.fatal}</p>}
+            {result?.fatal && <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-400">{result.fatal}</p>}
             {result && !result.fatal && (
               <div className="text-sm">
-                {result.unknownColumns.length > 0 && <p className="mb-2 text-xs text-amber-600">認識できない列は無視します：{result.unknownColumns.join("、")}</p>}
+                {result.unknownColumns.length > 0 && <p className="mb-2 text-xs text-amber-400">認識できない列は無視します：{result.unknownColumns.join("、")}</p>}
                 <p className="mb-2 text-slate-600">
-                  全{result.rows.length}行：取り込み可能 <b className="text-emerald-600">{importable.length}</b> ／ エラー <b className="text-rose-500">{errorRows.length}</b> ／ 重複 <b className="text-amber-600">{result.rows.filter((r) => r.duplicate).length}</b>
+                  全{result.rows.length}行：取り込み可能 <b className="text-emerald-400">{importable.length}</b> ／ エラー <b className="text-rose-400">{errorRows.length}</b> ／ 重複 <b className="text-amber-400">{result.rows.filter((r) => r.duplicate).length}</b>
                 </p>
                 <label className="mb-3 flex items-center gap-1.5 text-xs text-slate-600"><input type="checkbox" checked={skipDup} onChange={(e) => setSkipDup(e.target.checked)} />重複している問題は取り込まない</label>
 
                 {errorRows.length > 0 && (
-                  <div className="mb-3 max-h-56 overflow-y-auto rounded-lg border border-rose-200 bg-rose-50 p-2 text-xs text-rose-700">
+                  <div className="mb-3 max-h-56 overflow-y-auto rounded-lg border border-rose-200 bg-rose-50 p-2 text-xs text-rose-400">
                     <p className="mb-1 font-medium">エラー（これらの行は取り込まれません）</p>
                     {errorRows.slice(0, 200).map((r) => <p key={r.rowNumber}>{r.rowNumber}行目：{r.errors.join(" / ")}</p>)}
                     {errorRows.length > 200 && <p>…ほか{errorRows.length - 200}行</p>}
                   </div>
                 )}
                 {warnRows.length > 0 && (
-                  <div className="mb-3 max-h-40 overflow-y-auto rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-700">
+                  <div className="mb-3 max-h-40 overflow-y-auto rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-300">
                     <p className="mb-1 font-medium">注意</p>
                     {warnRows.slice(0, 100).map((r) => <p key={r.rowNumber}>{r.rowNumber}行目：{r.warnings.join(" / ")}</p>)}
                     {warnRows.length > 100 && <p>…ほか{warnRows.length - 100}行</p>}
@@ -148,7 +148,7 @@ export default function IoPage() {
                 </div>
               </div>
             )}
-            {msg && <p role={msg.ok ? "status" : "alert"} className={`mt-3 rounded-lg px-3 py-2 text-sm ${msg.ok ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-600"}`}>{msg.text}</p>}
+            {msg && <p role={msg.ok ? "status" : "alert"} className={`mt-3 rounded-lg px-3 py-2 text-sm ${msg.ok ? "bg-emerald-50 text-emerald-400" : "bg-rose-50 text-rose-400"}`}>{msg.text}</p>}
           </>
         )}
       </section>

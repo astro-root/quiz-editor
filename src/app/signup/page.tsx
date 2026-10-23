@@ -29,7 +29,7 @@ export default function SignupPage() {
     <div className="flex min-h-screen items-center justify-center bg-slate-50">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-7 shadow-pop"
+        className="w-full max-w-sm rounded-2xl border border-slate-200 bg-surface p-7 shadow-pop"
       >
         <div className="mb-5 flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-sky-400 text-white shadow-sm">
@@ -61,7 +61,7 @@ export default function SignupPage() {
           required
           className="mb-2 w-full rounded-lg border border-slate-200 p-2.5 text-sm focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
         />
-        {error && <p className="mb-2 text-xs text-red-500">{error}</p>}
+        {error && <p className="mb-2 text-xs text-red-400">{error}</p>}
         <button
           type="submit"
           className="w-full rounded-lg bg-brand-600 p-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700"
@@ -70,7 +70,7 @@ export default function SignupPage() {
         </button>
         <p className="mt-4 text-center text-xs text-slate-500">
           すでにアカウントをお持ちの方は{" "}
-          <Link href="/login" className="text-brand-600 underline">
+          <Link href="/login" className="text-accent underline">
             ログイン
           </Link>
         </p>

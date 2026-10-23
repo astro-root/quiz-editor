@@ -2,9 +2,22 @@
 @tailwind components;
 @tailwind utilities;
 
+/* 入力欄の標準の背景。bg-* クラスを持つ要素はそちらが優先される（@layer base は utilities より弱い） */
+@layer base {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+  select,
+  textarea {
+    background-color: #121821;
+  }
+}
+
+:root {
+  color-scheme: dark; /* select・日付入力・スクロールバーなどブラウザ標準部品もダークにする */
+}
+
 body {
-  background-color: #f8fafc;
-  color: #0f172a;
+  background-color: #0d1218;
+  color: #d4dae4;
 }
 
 ::-webkit-scrollbar {
@@ -12,20 +25,29 @@ body {
   height: 6px;
 }
 ::-webkit-scrollbar-thumb {
-  background-color: #c7d2fe;
+  background-color: #2f3a52;
   border-radius: 999px;
 }
 
 /* ランディングページのヒーロー背景（1箇所だけに使う装飾）*/
 .hero-glow {
   background:
-    radial-gradient(600px circle at 15% 20%, rgba(99, 102, 241, 0.12), transparent 60%),
-    radial-gradient(500px circle at 85% 0%, rgba(56, 189, 248, 0.12), transparent 55%);
+    radial-gradient(600px circle at 15% 20%, rgba(99, 102, 241, 0.16), transparent 60%),
+    radial-gradient(500px circle at 85% 0%, rgba(56, 189, 248, 0.1), transparent 55%);
 }
 
+/* 印刷は常に白地・黒文字（ダーク配色のまま印刷すると文字が読めなくなる） */
 @media print {
-  body {
-    background-color: #fff;
+  :root {
+    color-scheme: light;
+  }
+  html,
+  body,
+  body * {
+    background: #fff !important;
+    color: #111 !important;
+    border-color: #999 !important;
+    box-shadow: none !important;
   }
   @page {
     margin: 15mm;

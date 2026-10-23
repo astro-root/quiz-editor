@@ -30,7 +30,7 @@ export default function MembersPage() {
     <div>
       <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
         {[["作成", total.created], ["採用", total.adopted], ["却下", total.rejected], ["裏どり確認済み", total.approved]].map(([l, v]) => (
-          <div key={l as string} className="rounded-xl border border-slate-200 bg-white p-3 text-center">
+          <div key={l as string} className="rounded-xl border border-slate-200 bg-surface p-3 text-center">
             <p className="text-2xl font-semibold text-slate-700">{v}</p>
             <p className="text-xs text-slate-400">{l}</p>
           </div>
@@ -39,12 +39,12 @@ export default function MembersPage() {
 
       <div className="mb-2 flex items-center justify-between">
         <p className="text-sm text-slate-500">メンバー別の状況（ゴミ箱の{trash.length}件は含みません）</p>
-        <button onClick={() => setShow(true)} className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-600 hover:border-brand-300 hover:text-brand-600">
+        <button onClick={() => setShow(true)} className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-surface px-3 py-1.5 text-sm text-slate-600 hover:border-brand-300 hover:text-accent">
           <UserPlus size={14} />{canManageMembers(role) ? "ユーザーを招待" : "メンバー一覧"}
         </button>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-surface">
         <table className="w-full min-w-[640px] text-sm">
           <thead className="bg-slate-50 text-xs text-slate-400">
             <tr>
@@ -63,8 +63,8 @@ export default function MembersPage() {
                   <td className="p-2"><span className="flex items-center gap-2"><Avatar name={p.name} photoURL={p.photoURL} size={24} /><span className={p.known ? "text-slate-700" : "text-slate-400"}>{p.name}</span></span></td>
                   <td className="p-2 text-xs text-slate-500">{r ? roleLabel[r] : "退出"}</td>
                   <td className="p-2 text-right tabular-nums">{s?.created ?? 0}</td>
-                  <td className="p-2 text-right tabular-nums text-emerald-600">{s?.adopted ?? 0}</td>
-                  <td className="p-2 text-right tabular-nums text-rose-500">{s?.rejected ?? 0}</td>
+                  <td className="p-2 text-right tabular-nums text-emerald-400">{s?.adopted ?? 0}</td>
+                  <td className="p-2 text-right tabular-nums text-rose-400">{s?.rejected ?? 0}</td>
                   <td className="p-2 text-right tabular-nums" title={`判定済みのうちの採用率：${pct(s?.decidedRate ?? null)}`}>{pct(s?.adoptRate ?? null)}</td>
                   <td className="p-2 text-right tabular-nums">{s?.assigned ?? 0}</td>
                   <td className="p-2 text-right tabular-nums">{s?.approved ?? 0}</td>

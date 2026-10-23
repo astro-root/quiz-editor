@@ -15,7 +15,7 @@ export function ScopeNav() {
     { href: `${base}/others`, label: "他の人の問題" },
   ];
   return (
-    <div className="mb-3 inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-sm">
+    <div className="mb-3 inline-flex rounded-lg border border-slate-200 bg-surface p-0.5 text-sm">
       {items.map((i) => (
         <Link key={i.href} href={i.href} aria-current={pathname === i.href ? "page" : undefined}
           className={`rounded-md px-3 py-1 ${pathname === i.href ? "bg-brand-600 text-white" : "text-slate-500 hover:text-slate-700"}`}>

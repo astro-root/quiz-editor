@@ -93,8 +93,8 @@ export function ShareDialog({ set, isAdmin, onClose }: { set: QuestionSet; isAdm
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 backdrop-blur-sm sm:items-center" onClick={onClose}>
-      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center" onClick={onClose}>
+      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-surface p-5 shadow-xl sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-slate-800">メンバーと権限</h2>
           <button onClick={onClose} aria-label="閉じる" className="rounded-full p-1 text-slate-400 hover:bg-slate-100"><X size={18} /></button>
@@ -134,7 +134,7 @@ export function ShareDialog({ set, isAdmin, onClose }: { set: QuestionSet; isAdm
                         <Avatar name={u.displayName} photoURL={u.photoURL} size={28} />
                         <span className="min-w-0 flex-1 truncate text-slate-700">{u.displayName}</span>
                         {st && <span className="text-xs text-slate-400">{st}</span>}
-                        {isSel && <Check size={15} className="text-brand-600" />}
+                        {isSel && <Check size={15} className="text-accent" />}
                       </button>
                     </li>
                   );
@@ -148,7 +148,7 @@ export function ShareDialog({ set, isAdmin, onClose }: { set: QuestionSet; isAdm
                   <Avatar name={selected.displayName} photoURL={selected.photoURL} size={22} />
                   {selected.displayName} さんを招待
                 </p>
-                <select value={role} onChange={(e) => setRole(e.target.value as Role)} className="w-full rounded-lg border border-slate-200 bg-white p-2 text-sm">
+                <select value={role} onChange={(e) => setRole(e.target.value as Role)} className="w-full rounded-lg border border-slate-200 bg-surface p-2 text-sm">
                   {ALL_ROLES.map((r) => <option key={r} value={r}>{roleLabel[r]}</option>)}
                 </select>
                 <p className="text-xs text-slate-400">{roleDescription[role]}</p>
@@ -157,7 +157,7 @@ export function ShareDialog({ set, isAdmin, onClose }: { set: QuestionSet; isAdm
                 </button>
               </div>
             )}
-            {msg && <p className={`mt-2 text-xs ${msg.ok ? "text-emerald-600" : "text-rose-500"}`}>{msg.text}</p>}
+            {msg && <p className={`mt-2 text-xs ${msg.ok ? "text-emerald-400" : "text-rose-400"}`}>{msg.text}</p>}
           </div>
         )}
 
@@ -170,11 +170,11 @@ export function ShareDialog({ set, isAdmin, onClose }: { set: QuestionSet; isAdm
                   <span className="flex min-w-0 items-center gap-2 text-slate-600">
                     <Avatar name={p.displayName} photoURL={p.photoURL} size={22} />
                     <span className="truncate">{p.displayName || "（名前なし）"}</span>
-                    <Clock size={12} className="shrink-0 text-amber-500" />
+                    <Clock size={12} className="shrink-0 text-amber-400" />
                   </span>
                   <span className="flex shrink-0 items-center gap-2 text-xs text-slate-500">
                     {roleLabel[p.role]}
-                    <button onClick={() => cancelUserInvite(set.id, p.uid).catch(() => setMsg({ ok: false, text: "招待の解除に失敗しました" }))} aria-label="招待を解除" className="text-slate-400 hover:text-rose-500">
+                    <button onClick={() => cancelUserInvite(set.id, p.uid).catch(() => setMsg({ ok: false, text: "招待の解除に失敗しました" }))} aria-label="招待を解除" className="text-slate-400 hover:text-rose-400">
                       <Trash2 size={13} />
                     </button>
                   </span>
@@ -194,14 +194,14 @@ export function ShareDialog({ set, isAdmin, onClose }: { set: QuestionSet; isAdm
                 <span className="flex min-w-0 items-center gap-2 text-slate-700">
                   <Avatar name={p.name} photoURL={p.photoURL} size={24} />
                   <span className="truncate">{p.name}{uid === user?.uid && "（自分）"}</span>
-                  {isOwner && <span className="shrink-0 rounded bg-amber-100 px-1.5 text-[10px] text-amber-700">オーナー</span>}
+                  {isOwner && <span className="shrink-0 rounded bg-amber-100 px-1.5 text-[10px] text-amber-300">オーナー</span>}
                 </span>
                 {isAdmin && !isOwner ? (
                   <span className="flex shrink-0 items-center gap-1.5">
-                    <select value={r} onChange={(e) => changeRole(uid, e.target.value as Role)} className="rounded border border-slate-200 bg-white px-1 py-0.5 text-xs">
+                    <select value={r} onChange={(e) => changeRole(uid, e.target.value as Role)} className="rounded border border-slate-200 bg-surface px-1 py-0.5 text-xs">
                       {ALL_ROLES.map((x) => <option key={x} value={x}>{roleLabel[x]}</option>)}
                     </select>
-                    <button onClick={() => removeMember(uid)} aria-label="メンバーを外す" className="text-slate-400 hover:text-rose-500"><Trash2 size={13} /></button>
+                    <button onClick={() => removeMember(uid)} aria-label="メンバーを外す" className="text-slate-400 hover:text-rose-400"><Trash2 size={13} /></button>
                   </span>
                 ) : (
                   <span className="shrink-0 text-xs text-slate-500">{roleLabel[r as Role] ?? r}</span>

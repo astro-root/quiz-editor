@@ -16,7 +16,7 @@ import { CommentSection } from "./CommentSection";
 import { HistoryPanel } from "./HistoryPanel";
 
 const input =
-  "w-full rounded-lg border border-slate-200 bg-white p-2 text-base text-slate-700 placeholder:text-slate-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100 disabled:bg-slate-50 disabled:text-slate-400";
+  "w-full rounded-lg border border-slate-200 bg-surface p-2 text-base text-slate-700 placeholder:text-slate-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100 disabled:bg-slate-50 disabled:text-slate-400";
 const label = "mb-1 block text-xs text-slate-400";
 
 type Draft = Omit<Question, "id" | "createdAt" | "updatedAt" | "order" | "deletedAt" | "deletedBy" | "authorUid" | "authorName" | "playOrder">;
@@ -146,14 +146,14 @@ export function QuestionEditor({ question, onClose }: { question: Question; onCl
   const proofOptions: ProofreadStatus[] = ["unchecked", "in_review", "approved", "needs_fix", "on_hold"];
 
   return (
-    <div onKeyDown={onKeyDown} className="rounded-2xl border-2 border-brand-200 bg-white p-4 shadow-pop" role="group" aria-label="問題の編集">
+    <div onKeyDown={onKeyDown} className="rounded-2xl border-2 border-brand-200 bg-surface p-4 shadow-pop" role="group" aria-label="問題の編集">
       <div className="mb-3 flex items-center justify-between">
-        <span className="text-sm font-medium text-brand-600">問題を編集</span>
+        <span className="text-sm font-medium text-accent">問題を編集</span>
         {!canEdit && <span className="flex items-center gap-1 text-xs text-slate-400"><Lock size={12} />内容は閲覧のみ</span>}
       </div>
 
       {remoteChanged && (
-        <p className="mb-2 flex items-center gap-1.5 rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs text-amber-700">
+        <p className="mb-2 flex items-center gap-1.5 rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs text-amber-300">
           <AlertTriangle size={13} />編集中に他の人がこの問題を更新しました。保存すると、あなたが変更した項目だけが上書きされます。
         </p>
       )}
@@ -161,14 +161,14 @@ export function QuestionEditor({ question, onClose }: { question: Question; onCl
       <label className={label}>問題文</label>
       <textarea ref={bodyRef} value={draft.body} onChange={(e) => set_("body", e.target.value)} disabled={!canEdit} rows={3} className={`${input} mb-1 resize-y leading-relaxed`} />
       {dup && (
-        <p className="mb-1 flex items-center gap-1.5 rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs text-amber-700">
+        <p className="mb-1 flex items-center gap-1.5 rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs text-amber-300">
           <AlertTriangle size={13} />同じ問題文が既にあります（{personOf(dup.authorUid, dup.authorName).name}）
         </p>
       )}
       <p className="mb-2 text-right text-[11px] text-slate-300">{draft.body.length}文字</p>
 
       <label className={label}>解答</label>
-      <textarea value={draft.answer} onChange={(e) => set_("answer", e.target.value)} disabled={!canEdit} rows={1} className={`${input} mb-3 resize-y font-medium text-brand-700`} />
+      <textarea value={draft.answer} onChange={(e) => set_("answer", e.target.value)} disabled={!canEdit} rows={1} className={`${input} mb-3 resize-y font-medium text-accent-strong`} />
 
       <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
@@ -218,7 +218,7 @@ export function QuestionEditor({ question, onClose }: { question: Question; onCl
                   className={input}
                 />
                 {isUrl && (
-                  <a href={src.trim()} target="_blank" rel="noopener noreferrer" className="flex shrink-0 items-center gap-0.5 text-xs text-brand-600 underline">
+                  <a href={src.trim()} target="_blank" rel="noopener noreferrer" className="flex shrink-0 items-center gap-0.5 text-xs text-accent underline">
                     開く<ExternalLink size={11} />
                   </a>
                 )}
@@ -271,7 +271,7 @@ export function QuestionEditor({ question, onClose }: { question: Question; onCl
         </div>
       </div>
 
-      {error && <p role="alert" className="mb-2 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600">{error}</p>}
+      {error && <p role="alert" className="mb-2 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-400">{error}</p>}
 
       <div className="flex flex-wrap items-center gap-2">
         <button onClick={handleSave} disabled={saving || !dirty} className="flex min-h-[40px] items-center gap-1.5 rounded-lg bg-brand-600 px-5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-40">
@@ -285,7 +285,7 @@ export function QuestionEditor({ question, onClose }: { question: Question; onCl
           <History size={13} />履歴・コメント
         </button>
         {canDel && (
-          <button onClick={handleDelete} className="flex items-center gap-1 text-xs text-slate-400 hover:text-rose-500">
+          <button onClick={handleDelete} className="flex items-center gap-1 text-xs text-slate-400 hover:text-rose-400">
             <Trash2 size={13} />削除
           </button>
         )}
@@ -321,7 +321,7 @@ function LogArea({ setId, questionId }: { setId: string; questionId: string }) {
               <div key={r.id} className="rounded-lg bg-slate-50 p-2.5 text-xs text-slate-500">
                 <p className="mb-1 text-slate-400">{r.editedByName}が改訂（変更前）</p>
                 <p className="text-slate-600">{r.body}</p>
-                <p className="text-brand-600">{r.answer}</p>
+                <p className="text-accent">{r.answer}</p>
               </div>
             ))}
           </div>

@@ -12,18 +12,18 @@ import { canJudge, judgeLabel, proofreadDisplay } from "@/lib/permissions";
 import { PersonChip } from "./Avatar";
 import { QuestionEditor } from "./QuestionEditor";
 
-const sel = "rounded-lg border border-slate-200 bg-white p-2 text-sm text-slate-600 focus:border-brand-400 focus:outline-none";
+const sel = "rounded-lg border border-slate-200 bg-surface p-2 text-sm text-slate-600 focus:border-brand-400 focus:outline-none";
 
 const judgeStyle: Record<string, string> = {
-  adopted: "bg-emerald-50 text-emerald-600",
-  rejected: "bg-rose-50 text-rose-500",
+  adopted: "bg-emerald-50 text-emerald-400",
+  rejected: "bg-rose-50 text-rose-400",
   undecided: "bg-slate-100 text-slate-500",
 };
 const proofStyle: Record<string, string> = {
-  unchecked: "bg-amber-50 text-amber-600",
-  in_review: "bg-sky-50 text-sky-600",
-  needs_fix: "bg-rose-50 text-rose-500",
-  approved: "bg-brand-50 text-brand-600",
+  unchecked: "bg-amber-50 text-amber-400",
+  in_review: "bg-sky-50 text-sky-300",
+  needs_fix: "bg-rose-50 text-rose-400",
+  approved: "bg-brand-50 text-accent",
   on_hold: "bg-slate-100 text-slate-500",
 };
 
@@ -105,19 +105,19 @@ export function QuestionBrowser({ base, storageKey, initialFilters, header, show
               value={filters.text}
               onChange={(e) => patch({ text: e.target.value })}
               placeholder="問題文・解答・解説・別解・出典・作成者を検索（スペースでAND）"
-              className="w-full rounded-lg border border-slate-200 bg-white p-2 pl-9 pr-8 text-sm focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
+              className="w-full rounded-lg border border-slate-200 bg-surface p-2 pl-9 pr-8 text-sm focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
             />
             {filters.text && (
               <button onClick={() => patch({ text: "" })} aria-label="検索語を消す" className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500"><X size={14} /></button>
             )}
           </div>
-          <button onClick={() => setShowPanel((v) => !v)} className={`flex shrink-0 items-center gap-1.5 rounded-lg border px-3 text-sm ${nActive ? "border-brand-300 bg-brand-50 text-brand-600" : "border-slate-200 bg-white text-slate-600"}`}>
+          <button onClick={() => setShowPanel((v) => !v)} className={`flex shrink-0 items-center gap-1.5 rounded-lg border px-3 text-sm ${nActive ? "border-brand-300 bg-brand-50 text-accent" : "border-slate-200 bg-surface text-slate-600"}`}>
             <SlidersHorizontal size={14} />絞り込み{nActive > 0 && `(${nActive})`}
           </button>
         </div>
 
         {showPanel && (
-          <div className="mt-2 grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-3 lg:grid-cols-4">
+          <div className="mt-2 grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-surface p-3 sm:grid-cols-3 lg:grid-cols-4">
             <select value={filters.genreId} onChange={(e) => patch({ genreId: e.target.value, subGenreId: "" })} className={sel} aria-label="大ジャンル">
               <option value="">大ジャンル：すべて</option>
               {tree.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
@@ -174,7 +174,7 @@ export function QuestionBrowser({ base, storageKey, initialFilters, header, show
       </div>
 
       {filtered.length === 0 && (
-        <p className="rounded-xl border border-dashed border-slate-200 bg-white p-6 text-center text-sm text-slate-400">
+        <p className="rounded-xl border border-dashed border-slate-200 bg-surface p-6 text-center text-sm text-slate-400">
           {base.length === 0 ? emptyText ?? "問題がありません" : "条件に合う問題がありません"}
         </p>
       )}
@@ -234,17 +234,17 @@ const Row = memo(function Row({ q, index, showAuthor, onOpen }: { q: Question; i
   }
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white shadow-sm hover:border-brand-300">
+    <div className="rounded-xl border border-slate-200 bg-surface shadow-sm hover:border-brand-300">
       <div role="button" tabIndex={0} onClick={() => onOpen(q.id)} onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), onOpen(q.id))}
         className="flex cursor-pointer items-start gap-3 p-3 text-left text-sm" aria-label="クリックして編集">
         <div className="min-w-0 flex-1">
           <p className="mb-1 flex flex-wrap items-center gap-1.5 text-xs text-slate-300">
             <span>#{index + 1}</span>
             {q.genreId && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-500">{gi.majorName(q.genreId)}{q.subGenreId && ` / ${gi.subName(q.genreId, q.subGenreId)}`}</span>}
-            {round && <span className="rounded-full bg-violet-50 px-2 py-0.5 text-violet-600">{round}</span>}
+            {round && <span className="rounded-full bg-violet-50 px-2 py-0.5 text-violet-300">{round}</span>}
           </p>
           <p className="line-clamp-2 break-words text-slate-700">{q.body || "（問題文なし）"}</p>
-          <p className="truncate text-brand-600">{q.answer || "（解答なし）"}</p>
+          <p className="truncate text-accent">{q.answer || "（解答なし）"}</p>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1 text-xs">
           {showAuthor && <PersonChip name={author.name} photoURL={author.photoURL} muted={!author.known} />}
@@ -255,7 +255,7 @@ const Row = memo(function Row({ q, index, showAuthor, onOpen }: { q: Question; i
           {assignee && <span className="text-slate-400">担当：{assignee.name}</span>}
           {sources.length > 0 ? (
             firstUrl ? (
-              <a href={firstUrl.trim()} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="flex items-center gap-0.5 text-brand-600 underline">出典あり<ExternalLink size={10} /></a>
+              <a href={firstUrl.trim()} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="flex items-center gap-0.5 text-accent underline">出典あり<ExternalLink size={10} /></a>
             ) : (
               <span className="text-slate-400" title={sources.join(" / ")}>出典あり</span>
             )
@@ -266,12 +266,12 @@ const Row = memo(function Row({ q, index, showAuthor, onOpen }: { q: Question; i
       </div>
       {judge && (
         <div className="flex items-center gap-1.5 border-t border-slate-100 px-3 py-1.5">
-          <button disabled={busy} onClick={() => setJudge("adopted")} className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs ${q.status === "adopted" ? "bg-emerald-600 text-white" : "text-emerald-600 hover:bg-emerald-50"}`}><Check size={12} />採用</button>
-          <button disabled={busy} onClick={() => setJudge("rejected")} className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs ${q.status === "rejected" ? "bg-rose-500 text-white" : "text-rose-500 hover:bg-rose-50"}`}><Ban size={12} />却下</button>
+          <button disabled={busy} onClick={() => setJudge("adopted")} className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs ${q.status === "adopted" ? "bg-emerald-600 text-white" : "text-emerald-400 hover:bg-emerald-50"}`}><Check size={12} />採用</button>
+          <button disabled={busy} onClick={() => setJudge("rejected")} className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs ${q.status === "rejected" ? "bg-rose-500 text-white" : "text-rose-400 hover:bg-rose-50"}`}><Ban size={12} />却下</button>
           {(q.status === "adopted" || q.status === "rejected") && (
             <button disabled={busy} onClick={() => setJudge("undecided")} className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-slate-400 hover:bg-slate-50"><RotateCcw size={12} />未判定に戻す</button>
           )}
-          {err && <span className="text-xs text-rose-500">{err}</span>}
+          {err && <span className="text-xs text-rose-400">{err}</span>}
           <ChevronDown size={14} className="ml-auto text-slate-300" />
         </div>
       )}
