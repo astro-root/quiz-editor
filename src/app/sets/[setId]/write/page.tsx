@@ -135,19 +135,16 @@ export default function WritePage() {
         <div className="mt-6">
           <p className="mb-2 text-xs font-medium text-slate-400">最近作成した自分の問題</p>
           <div className="space-y-2">
-            {recent.map((q: Question) =>
-              editingId === q.id ? (
-                <QuestionEditor key={q.id} question={q} onClose={() => setEditingId(null)} />
-              ) : (
+            {recent.map((q: Question) => (
                 <button key={q.id} onClick={() => setEditingId(q.id)} className="block w-full rounded-xl border border-slate-200 bg-surface p-3 text-left text-sm hover:border-brand-300">
                   <p className="line-clamp-2 text-slate-700">{q.body || "（問題文なし）"}</p>
                   <p className="truncate text-accent">{q.answer}</p>
                 </button>
-              )
-            )}
+            ))}
           </div>
         </div>
       )}
+      {editingId && store.byId.get(editingId) && <QuestionEditor modal question={store.byId.get(editingId)!} onClose={() => setEditingId(null)} />}
     </div>
   );
 }
