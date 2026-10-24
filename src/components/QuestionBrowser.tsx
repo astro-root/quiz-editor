@@ -94,6 +94,8 @@ export function QuestionBrowser({ base, storageKey, initialFilters, header, show
     if (expandedId && !filtered.some((q) => q.id === expandedId)) setExpandedId(null);
   }, [filtered, expandedId]);
 
+  const expanded = expandedId ? filtered.find((q) => q.id === expandedId) ?? null : null;
+
   return (
     <div>
       {header}
@@ -191,15 +193,13 @@ export function QuestionBrowser({ base, storageKey, initialFilters, header, show
               style={{ position: "absolute", top: 0, left: 0, width: "100%", transform: `translateY(${v.start - virt.options.scrollMargin}px)` }}
               className="pb-2"
             >
-              {expandedId === q.id ? (
-                <QuestionEditor question={q} onClose={close} />
-              ) : (
-                <Row q={q} index={v.index} showAuthor={showAuthor} onOpen={toggle} />
-              )}
+              <Row q={q} index={v.index} showAuthor={showAuthor} onOpen={toggle} />
             </div>
           );
         })}
       </div>
+
+      {expanded && <QuestionEditor modal question={expanded} onClose={close} />}
     </div>
   );
 }
@@ -236,7 +236,7 @@ const Row = memo(function Row({ q, index, showAuthor, onOpen }: { q: Question; i
   return (
     <div className="rounded-xl border border-slate-200 bg-surface shadow-sm hover:border-brand-300">
       <div role="button" tabIndex={0} onClick={() => onOpen(q.id)} onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), onOpen(q.id))}
-        className="flex cursor-pointer items-start gap-3 p-3 text-left text-sm" aria-label="クリックして編集">
+        className="flex cursor-pointer flex-col gap-2 p-3 text-left text-sm sm:flex-row sm:items-start sm:gap-3" aria-label="クリックして編集">
         <div className="min-w-0 flex-1">
           <p className="mb-1 flex flex-wrap items-center gap-1.5 text-xs text-slate-300">
             <span>#{index + 1}</span>
@@ -246,7 +246,7 @@ const Row = memo(function Row({ q, index, showAuthor, onOpen }: { q: Question; i
           <p className="line-clamp-2 break-words text-slate-700">{q.body || "（問題文なし）"}</p>
           <p className="truncate text-accent">{q.answer || "（解答なし）"}</p>
         </div>
-        <div className="flex shrink-0 flex-col items-end gap-1 text-xs">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs sm:shrink-0 sm:flex-col sm:items-end sm:gap-x-0">
           {showAuthor && <PersonChip name={author.name} photoURL={author.photoURL} muted={!author.known} />}
           <span className="flex flex-wrap justify-end gap-1">
             <span className={`rounded-full px-2 py-0.5 ${judgeStyle[judgeKey]}`}>{judgeLabel(q.status)}</span>
@@ -266,10 +266,10 @@ const Row = memo(function Row({ q, index, showAuthor, onOpen }: { q: Question; i
       </div>
       {judge && (
         <div className="flex items-center gap-1.5 border-t border-slate-100 px-3 py-1.5">
-          <button disabled={busy} onClick={() => setJudge("adopted")} className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs ${q.status === "adopted" ? "bg-emerald-600 text-white" : "text-ok hover:bg-emerald-50"}`}><Check size={12} />採用</button>
-          <button disabled={busy} onClick={() => setJudge("rejected")} className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs ${q.status === "rejected" ? "bg-rose-500 text-white" : "text-danger hover:bg-rose-50"}`}><Ban size={12} />却下</button>
+          <button disabled={busy} onClick={() => setJudge("adopted")} className={`flex items-center gap-1 rounded-md px-3 py-2 text-xs sm:px-2 sm:py-1 ${q.status === "adopted" ? "bg-emerald-600 text-white" : "text-ok hover:bg-emerald-50"}`}><Check size={12} />採用</button>
+          <button disabled={busy} onClick={() => setJudge("rejected")} className={`flex items-center gap-1 rounded-md px-3 py-2 text-xs sm:px-2 sm:py-1 ${q.status === "rejected" ? "bg-rose-500 text-white" : "text-danger hover:bg-rose-50"}`}><Ban size={12} />却下</button>
           {(q.status === "adopted" || q.status === "rejected") && (
-            <button disabled={busy} onClick={() => setJudge("undecided")} className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-slate-400 hover:bg-slate-50"><RotateCcw size={12} />未判定に戻す</button>
+            <button disabled={busy} onClick={() => setJudge("undecided")} className="flex items-center gap-1 rounded-md px-3 py-2 text-xs sm:px-2 sm:py-1 text-slate-400 hover:bg-slate-50"><RotateCcw size={12} />未判定に戻す</button>
           )}
           {err && <span className="text-xs text-danger">{err}</span>}
           <ChevronDown size={14} className="ml-auto text-slate-300" />

@@ -180,16 +180,13 @@ export default function OrderPage() {
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={working} strategy={verticalListSortingStrategy}>
           <div className="space-y-2">
-            {list.map((q, i) =>
-              editingId === q.id ? (
-                <QuestionEditor key={q.id} question={q} onClose={() => setEditingId(null)} />
-              ) : (
-                <SortableRow key={q.id} q={q} index={i} bad={bad.has(i)} disabled={!reorderable} onEdit={() => setEditingId(q.id)} gi={gi} author={personOf(q.authorUid, q.authorName)} />
-              )
-            )}
+            {list.map((q, i) => (
+              <SortableRow key={q.id} q={q} index={i} bad={bad.has(i)} disabled={!reorderable} onEdit={() => setEditingId(q.id)} gi={gi} author={personOf(q.authorUid, q.authorName)} />
+            ))}
           </div>
         </SortableContext>
       </DndContext>
+      {editingId && byId.get(editingId) && <QuestionEditor modal question={byId.get(editingId)!} onClose={() => setEditingId(null)} />}
     </div>
   );
 }

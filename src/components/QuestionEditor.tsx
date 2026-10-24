@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, ExternalLink, History, Trash2, Lock, Loader2 } from "lucide-react";
+import { AlertTriangle, ExternalLink, History, Trash2, Lock, Loader2, X } from "lucide-react";
 import { MAX_SOURCES, ProofreadStatus, Question } from "@/lib/types";
 import {
   allowedStatusOptions, canDeleteQuestion, canEditQuestion, canJudge, canProofread,
@@ -14,6 +14,7 @@ import { useHistory } from "@/lib/useHistory";
 import { useRevisions } from "@/lib/useRevisions";
 import { CommentSection } from "./CommentSection";
 import { HistoryPanel } from "./HistoryPanel";
+import { Modal } from "./Modal";
 
 const input =
   "w-full rounded-lg border border-slate-200 bg-surface p-2 text-base text-slate-700 placeholder:text-slate-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100 disabled:bg-slate-50 disabled:text-slate-400";
@@ -32,7 +33,7 @@ const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 
 // 一覧の中でその場に展開されるエディタ。明示的な［保存］［キャンセル］で確定する
 // （打鍵ごとの自動保存はしない＝書き込み回数と、他人の更新との競合を減らす）。
-export function QuestionEditor({ question, onClose }: { question: Question; onClose: () => void }) {
+export function QuestionEditor({ question, onClose, modal = false }: { question: Question; onClose: () => void; modal?: boolean }) {
   const { user } = useAuth();
   const { set, role, tree, gi, personOf } = useSetContext();
   const store = useQuestionStore();
@@ -145,11 +146,12 @@ export function QuestionEditor({ question, onClose }: { question: Question; onCl
   const members = Object.keys(set.members);
   const proofOptions: ProofreadStatus[] = ["unchecked", "in_review", "approved", "needs_fix", "on_hold"];
 
-  return (
-    <div onKeyDown={onKeyDown} className="rounded-2xl border-2 border-brand-200 bg-surface p-4 shadow-pop" role="group" aria-label="問題の編集">
+  const panel = (
+    <div onKeyDown={onKeyDown} className={modal ? "p-4 sm:p-5" : "rounded-2xl border-2 border-brand-200 bg-surface p-4 shadow-pop"} role="group" aria-label="問題の編集">
       <div className="mb-3 flex items-center justify-between">
         <span className="text-sm font-medium text-accent">問題を編集</span>
         {!canEdit && <span className="flex items-center gap-1 text-xs text-slate-400"><Lock size={12} />内容は閲覧のみ</span>}
+        {modal && <button type="button" onClick={handleCancel} aria-label="閉じる" className="-mr-1 ml-auto flex h-9 w-9 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600"><X size={18} /></button>}
       </div>
 
       {remoteChanged && (
@@ -273,7 +275,7 @@ export function QuestionEditor({ question, onClose }: { question: Question; onCl
 
       {error && <p role="alert" className="mb-2 rounded-lg bg-rose-50 px-3 py-2 text-sm text-danger">{error}</p>}
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className={modal ? "sticky bottom-0 -mx-4 -mb-4 mt-2 flex flex-wrap items-center gap-2 border-t border-slate-100 bg-surface px-4 py-3 sm:-mx-5 sm:-mb-5 sm:px-5" : "flex flex-wrap items-center gap-2"}>
         <button onClick={handleSave} disabled={saving || !dirty} className="flex min-h-[40px] items-center gap-1.5 rounded-lg bg-brand-600 px-5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-40">
           {saving && <Loader2 size={14} className="animate-spin" />}保存
         </button>
@@ -294,6 +296,9 @@ export function QuestionEditor({ question, onClose }: { question: Question; onCl
       {showLog && <LogArea setId={set.id} questionId={question.id} />}
     </div>
   );
+
+  if (!modal) return panel;
+  return <Modal onRequestClose={handleCancel} label="問題の編集">{panel}</Modal>;
 }
 
 // 同じ問題を1回の編集で何度も保存しても改訂履歴が増えすぎないよう、保存前の内容を1件だけ記録する
