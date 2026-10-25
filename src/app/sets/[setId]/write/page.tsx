@@ -6,8 +6,9 @@ import { useAuth } from "@/lib/auth-context";
 import { useSetContext } from "@/lib/SetContext";
 import { useQuestionStore } from "@/lib/QuestionsContext";
 import { canCreateQuestion } from "@/lib/permissions";
-import { MAX_SOURCES, Question } from "@/lib/types";
+import { ImageSlot, MAX_SOURCES, Question } from "@/lib/types";
 import { QuestionEditor } from "@/components/QuestionEditor";
+import { ImageField, imageFilesFrom, useImageDraft } from "@/components/ImageField";
 
 const input = "w-full rounded-lg border border-slate-200 bg-surface p-2.5 text-base text-slate-700 placeholder:text-slate-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100";
 const label = "mb-1 block text-xs text-slate-400";
@@ -33,6 +34,7 @@ export default function WritePage() {
   const [savedCount, setSavedCount] = useState(0);
   const [editingId, setEditingId] = useState<string | null>(null);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
+  const imgs = useImageDraft([]);
 
   // リロードや誤操作で書きかけが消えないよう、ブラウザ内（sessionStorage）にだけ退避する
   useEffect(() => {
@@ -52,8 +54,16 @@ export default function WritePage() {
   const dup = store.findDuplicate(body);
   const empty = !body.trim() && !answer.trim();
 
+  function pasteImg(field: ImageSlot, e: React.ClipboardEvent) {
+    const fs = imageFilesFrom(e);
+    if (fs.length) {
+      e.preventDefault();
+      imgs.addFiles(field, fs);
+    }
+  }
+
   async function handleSave() {
-    if (saving) return;
+    if (saving || imgs.busy) return;
     setError("");
     if (empty) return setError("問題文か答えのどちらかを入力してください");
     setSaving(true);
@@ -63,8 +73,9 @@ export default function WritePage() {
         altAnswers: altAnswers.split(",").map((s) => s.trim()).filter(Boolean),
         sources: source.trim() ? [source.trim()] : [],
         status: "draft",
-      });
+      }, imgs.added);
       setBody(""); setAnswer(""); setExplanation(""); setAltAnswers(""); setSource(""); // ジャンルは連続作問のため維持
+      imgs.reset();
       setSavedCount((n) => n + 1);
       bodyRef.current?.focus();
     } catch (e: any) {
@@ -92,11 +103,13 @@ export default function WritePage() {
           {savedCount > 0 && <span className="text-ok">今回 {savedCount} 問を保存しました</span>}
         </div>
         <label className={label}>問題文</label>
-        <textarea ref={bodyRef} value={body} onChange={(e) => setBody(e.target.value)} rows={3} placeholder="問題文を入力" className={`${input} mb-1 resize-y leading-relaxed`} autoFocus />
+        <textarea ref={bodyRef} onPaste={(e) => pasteImg("body", e)} value={body} onChange={(e) => setBody(e.target.value)} rows={3} placeholder="問題文を入力" className={`${input} mb-1 resize-y leading-relaxed`} autoFocus />
         {dup && <p className="mb-1 rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs text-warn-strong">同じ問題文が既にあります（{set.memberProfiles?.[dup.authorUid]?.displayName || dup.authorName || "作問者不明"}）</p>}
         <p className="mb-2 text-right text-[11px] text-slate-300">{body.length}文字</p>
+        <ImageField field="body" draft={imgs} loaded={{}} />
         <label className={label}>解答</label>
-        <textarea value={answer} onChange={(e) => setAnswer(e.target.value)} rows={1} placeholder="解答" className={`${input} mb-3 resize-y font-medium text-accent-strong`} />
+        <textarea onPaste={(e) => pasteImg("answer", e)} value={answer} onChange={(e) => setAnswer(e.target.value)} rows={1} placeholder="解答" className={`${input} mb-3 resize-y font-medium text-accent-strong`} />
+        <ImageField field="answer" draft={imgs} loaded={{}} />
         <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <label className={label}>大ジャンル</label>
@@ -117,17 +130,19 @@ export default function WritePage() {
           <summary className="cursor-pointer text-xs text-slate-500">解説・別解・出典を追加（最大{MAX_SOURCES}件はあとで一覧から追加できます）</summary>
           <div className="mt-2 space-y-2">
             <input value={altAnswers} onChange={(e) => setAltAnswers(e.target.value)} placeholder="別解（カンマ区切り）" className={input} />
-            <textarea value={explanation} onChange={(e) => setExplanation(e.target.value)} rows={2} placeholder="解説" className={`${input} resize-y`} />
+            <textarea onPaste={(e) => pasteImg("explanation", e)} value={explanation} onChange={(e) => setExplanation(e.target.value)} rows={2} placeholder="解説" className={`${input} resize-y`} />
+            <ImageField field="explanation" draft={imgs} loaded={{}} />
             <input value={source} onChange={(e) => setSource(e.target.value)} placeholder="出典（URLなど）" className={input} />
           </div>
         </details>
+        {imgs.error && <p role="alert" className="mb-2 rounded-lg bg-rose-50 px-3 py-2 text-sm text-danger">{imgs.error}</p>}
         {error && <p role="alert" className="mb-2 rounded-lg bg-rose-50 px-3 py-2 text-sm text-danger">{error}</p>}
         <div className="flex items-center gap-3">
           <button onClick={handleSave} disabled={saving || empty} className="flex min-h-[44px] items-center gap-1.5 rounded-lg bg-brand-600 px-6 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-40">
             {saving && <Loader2 size={14} className="animate-spin" />}保存して次へ
           </button>
           <span className="hidden text-[11px] text-slate-300 sm:inline">Ctrl/⌘+Enter</span>
-          {!empty && <button onClick={() => { if (confirm("入力中の内容を破棄しますか？")) { setBody(""); setAnswer(""); setExplanation(""); setAltAnswers(""); setSource(""); } }} className="ml-auto text-xs text-slate-400 hover:text-slate-600">入力を破棄</button>}
+          {!empty && <button onClick={() => { if (confirm("入力中の内容を破棄しますか？")) { setBody(""); setAnswer(""); setExplanation(""); setAltAnswers(""); setSource(""); imgs.reset(); } }} className="ml-auto text-xs text-slate-400 hover:text-slate-600">入力を破棄</button>}
         </div>
       </div>
 

@@ -1,9 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Printer } from "lucide-react";
 import { useSetContext } from "@/lib/SetContext";
 import { useQuestionStore } from "@/lib/QuestionsContext";
+import { QuestionImages } from "@/components/ImageField";
+import { loadImage } from "@/lib/questionImages";
 
 const sel = "rounded-lg border border-slate-200 bg-surface p-2 text-sm";
 
@@ -21,6 +23,20 @@ export default function PrintPage() {
   }, [live, scope]);
 
   const unordered = list.filter((q) => q.playOrder === null).length;
+
+  // 画像を読み込み終えてから印刷できるようにする（読み込み前に印刷すると、画像が抜けてしまう）
+  const [imgsReady, setImgsReady] = useState(true);
+  useEffect(() => {
+    const jobs = list.flatMap((q) => q.imageMeta.filter((m) => m.field === "body" || mode === "answer").map((m) => loadImage(set.id, q.id, m.id)));
+    if (jobs.length === 0) {
+      setImgsReady(true);
+      return;
+    }
+    let alive = true;
+    setImgsReady(false);
+    Promise.allSettled(jobs).then(() => alive && setImgsReady(true));
+    return () => { alive = false; };
+  }, [list, mode, set.id]);
   const label = scope.startsWith("round:")
     ? set.rounds.find((r) => r.id === scope.slice(6))?.name ?? "Round"
     : "採用問題";
@@ -67,9 +83,10 @@ export default function PrintPage() {
             出題順が未設定の問題が{unordered}問あります（作成順で末尾に並びます）。先に「出題順」タブで並びを保存してください。
           </p>
         )}
+        {!imgsReady && <p className="mb-3 text-xs text-slate-400" role="status">画像を読み込み中です…</p>}
         <button
           onClick={handlePrint}
-          disabled={!list.length}
+          disabled={!list.length || !imgsReady}
           className="flex items-center gap-1.5 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-40"
         >
           <Printer size={14} />印刷 / PDFに保存
@@ -93,6 +110,7 @@ export default function PrintPage() {
                     <span className="shrink-0 font-semibold text-slate-800">{i + 1}.</span>
                     <span className="whitespace-pre-wrap break-words text-slate-800">{q.body}</span>
                   </p>
+                  <div className="ml-6"><QuestionImages setId={set.id} q={q} field="body" /></div>
                   {showGenre && q.genreId && (
                     <p className="ml-6 mt-0.5 text-xs text-slate-400">
                       {gi.majorName(q.genreId)}{q.subGenreId && ` / ${gi.subName(q.genreId, q.subGenreId)}`}
@@ -101,8 +119,10 @@ export default function PrintPage() {
                   {mode === "answer" && (
                     <div className="ml-6 mt-1 space-y-0.5 text-sm">
                       <p className="font-medium text-slate-800">正解：{q.answer}</p>
+                      <QuestionImages setId={set.id} q={q} field="answer" />
                       {q.altAnswers.length > 0 && <p className="text-slate-600">別解：{q.altAnswers.join("、")}</p>}
                       {q.explanation && <p className="whitespace-pre-wrap text-slate-600">解説：{q.explanation}</p>}
+                      <QuestionImages setId={set.id} q={q} field="explanation" />
                       {srcs.length > 0 && <p className="break-words text-slate-500">出典：{srcs.join(" / ")}</p>}
                     </div>
                   )}

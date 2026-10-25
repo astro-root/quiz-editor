@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { loadAvatar, parseAvatarRef } from "@/lib/avatars";
 
 const COLORS = ["bg-indigo-500", "bg-sky-500", "bg-emerald-500", "bg-amber-500", "bg-rose-500", "bg-violet-500", "bg-teal-500"];
 function colorFor(s: string) {
@@ -12,10 +13,22 @@ function colorFor(s: string) {
 // アイコン画像（https URL）が無い／読み込めない場合は頭文字アバターにフォールバックする
 export function Avatar({ name, photoURL, size = 24, seed }: { name: string; photoURL?: string; size?: number; seed?: string }) {
   const [failed, setFailed] = useState(false);
+  const [resolved, setResolved] = useState("");
+  const isRef = !!photoURL && !!parseAvatarRef(photoURL);
+  // アップロードされたアイコンは、参照（photoURL）から画像を読み込む
+  useEffect(() => {
+    setFailed(false);
+    setResolved("");
+    if (!photoURL || !isRef) return;
+    let alive = true;
+    loadAvatar(photoURL).then((src) => alive && setResolved(src)).catch(() => alive && setFailed(true));
+    return () => { alive = false; };
+  }, [photoURL, isRef]);
+  const src = isRef ? resolved : photoURL;
   const style = { width: size, height: size, fontSize: Math.max(10, size * 0.45) };
-  if (photoURL && !failed) {
+  if (src && !failed) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={photoURL} alt="" style={style} className="shrink-0 rounded-full object-cover" onError={() => setFailed(true)} referrerPolicy="no-referrer" />;
+    return <img src={src} alt="" style={style} className="shrink-0 rounded-full object-cover" onError={() => setFailed(true)} referrerPolicy="no-referrer" />;
   }
   return (
     <span style={style} className={`inline-flex shrink-0 items-center justify-center rounded-full font-medium text-white ${colorFor(seed || name)}`}>

@@ -7,6 +7,7 @@ import {
 } from "firebase/firestore";
 import { db } from "./firebase";
 import { HistoryField, MAX_SOURCES, Question } from "./types";
+import { cleanMeta, deleteImages, ImageChange, NewImage, toMeta, writeImages } from "./questionImages";
 import { isEmptyQuestion } from "./permissions";
 import { useAuth } from "./auth-context";
 
@@ -37,6 +38,7 @@ export function normalizeQuestion(id: string, data: any): Question {
     assigneeUid: data.assigneeUid ?? "",
     roundId: data.roundId ?? "",
     playOrder: typeof data.playOrder === "number" ? data.playOrder : null,
+    imageMeta: cleanMeta(data.imageMeta),
     order: typeof data.order === "number" ? data.order : 0,
     deletedAt: data.deletedAt ? toMillis(data.deletedAt) || 1 : null,
     deletedBy: data.deletedBy ?? "",
@@ -56,8 +58,8 @@ interface Store {
   trash: Question[];
   emptyLegacy: Question[]; // 過去のバグで残った完全な空問題
   byId: Map<string, Question>;
-  createQuestion: (input: QuestionInput) => Promise<string>;
-  updateQuestion: (id: string, patch: QuestionInput, logs?: HistoryLog[]) => Promise<void>;
+  createQuestion: (input: QuestionInput, newImages?: NewImage[]) => Promise<string>;
+  updateQuestion: (id: string, patch: QuestionInput, logs?: HistoryLog[], images?: ImageChange) => Promise<void>;
   softDelete: (id: string) => Promise<void>;
   restore: (id: string) => Promise<void>;
   hardDelete: (ids: string[]) => Promise<void>;
@@ -89,6 +91,7 @@ function baseDoc(input: QuestionInput, uid: string, authorName: string, order: n
     assigneeUid: input.assigneeUid ?? "",
     roundId: input.roundId ?? "",
     playOrder: input.playOrder ?? null,
+    imageMeta: input.imageMeta ?? [],
     order,
     deletedAt: null,
     deletedBy: "",
@@ -103,6 +106,8 @@ export function QuestionsProvider({ setId, children }: { setId: string; children
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const creating = useRef(false);
+  const imgSrcRef = useRef<Question[]>([]); // 完全削除のとき、添付画像の目録を引くため
+  imgSrcRef.current = all;
   const dupIndexRef = useRef<Map<string, Question[]>>(new Map());
 
   // セット単位で1回だけ購読する。タブを切り替えても読み直さない（2000問×タブ切替ごとの再読込を防ぐ）
@@ -160,7 +165,7 @@ export function QuestionsProvider({ setId, children }: { setId: string; children
   const nameOfMe = () => user?.displayName || user?.email || "匿名";
 
   const createQuestion = useCallback(
-    async (input: QuestionInput) => {
+    async (input: QuestionInput, newImages: NewImage[] = []) => {
       if (!user) throw new Error("ログインが必要です");
       if (!(input.body ?? "").trim() && !(input.answer ?? "").trim()) {
         throw new Error("問題文か答えのどちらかを入力してください");
@@ -170,8 +175,10 @@ export function QuestionsProvider({ setId, children }: { setId: string; children
       try {
         // order は作成時刻。複数人が同時に追加しても採番が衝突しない（旧データの小さい連番より常に後ろ）
         const ref = doc(col());
+        // 画像を先に保存し、そのあとで問題を作る（目録が、まだ無い画像を指すことがないように）
+        if (newImages.length) await writeImages(setId, ref.id, user.uid, newImages);
         const batch = writeBatch(db);
-        batch.set(ref, baseDoc(input, user.uid, nameOfMe(), Date.now()));
+        batch.set(ref, baseDoc({ ...input, imageMeta: newImages.map(toMeta) }, user.uid, nameOfMe(), Date.now()));
         await batch.commit();
         return ref.id;
       } finally {
@@ -183,10 +190,15 @@ export function QuestionsProvider({ setId, children }: { setId: string; children
   );
 
   const updateQuestion = useCallback(
-    async (id: string, patch: QuestionInput, logs: HistoryLog[] = []) => {
+    async (id: string, patch: QuestionInput, logs: HistoryLog[] = [], images?: ImageChange) => {
       if (!user) throw new Error("ログインが必要です");
       const data: Record<string, unknown> = { ...patch, updatedAt: serverTimestamp() };
       if (patch.sources) data.sources = padSources(patch.sources);
+      if (images) {
+        // 追加する画像 → 問題の目録の更新 → 消す画像、の順（目録が存在しない画像を指す瞬間を作らない）
+        if (images.add.length) await writeImages(setId, id, user.uid, images.add);
+        data.imageMeta = images.meta;
+      }
       if (patch.genreId !== undefined) data.genre = patch.genreId;
       for (const k of Object.keys(data)) if (data[k] === undefined) delete data[k];
       const batch = writeBatch(db);
@@ -197,6 +209,9 @@ export function QuestionsProvider({ setId, children }: { setId: string; children
         });
       }
       await batch.commit();
+      if (images?.removeIds.length) {
+        await deleteImages(setId, images.removeIds.map((x) => ({ qid: id, id: x }))).catch((e) => console.error("削除した画像の後片付けに失敗しました", e));
+      }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [user, col]
@@ -230,8 +245,11 @@ export function QuestionsProvider({ setId, children }: { setId: string; children
         ids.slice(i, i + 400).forEach((id) => b.delete(doc(col(), id)));
         await b.commit();
       }
+      // 添付画像（問題とは別の文書）も消す。失敗しても、問題の削除はすでに完了している
+      const pics = ids.flatMap((id) => (imgSrcRef.current.find((q) => q.id === id)?.imageMeta ?? []).map((m) => ({ qid: id, id: m.id })));
+      if (pics.length) await deleteImages(setId, pics).catch((e) => console.error("添付画像の削除に失敗しました", e));
     },
-    [col]
+    [col, setId]
   );
 
   const setPlayOrders = useCallback(

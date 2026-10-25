@@ -130,6 +130,10 @@ service cloud.firestore {
           return d.body.size() <= 5000 && d.answer.size() <= 2000
             && d.get('explanation', '').size() <= 5000;
         }
+        // 添付画像の目録。本体は images サブコレクションにあり、ここでは件数だけを制限する
+        function imagesOk(d) {
+          return d.get('imageMeta', []) is list && d.get('imageMeta', []).size() <= 6;
+        }
         // 作問者が変更できるのは問題の内容と、下書き⇔作問完了の切替、ゴミ箱への移動/復元のみ。
         // 採用・Round・裏どり担当・出題順・作成者は触れない。
         function writerStatusOk() {
@@ -141,8 +145,9 @@ service cloud.firestore {
             && resource.data.authorUid == request.auth.uid
             && changed().hasOnly(['body', 'answer', 'altAnswers', 'judgingCriteria', 'explanation', 'sources',
                                   'memo', 'tags', 'genre', 'genreId', 'subGenreId', 'status',
-                                  'deletedAt', 'deletedBy', 'updatedAt'])
+                                  'deletedAt', 'deletedBy', 'updatedAt', 'imageMeta'])
             && writerStatusOk()
+            && imagesOk(request.resource.data)
             && hasContent(request.resource.data);
         }
         // 担当者（裏どり担当・作問者）は、担当問題の裏どり状態と出典だけ更新できる
@@ -160,12 +165,13 @@ service cloud.firestore {
           && request.resource.data.authorUid == request.auth.uid
           && hasContent(request.resource.data)
           && sizesOk(request.resource.data)
+          && imagesOk(request.resource.data)
           && (isSup() || (request.resource.data.status in ['draft', 'completed']
                           && request.resource.data.get('roundId', '') == ''
                           && request.resource.data.get('assigneeUid', '') == ''
                           && request.resource.data.get('playOrder', null) == null));
 
-        allow update: if isSup()
+        allow update: if (isSup() && imagesOk(request.resource.data))
           || writerOwnEdit()
           || assigneeProofread();
 
@@ -173,6 +179,20 @@ service cloud.firestore {
         allow delete: if isSup()
           || (isWriter() && resource.data.authorUid == request.auth.uid
               && (resource.data.get('deletedAt', null) != null || !hasContent(resource.data)));
+
+        // 添付画像。1枚が1文書（上限は約337KB＝base64で45万文字）。差し替えは「削除して新しく作る」。
+        match /images/{imageId} {
+          allow read: if isMemberOfSet();
+          allow create: if role() in ['admin', 'supervisor', 'writer']
+            && request.resource.data.authorUid == request.auth.uid
+            && request.resource.data.keys().hasOnly(['data', 'mime', 'field', 'w', 'h', 'authorUid', 'createdAt'])
+            && request.resource.data.data is string
+            && request.resource.data.data.size() <= 450000
+            && request.resource.data.mime in ['image/webp', 'image/jpeg', 'image/png']
+            && request.resource.data.field in ['body', 'answer', 'explanation'];
+          allow update: if false;
+          allow delete: if isSup() || (isWriter() && resource.data.authorUid == request.auth.uid);
+        }
 
         match /comments/{commentId} {
           allow read: if isMemberOfSet();
@@ -207,6 +227,18 @@ service cloud.firestore {
           || (request.auth != null && (request.auth.uid == pid || request.auth.token.email == pid));
         allow update: if false;
       }
+    }
+
+    // ---- avatars（アイコン画像。小さく圧縮した base64。本人だけが書き換え・削除できる）----
+    match /avatars/{uid} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['mime', 'data', 'v', 'updatedAt'])
+        && request.resource.data.mime in ['image/webp', 'image/jpeg', 'image/png']
+        && request.resource.data.data is string
+        && request.resource.data.data.size() <= 60000
+        && request.resource.data.v is number;
+      allow delete: if request.auth != null && request.auth.uid == uid;
     }
 
     // ---- setInvites（ユーザーを選んで招待）----

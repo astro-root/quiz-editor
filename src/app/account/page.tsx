@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, KeyRound, LogOut, Mail, Palette, UserRound } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { Avatar } from "@/components/Avatar";
 import { ThemeSelector } from "@/components/ThemeSelector";
+import { IMAGE_ACCEPT, packAvatar, Packed, toDataUrl } from "@/lib/imageTools";
+import { parseAvatarRef, removeAvatar, saveAvatar } from "@/lib/avatars";
 
 const card = "mb-5 rounded-2xl border border-slate-100 bg-surface p-5 shadow-card";
 const inputCls = "w-full rounded-lg border border-slate-200 p-2.5 text-sm focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100";
@@ -41,6 +43,10 @@ export default function AccountPage() {
   const [photo, setPhoto] = useState("");
   const [profMsg, setProfMsg] = useState<Msg>(null);
   const [profBusy, setProfBusy] = useState(false);
+  const [pending, setPending] = useState<Packed | null>(null); // 選んだばかりの未保存のアイコン
+  const [cleared, setCleared] = useState(false); // アイコンを外す指定
+  const [avBusy, setAvBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const [cur, setCur] = useState("");
   const [next, setNext] = useState("");
@@ -66,12 +72,35 @@ export default function AccountPage() {
   const email = user.email ?? "";
   const hasPassword = user.providerData.some((p) => p.providerId === "password");
 
+  async function onPickAvatar(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    setProfMsg(null);
+    setAvBusy(true);
+    try {
+      setPending(await packAvatar(f));
+      setCleared(false);
+    } catch (err: any) {
+      setProfMsg({ ok: false, text: err?.message || "画像を読み込めませんでした" });
+    } finally {
+      setAvBusy(false);
+    }
+  }
+
   async function saveProfile(e: React.FormEvent) {
     e.preventDefault();
     setProfMsg(null);
     setProfBusy(true);
     try {
-      await updateMyProfile(name, photo.trim());
+      let next = cleared ? "" : photo;
+      if (pending) next = await saveAvatar(user!.uid, pending);
+      await updateMyProfile(name, next);
+      // 外した、または新しい画像に替えたとき、使わなくなった古い画像を消す
+      if ((cleared || pending) && parseAvatarRef(photo) && next !== photo && !pending) await removeAvatar(user!.uid);
+      setPhoto(next);
+      setPending(null);
+      setCleared(false);
       setProfMsg({ ok: true, text: "プロフィールを保存しました" });
     } catch (err: any) {
       setProfMsg({ ok: false, text: err?.message || "プロフィールを保存できませんでした" });
@@ -121,14 +150,22 @@ export default function AccountPage() {
           <h2 className="mb-3 flex items-center gap-1.5 text-sm font-medium text-slate-600"><UserRound size={15} />プロフィール</h2>
           <p className="mb-4 text-xs text-slate-400">表示名とアイコンは、招待のユーザー検索や問題の作成者表示に使われます。</p>
           <form onSubmit={saveProfile}>
-            <div className="mb-4 flex items-center gap-3">
-              <Avatar name={name || email} photoURL={photo.trim().startsWith("https://") ? photo.trim() : ""} size={48} />
-              <p className="text-xs text-slate-400">アイコンのプレビュー</p>
+            <div className="mb-3 flex items-center gap-3">
+              {pending ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={toDataUrl(pending.mime, pending.data)} alt="新しいアイコンのプレビュー" className="h-12 w-12 rounded-full object-cover" />
+              ) : (
+                <Avatar name={name || email} photoURL={cleared ? "" : photo} size={48} />
+              )}
+              <div className="flex flex-wrap items-center gap-2">
+                <button type="button" onClick={() => fileRef.current?.click()} disabled={avBusy} className="min-h-[36px] rounded-lg border border-slate-200 px-3 text-xs text-slate-600 hover:border-brand-300 hover:text-accent disabled:opacity-50">{avBusy ? "変換中…" : "画像を選ぶ"}</button>
+                {(pending || (photo && !cleared)) && (
+                  <button type="button" onClick={() => { setPending(null); setCleared(true); }} className="min-h-[36px] rounded-lg px-3 text-xs text-slate-400 hover:text-danger">画像を外す</button>
+                )}
+                <input ref={fileRef} type="file" accept={IMAGE_ACCEPT} hidden onChange={onPickAvatar} />
+              </div>
             </div>
-            <label className={labelCls} htmlFor="acc-name">表示名（40文字まで）</label>
-            <input id="acc-name" value={name} onChange={(e) => setName(e.target.value)} required maxLength={40} className={`${inputCls} mb-3`} />
-            <label className={labelCls} htmlFor="acc-photo">アイコン画像のURL（https://…、空欄なら頭文字）</label>
-            <input id="acc-photo" value={photo} onChange={(e) => setPhoto(e.target.value)} placeholder="https://" className={`${inputCls} mb-3`} />
+            <p className="mb-3 text-[11px] text-slate-400">中央を正方形に切り抜いて、小さく保存します。「保存」を押すと反映されます。</p>
             <button type="submit" disabled={profBusy} className={primaryBtn}>{profBusy ? "保存中…" : "保存"}</button>
           </form>
           <Note m={profMsg} />
