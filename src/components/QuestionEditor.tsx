@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, ExternalLink, History, Trash2, Lock, Loader2, X } from "lucide-react";
-import { MAX_SOURCES, ProofreadStatus, Question } from "@/lib/types";
+import { ImageSlot, MAX_SOURCES, ProofreadStatus, Question } from "@/lib/types";
 import {
   allowedStatusOptions, canDeleteQuestion, canEditQuestion, canJudge, canProofread,
   proofreadLabel, shouldLogRevision, statusLabel,
@@ -15,12 +15,14 @@ import { useRevisions } from "@/lib/useRevisions";
 import { CommentSection } from "./CommentSection";
 import { HistoryPanel } from "./HistoryPanel";
 import { Modal } from "./Modal";
+import { ImageField, imageFilesFrom, useImageDraft } from "./ImageField";
+import { useQuestionImages } from "@/lib/questionImages";
 
 const input =
   "w-full rounded-lg border border-slate-200 bg-surface p-2 text-base text-slate-700 placeholder:text-slate-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100 disabled:bg-slate-50 disabled:text-slate-400";
 const label = "mb-1 block text-xs text-slate-400";
 
-type Draft = Omit<Question, "id" | "createdAt" | "updatedAt" | "order" | "deletedAt" | "deletedBy" | "authorUid" | "authorName" | "playOrder">;
+type Draft = Omit<Question, "id" | "createdAt" | "updatedAt" | "order" | "deletedAt" | "deletedBy" | "authorUid" | "authorName" | "playOrder" | "imageMeta">;
 
 function toDraft(q: Question): Draft {
   return {
@@ -45,6 +47,8 @@ export function QuestionEditor({ question, onClose, modal = false }: { question:
   const [error, setError] = useState("");
   const [showLog, setShowLog] = useState(false);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
+  const imgs = useImageDraft(question.imageMeta);
+  const loaded = useQuestionImages(set.id, question.id, question.imageMeta);
 
   const canEdit = canEditQuestion(role, question, uid);
   const canDel = canDeleteQuestion(role, question, uid);
@@ -56,10 +60,11 @@ export function QuestionEditor({ question, onClose, modal = false }: { question:
     bodyRef.current?.focus({ preventScroll: true }); // 展開でスクロールが飛ばないようにする
   }, []);
 
-  const dirty = useMemo(() => {
+  const draftDirty = useMemo(() => {
     const b = toDraft(base.current);
     return (Object.keys(draft) as (keyof Draft)[]).some((k) => !same(draft[k], b[k]));
   }, [draft]);
+  const dirty = draftDirty || imgs.dirty;
 
   // 未保存の変更があるまま閉じる／リロードする場合にブラウザの確認を出す
   useEffect(() => {
@@ -85,7 +90,7 @@ export function QuestionEditor({ question, onClose, modal = false }: { question:
     (Object.keys(draft) as (keyof Draft)[]).forEach((k) => {
       if (!same(draft[k], b[k])) (patch as any)[k] = draft[k];
     });
-    if (Object.keys(patch).length === 0) return onClose();
+    if (Object.keys(patch).length === 0 && !imgs.dirty) return onClose();
     const nextBody = (patch.body ?? b.body).trim();
     const nextAnswer = (patch.answer ?? b.answer).trim();
     if (!nextBody && !nextAnswer) return setError("問題文か答えのどちらかは必須です（空にする場合は削除してください）");
@@ -110,13 +115,23 @@ export function QuestionEditor({ question, onClose, modal = false }: { question:
       if ((patch.body !== undefined || patch.answer !== undefined) && shouldLogRevision(role) && user) {
         await saveRevisionOnce(set.id, question.id, base.current.body, base.current.answer, user.uid, user.displayName || user.email || "匿名");
       }
-      await store.updateQuestion(question.id, patch, logs);
+      await store.updateQuestion(question.id, patch, logs, imgs.dirty ? imgs.change : undefined);
       onClose();
     } catch (e: any) {
       console.error("問題の保存に失敗しました", e);
       setError(e?.code === "permission-denied" ? "この操作の権限がありません" : "保存に失敗しました。通信状況を確認して再試行してください");
     } finally {
       setSaving(false);
+    }
+  }
+
+  // 画像のコピー＆ペーストで、その欄に画像を追加する（文字の貼り付けは通常どおり）
+  function pasteImg(field: ImageSlot, e: React.ClipboardEvent) {
+    if (!canEdit) return;
+    const fs = imageFilesFrom(e);
+    if (fs.length) {
+      e.preventDefault();
+      imgs.addFiles(field, fs);
     }
   }
 
@@ -161,16 +176,18 @@ export function QuestionEditor({ question, onClose, modal = false }: { question:
       )}
 
       <label className={label}>問題文</label>
-      <textarea ref={bodyRef} value={draft.body} onChange={(e) => set_("body", e.target.value)} disabled={!canEdit} rows={3} className={`${input} mb-1 resize-y leading-relaxed`} />
+      <textarea ref={bodyRef} onPaste={(e) => pasteImg("body", e)} value={draft.body} onChange={(e) => set_("body", e.target.value)} disabled={!canEdit} rows={3} className={`${input} mb-1 resize-y leading-relaxed`} />
       {dup && (
         <p className="mb-1 flex items-center gap-1.5 rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs text-warn-strong">
           <AlertTriangle size={13} />同じ問題文が既にあります（{personOf(dup.authorUid, dup.authorName).name}）
         </p>
       )}
       <p className="mb-2 text-right text-[11px] text-slate-300">{draft.body.length}文字</p>
+      <ImageField field="body" draft={imgs} loaded={loaded} disabled={!canEdit} />
 
       <label className={label}>解答</label>
-      <textarea value={draft.answer} onChange={(e) => set_("answer", e.target.value)} disabled={!canEdit} rows={1} className={`${input} mb-3 resize-y font-medium text-accent-strong`} />
+      <textarea onPaste={(e) => pasteImg("answer", e)} value={draft.answer} onChange={(e) => set_("answer", e.target.value)} disabled={!canEdit} rows={1} className={`${input} mb-3 resize-y font-medium text-accent-strong`} />
+      <ImageField field="answer" draft={imgs} loaded={loaded} disabled={!canEdit} />
 
       <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
@@ -184,7 +201,8 @@ export function QuestionEditor({ question, onClose, modal = false }: { question:
       </div>
 
       <label className={label}>解説</label>
-      <textarea disabled={!canEdit} value={draft.explanation} onChange={(e) => set_("explanation", e.target.value)} rows={2} className={`${input} mb-3 resize-y`} />
+      <textarea disabled={!canEdit} onPaste={(e) => pasteImg("explanation", e)} value={draft.explanation} onChange={(e) => set_("explanation", e.target.value)} rows={2} className={`${input} mb-3 resize-y`} />
+      <ImageField field="explanation" draft={imgs} loaded={loaded} disabled={!canEdit} />
 
       <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
@@ -273,6 +291,7 @@ export function QuestionEditor({ question, onClose, modal = false }: { question:
         </div>
       </div>
 
+      {imgs.error && <p role="alert" className="mb-2 rounded-lg bg-rose-50 px-3 py-2 text-sm text-danger">{imgs.error}</p>}
       {error && <p role="alert" className="mb-2 rounded-lg bg-rose-50 px-3 py-2 text-sm text-danger">{error}</p>}
 
       <div className={modal ? "sticky bottom-0 -mx-4 -mb-4 mt-2 flex flex-wrap items-center gap-2 border-t border-slate-100 bg-surface px-4 py-3 sm:-mx-5 sm:-mb-5 sm:px-5" : "flex flex-wrap items-center gap-2"}>

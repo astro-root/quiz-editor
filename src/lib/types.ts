@@ -55,6 +55,11 @@ export interface QuestionSet {
 
 export const MAX_SOURCES = 5;
 
+// 問題に添付する画像。本体は questions/{id}/images/{imageId} に別文書として保存し、問題側には目録（imageMeta）だけを持つ。
+export type ImageSlot = "body" | "answer" | "explanation";
+export interface ImageMeta { id: string; field: ImageSlot; w: number; h: number }
+export const MAX_IMAGES = 6; // 1問あたりの上限
+
 export interface Question {
   id: string;
   body: string;
@@ -74,6 +79,7 @@ export interface Question {
   assigneeUid: string; // 裏どり担当
   roundId: string;
   playOrder: number | null; // Round内の出題順
+  imageMeta: ImageMeta[]; // 添付画像の目録（問題文・解答・解説）
   order: number; // 作成順
   deletedAt: number | null;
   deletedBy: string;
