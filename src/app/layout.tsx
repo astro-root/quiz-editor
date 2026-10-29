@@ -3,9 +3,13 @@ import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import { ThemeProvider, THEME_INIT_SCRIPT } from "@/lib/theme";
 
+const DESCRIPTION = "問題を書く手を、止めない。競技クイズの作問から、裏どり・採用・出題順・印刷まで。チームで一つの問題セットを仕上げるための専用エディタ。";
+
 export const metadata: Metadata = {
-  title: "Qraft",
-  description: "Qraft — クイズ問題の作問に特化した専用エディタ",
+  title: { default: "Qraft — クイズ作問エディタ", template: "%s | Qraft" },
+  description: DESCRIPTION,
+  applicationName: "Qraft",
+  openGraph: { title: "Qraft — クイズ作問エディタ", description: DESCRIPTION, siteName: "Qraft", locale: "ja_JP", type: "website" },
 };
 
 export default function RootLayout({

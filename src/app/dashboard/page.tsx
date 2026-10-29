@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LogOut, Plus, FolderOpen, Sparkles, UserCog } from "lucide-react";
+import { LogOut, Plus, FolderOpen, UserCog } from "lucide-react";
+import { Logo } from "@/components/Logo";
 import { useAuth } from "@/lib/auth-context";
 import { useQuestionSets } from "@/lib/useQuestionSets";
 import { acceptLegacyInvite, acceptUserInvite, declineUserInvite, useMyInvites } from "@/lib/useInvites";
@@ -59,7 +60,7 @@ export default function DashboardPage() {
       <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6">
         <div className="mb-8 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-sky-400 text-white shadow-sm"><Sparkles size={16} /></div>
+            <Logo size={32} />
             <h1 className="text-lg font-semibold text-slate-800">Qraft</h1>
           </div>
           <div className="flex items-center gap-3">

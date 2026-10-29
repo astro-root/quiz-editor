@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Sparkles } from "lucide-react";
+import { Logo } from "@/components/Logo";
 import { useAuth } from "@/lib/auth-context";
 
 export default function SignupPage() {
@@ -32,9 +32,7 @@ export default function SignupPage() {
         className="w-full max-w-sm rounded-2xl border border-slate-200 bg-surface p-7 shadow-pop"
       >
         <div className="mb-5 flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-sky-400 text-white shadow-sm">
-            <Sparkles size={16} />
-          </div>
+          <Logo size={32} />
           <h1 className="text-lg font-semibold text-slate-800">新規登録</h1>
         </div>
         <input

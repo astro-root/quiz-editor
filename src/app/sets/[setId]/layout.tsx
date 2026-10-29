@@ -10,6 +10,7 @@ import { SetProvider, useSetContext } from "@/lib/SetContext";
 import { QuestionsProvider, useQuestionStore } from "@/lib/QuestionsContext";
 import { canManageMembers } from "@/lib/permissions";
 import { ShareDialog } from "@/components/ShareDialog";
+import { usePageTitle } from "@/lib/usePageTitle";
 
 const tabs = [
   { href: "", label: "お知らせ", icon: Megaphone, match: [""] },
@@ -24,6 +25,12 @@ const tabs = [
   { href: "/settings", label: "設定", icon: Settings, match: ["/settings"] },
 ];
 
+const pageTitles: Record<string, string> = {
+  "": "お知らせ", "/write": "作問", "/manage": "問題一覧", "/mine": "自分の問題", "/others": "他の人の問題",
+  "/proofread": "裏どり", "/adopted": "出題順", "/trash": "ゴミ箱", "/members": "メンバー", "/io": "入出力",
+  "/print": "印刷", "/settings": "設定",
+};
+
 function SetShell({ children }: { children: React.ReactNode }) {
   const { set, role } = useSetContext();
   const store = useQuestionStore();
@@ -31,6 +38,8 @@ function SetShell({ children }: { children: React.ReactNode }) {
   const [showShare, setShowShare] = useState(false);
   const base = `/sets/${set.id}`;
   const rel = pathname.startsWith(base) ? pathname.slice(base.length) : "";
+  // ブラウザのタブに「画面名 · セット名」を出す（セット名はサーバーでは分からないので、ここで設定する）
+  usePageTitle(`${pageTitles[rel.replace(/\/$/, "")] ?? "問題セット"} · ${set.name} | Qraft`);
 
   return (
     <div className="min-h-screen bg-slate-50 print:min-h-0 print:bg-surface">
