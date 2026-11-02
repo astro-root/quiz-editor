@@ -3,20 +3,26 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LogOut, Plus, FolderOpen, UserCog } from "lucide-react";
+import { LogOut, Plus, FolderOpen, UserCog, X, Loader2 } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { useAuth } from "@/lib/auth-context";
 import { useQuestionSets } from "@/lib/useQuestionSets";
 import { acceptLegacyInvite, acceptUserInvite, declineUserInvite, useMyInvites } from "@/lib/useInvites";
 import { roleLabel } from "@/lib/permissions";
 import { Avatar } from "@/components/Avatar";
+import { Modal } from "@/components/Modal";
+import { Fab } from "@/components/Fab";
+import { LinkGoogleBanner } from "@/components/LinkGoogleBanner";
 
 export default function DashboardPage() {
   const { user, loading, logOut } = useAuth();
   const router = useRouter();
   const { sets, loading: setsLoading, createQuestionSet } = useQuestionSets();
   const { invites, legacy } = useMyInvites();
+  const [showNew, setShowNew] = useState(false);
   const [newSetName, setNewSetName] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState("");
   const [busyId, setBusyId] = useState("");
   const [error, setError] = useState("");
 
@@ -27,17 +33,27 @@ export default function DashboardPage() {
   if (loading || !user) return null;
   const me = { uid: user.uid, email: user.email ?? "", displayName: user.displayName ?? "", photoURL: user.photoURL ?? "" };
 
+  function openNew() {
+    setCreateError("");
+    setShowNew(true);
+  }
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
-    if (!newSetName.trim()) return;
-    setError("");
+    const name = newSetName.trim();
+    if (!name || creating) return;
+    setCreateError("");
+    setCreating(true);
     try {
-      const id = await createQuestionSet(newSetName.trim());
+      const id = await createQuestionSet(name);
       setNewSetName("");
+      setShowNew(false);
       router.push(`/sets/${id}`);
     } catch (err) {
       console.error(err);
-      setError("問題セットを作成できませんでした");
+      setCreateError("問題セットを作成できませんでした。もう一度お試しください");
+    } finally {
+      setCreating(false);
     }
   }
 
@@ -55,6 +71,8 @@ export default function DashboardPage() {
     }
   }
 
+  const newBtn = "flex min-h-[40px] items-center gap-1.5 rounded-lg bg-brand-600 px-4 text-sm font-medium text-white shadow-sm hover:bg-brand-700";
+
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6">
@@ -71,6 +89,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        <LinkGoogleBanner />
         {error && <p role="alert" className="mb-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-danger">{error}</p>}
 
         {invites.map((inv) => (
@@ -89,10 +108,10 @@ export default function DashboardPage() {
           </div>
         )}
 
-        <form onSubmit={handleCreate} className="mb-8 flex gap-2">
-          <input value={newSetName} onChange={(e) => setNewSetName(e.target.value)} placeholder="新しい問題セット名（例：第10回○○高校クイズ大会）" className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-surface p-3 text-sm shadow-sm focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100" />
-          <button type="submit" className="flex shrink-0 items-center gap-1.5 rounded-xl bg-brand-600 px-4 text-sm font-medium text-white shadow-sm hover:bg-brand-700"><Plus size={16} />作成</button>
-        </form>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 className="text-sm font-medium text-slate-500">問題セット</h2>
+          <button onClick={openNew} className={`${newBtn} hidden sm:flex`}><Plus size={16} />新規</button>
+        </div>
 
         <div className="space-y-2">
           {sets.map((s) => (
@@ -104,9 +123,45 @@ export default function DashboardPage() {
               </div>
             </Link>
           ))}
-          {!setsLoading && sets.length === 0 && <p className="rounded-xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-400">まだ問題セットがありません</p>}
+          {!setsLoading && sets.length === 0 && (
+            <div className="rounded-xl border border-dashed border-slate-200 bg-surface px-6 py-10 text-center">
+              <p className="mb-4 text-sm text-slate-400">まだ問題セットがありません。</p>
+              <button onClick={openNew} className={`${newBtn} mx-auto`}><Plus size={16} />最初の問題セットを作る</button>
+            </div>
+          )}
         </div>
       </div>
+
+      {showNew && (
+        <Modal onRequestClose={() => setShowNew(false)} label="新しい問題セット" size="md">
+          <form onSubmit={handleCreate} className="p-4 sm:p-5">
+            <div className="mb-3 flex items-center justify-between">
+              <span className="text-sm font-medium text-accent">新しい問題セット</span>
+              <button type="button" onClick={() => setShowNew(false)} aria-label="閉じる" className="-mr-1 flex h-9 w-9 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600"><X size={18} /></button>
+            </div>
+            <label htmlFor="new-set-name" className="mb-1 block text-xs text-slate-400">名前</label>
+            <input
+              id="new-set-name"
+              value={newSetName}
+              onChange={(e) => setNewSetName(e.target.value)}
+              placeholder="例：第10回○○高校クイズ大会"
+              maxLength={80}
+              autoFocus
+              className="mb-1 w-full rounded-lg border border-slate-200 bg-surface p-3 text-base text-slate-700 placeholder:text-slate-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
+            />
+            <p className="mb-4 text-[11px] text-slate-400">メンバーの招待は、作成したあとに行えます。</p>
+            {createError && <p role="alert" className="mb-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-danger">{createError}</p>}
+            <div className="flex items-center gap-2">
+              <button type="submit" disabled={!newSetName.trim() || creating} className="flex min-h-[44px] items-center gap-1.5 rounded-lg bg-brand-600 px-5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-40">
+                {creating && <Loader2 size={14} className="animate-spin" />}作成
+              </button>
+              <button type="button" onClick={() => setShowNew(false)} className="min-h-[44px] rounded-lg border border-slate-200 px-4 text-sm text-slate-600 hover:bg-slate-50">キャンセル</button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {!showNew && <Fab onClick={openNew} label="新しい問題セットを作る" />}
     </div>
   );
 }

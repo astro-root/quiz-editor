@@ -10,7 +10,7 @@ const FOCUSABLE = 'a[href], button:not([disabled]), textarea:not([disabled]), in
 // ・開いている間は背面のスクロールを止め、Tab キーの移動をポップアップ内に閉じ込める
 // ・閉じたら、開く前にフォーカスしていた要素にフォーカスを戻す
 // body 直下に描画する（親に transform があると position: fixed が崩れるため）。
-export function Modal({ onRequestClose, label, children }: { onRequestClose: () => void; label: string; children: ReactNode }) {
+export function Modal({ onRequestClose, label, children, size = "lg", onKeyDown }: { onRequestClose: () => void; label: string; children: ReactNode; size?: "md" | "lg"; onKeyDown?: (e: React.KeyboardEvent) => void }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef(onRequestClose);
   closeRef.current = onRequestClose;
@@ -61,7 +61,9 @@ export function Modal({ onRequestClose, label, children }: { onRequestClose: () 
         role="dialog"
         aria-modal="true"
         aria-label={label}
-        className="max-h-[92dvh] w-full overflow-y-auto overscroll-contain rounded-t-2xl bg-surface shadow-pop sm:max-h-[88dvh] sm:max-w-3xl sm:rounded-2xl"
+        tabIndex={-1}
+        onKeyDown={onKeyDown}
+        className={`outline-none max-h-[92dvh] w-full overflow-y-auto overscroll-contain rounded-t-2xl bg-surface shadow-pop sm:max-h-[88dvh] sm:rounded-2xl ${size === "md" ? "sm:max-w-md" : "sm:max-w-3xl"}`}
       >
         {children}
       </div>

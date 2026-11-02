@@ -162,7 +162,7 @@ export function QuestionEditor({ question, onClose, modal = false }: { question:
   const proofOptions: ProofreadStatus[] = ["unchecked", "in_review", "approved", "needs_fix", "on_hold"];
 
   const panel = (
-    <div onKeyDown={onKeyDown} className={modal ? "p-4 sm:p-5" : "rounded-2xl border-2 border-brand-200 bg-surface p-4 shadow-pop"} role="group" aria-label="問題の編集">
+    <div onKeyDown={modal ? undefined : onKeyDown} className={modal ? "p-4 sm:p-5" : "rounded-2xl border-2 border-brand-200 bg-surface p-4 shadow-pop"} role="group" aria-label="問題の編集">
       <div className="mb-3 flex items-center justify-between">
         <span className="text-sm font-medium text-accent">問題を編集</span>
         {!canEdit && <span className="flex items-center gap-1 text-xs text-slate-400"><Lock size={12} />内容は閲覧のみ</span>}
@@ -317,7 +317,7 @@ export function QuestionEditor({ question, onClose, modal = false }: { question:
   );
 
   if (!modal) return panel;
-  return <Modal onRequestClose={handleCancel} label="問題の編集">{panel}</Modal>;
+  return <Modal onRequestClose={handleCancel} label="問題の編集" onKeyDown={onKeyDown}>{panel}</Modal>;
 }
 
 // 同じ問題を1回の編集で何度も保存しても改訂履歴が増えすぎないよう、保存前の内容を1件だけ記録する
