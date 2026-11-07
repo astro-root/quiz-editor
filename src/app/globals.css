@@ -130,6 +130,7 @@
 
 html {
   scrollbar-gutter: stable;
+  overflow-y: scroll; /* 短いページでもバーの場所を空け、ページ移動で横にずれないようにする */
 }
 
 body {
