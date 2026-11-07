@@ -10,6 +10,7 @@ import { SetProvider, useSetContext } from "@/lib/SetContext";
 import { QuestionsProvider, useQuestionStore } from "@/lib/QuestionsContext";
 import { canManageMembers } from "@/lib/permissions";
 import { ShareDialog } from "@/components/ShareDialog";
+import { usePageTitle } from "@/lib/usePageTitle";
 
 const tabs = [
   { href: "", label: "お知らせ", icon: Megaphone, match: [""] },
@@ -31,6 +32,8 @@ function SetShell({ children }: { children: React.ReactNode }) {
   const [showShare, setShowShare] = useState(false);
   const base = `/sets/${set.id}`;
   const rel = pathname.startsWith(base) ? pathname.slice(base.length) : "";
+  // ブラウザのタブに「セット名 - Qraft」を出す（セット名はサーバーでは分からないので、ここで設定する）
+  usePageTitle(`${set.name} - Qraft`);
 
   return (
     <div className="min-h-screen bg-slate-50 print:min-h-0 print:bg-surface">

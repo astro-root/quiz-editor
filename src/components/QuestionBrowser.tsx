@@ -4,6 +4,7 @@ import { memo, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMem
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
 import { Search, SlidersHorizontal, X, ExternalLink, Link2Off, Check, Ban, RotateCcw, ChevronDown, Image as ImageIcon } from "lucide-react";
 import { Question } from "@/lib/types";
+import { charCount } from "@/lib/text";
 import { useAuth } from "@/lib/auth-context";
 import { useSetContext } from "@/lib/SetContext";
 import { useQuestionStore } from "@/lib/QuestionsContext";
@@ -243,6 +244,7 @@ const Row = memo(function Row({ q, index, showAuthor, onOpen }: { q: Question; i
             {q.genreId && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-500">{gi.majorName(q.genreId)}{q.subGenreId && ` / ${gi.subName(q.genreId, q.subGenreId)}`}</span>}
             {round && <span className="rounded-full bg-violet-50 px-2 py-0.5 text-tag">{round}</span>}
             {q.imageMeta.length > 0 && <span className="flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-slate-500" title="画像があります"><ImageIcon size={11} aria-hidden />{q.imageMeta.length}</span>}
+            <span className="tabular-nums text-slate-400" title="問題文の文字数（前後の空白を除く）">{charCount(q.body)}文字</span>
           </p>
           <p className="line-clamp-2 break-words text-slate-700">{q.body || "（問題文なし）"}</p>
           <p className="truncate text-accent">{q.answer || "（解答なし）"}</p>

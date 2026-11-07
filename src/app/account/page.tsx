@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, KeyRound, LogOut, Mail, Palette, UserRound } from "lucide-react";
+import { ArrowLeft, LogOut, Mail, Palette, UserRound } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { Avatar } from "@/components/Avatar";
 import { ThemeSelector } from "@/components/ThemeSelector";
@@ -19,24 +19,8 @@ type Msg = { ok: boolean; text: string } | null;
 const Note = ({ m }: { m: Msg }) =>
   m ? <p role={m.ok ? "status" : "alert"} className={`mt-3 rounded-lg px-3 py-2 text-sm ${m.ok ? "bg-emerald-50 text-ok" : "bg-rose-50 text-danger"}`}>{m.text}</p> : null;
 
-function passwordError(code: string | undefined): string {
-  switch (code) {
-    case "auth/wrong-password":
-    case "auth/invalid-credential":
-      return "現在のパスワードが違います";
-    case "auth/weak-password":
-      return "新しいパスワードが弱すぎます。もう少し長くしてください";
-    case "auth/too-many-requests":
-      return "短時間に試行しすぎました。しばらくしてからお試しください";
-    case "auth/requires-recent-login":
-      return "セキュリティのため、一度ログアウトして入り直してから再度お試しください";
-    default:
-      return "パスワードを変更できませんでした";
-  }
-}
-
 export default function AccountPage() {
-  const { user, loading, logOut, updateMyProfile, changePassword, sendPasswordReset } = useAuth();
+  const { user, loading, logOut, updateMyProfile } = useAuth();
   const router = useRouter();
 
   const [name, setName] = useState("");
@@ -47,13 +31,6 @@ export default function AccountPage() {
   const [cleared, setCleared] = useState(false); // アイコンを外す指定
   const [avBusy, setAvBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-
-  const [cur, setCur] = useState("");
-  const [next, setNext] = useState("");
-  const [again, setAgain] = useState("");
-  const [pwMsg, setPwMsg] = useState<Msg>(null);
-  const [pwBusy, setPwBusy] = useState(false);
-  const [resetMsg, setResetMsg] = useState<Msg>(null);
 
   useEffect(() => {
     if (!loading && !user) router.replace("/login");
@@ -70,7 +47,7 @@ export default function AccountPage() {
 
   if (loading || !user) return null;
   const email = user.email ?? "";
-  const hasPassword = user.providerData.some((p) => p.providerId === "password");
+  const viaGoogle = user.providerData.some((p) => p.providerId === "google.com");
 
   async function onPickAvatar(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
@@ -109,35 +86,6 @@ export default function AccountPage() {
     }
   }
 
-  async function savePassword(e: React.FormEvent) {
-    e.preventDefault();
-    setPwMsg(null);
-    if (next.length < 8) return setPwMsg({ ok: false, text: "新しいパスワードは8文字以上にしてください" });
-    if (next !== again) return setPwMsg({ ok: false, text: "新しいパスワードが一致しません" });
-    if (next === cur) return setPwMsg({ ok: false, text: "現在と同じパスワードは設定できません" });
-    setPwBusy(true);
-    try {
-      await changePassword(cur, next);
-      setCur(""); setNext(""); setAgain("");
-      setPwMsg({ ok: true, text: "パスワードを変更しました" });
-    } catch (err: any) {
-      console.error("パスワード変更に失敗しました", err?.code);
-      setPwMsg({ ok: false, text: passwordError(err?.code) });
-    } finally {
-      setPwBusy(false);
-    }
-  }
-
-  async function sendReset() {
-    setResetMsg(null);
-    try {
-      await sendPasswordReset(email);
-      setResetMsg({ ok: true, text: `${email} に再設定の案内を送信しました` });
-    } catch (err: any) {
-      setResetMsg({ ok: false, text: err?.code === "auth/too-many-requests" ? "短時間に試行しすぎました。しばらくしてからお試しください" : "送信できませんでした" });
-    }
-  }
-
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6">
@@ -166,6 +114,8 @@ export default function AccountPage() {
               </div>
             </div>
             <p className="mb-3 text-[11px] text-slate-400">中央を正方形に切り抜いて、小さく保存します。「保存」を押すと反映されます。</p>
+            <label className={labelCls} htmlFor="acc-name">表示名（40文字まで）</label>
+            <input id="acc-name" value={name} onChange={(e) => setName(e.target.value)} required maxLength={40} className={`${inputCls} mb-3`} />
             <button type="submit" disabled={profBusy} className={primaryBtn}>{profBusy ? "保存中…" : "保存"}</button>
           </form>
           <Note m={profMsg} />
@@ -180,27 +130,12 @@ export default function AccountPage() {
         <section className={card}>
           <h2 className="mb-3 flex items-center gap-1.5 text-sm font-medium text-slate-600"><Mail size={15} />ログイン情報</h2>
           <p className="mb-1 text-xs text-slate-400">メールアドレス</p>
-          <p className="mb-4 break-all text-sm text-slate-700">{email || "（未設定）"}</p>
-
-          {hasPassword ? (
-            <>
-              <h3 className="mb-2 flex items-center gap-1.5 text-xs font-medium text-slate-500"><KeyRound size={13} />パスワードの変更</h3>
-              <form onSubmit={savePassword}>
-                <input type="password" value={cur} onChange={(e) => setCur(e.target.value)} placeholder="現在のパスワード" autoComplete="current-password" required aria-label="現在のパスワード" className={`${inputCls} mb-2`} />
-                <input type="password" value={next} onChange={(e) => setNext(e.target.value)} placeholder="新しいパスワード（8文字以上）" autoComplete="new-password" required minLength={8} aria-label="新しいパスワード" className={`${inputCls} mb-2`} />
-                <input type="password" value={again} onChange={(e) => setAgain(e.target.value)} placeholder="新しいパスワード（確認）" autoComplete="new-password" required aria-label="新しいパスワード（確認）" className={`${inputCls} mb-3`} />
-                <button type="submit" disabled={pwBusy} className={primaryBtn}>{pwBusy ? "変更中…" : "パスワードを変更"}</button>
-              </form>
-              <Note m={pwMsg} />
-              <p className="mt-4 text-xs text-slate-400">
-                現在のパスワードを忘れた場合：
-                <button type="button" onClick={sendReset} className="ml-1 text-accent underline">登録メールに再設定の案内を送る</button>
-              </p>
-              <Note m={resetMsg} />
-            </>
-          ) : (
-            <p className="text-xs text-slate-400">このアカウントはパスワードでのログインではないため、ここでは変更できません。</p>
-          )}
+          <p className="mb-3 break-all text-sm text-slate-700">{email || "（未設定）"}</p>
+          <p className="text-xs leading-relaxed text-slate-400">
+            {viaGoogle
+              ? "Googleアカウントでログインしています。メールアドレスや、ログインの管理は、Googleアカウント側で行います。"
+              : "このアカウントは、まだGoogleと連結されていません。一覧の画面に出る案内から、連結してください。"}
+          </p>
         </section>
 
         <section className={card}>

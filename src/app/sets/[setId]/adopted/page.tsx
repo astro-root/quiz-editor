@@ -10,6 +10,7 @@ import { useQuestionStore } from "@/lib/QuestionsContext";
 import { canReorder, canManageGenres } from "@/lib/permissions";
 import { checkOrder, RULE_DEFS, shuffleWithRules } from "@/lib/orderRules";
 import { DEFAULT_RULES, OrderRules, Question } from "@/lib/types";
+import { charCount } from "@/lib/text";
 import { QuestionEditor } from "@/components/QuestionEditor";
 import { PersonChip } from "@/components/Avatar";
 
@@ -202,10 +203,11 @@ function SortableRow({ q, index, bad, disabled, onEdit, gi, author }: { q: Quest
         </button>
       )}
       <span className="w-8 shrink-0 text-center text-xs font-medium text-slate-400">{index + 1}</span>
-      <div className="min-w-0 flex-1">
+      <div role="button" tabIndex={0} onClick={onEdit} onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), onEdit())} title="クリックして編集" className="min-w-0 flex-1 cursor-pointer">
         <p className="line-clamp-2 break-words text-slate-700">{q.body}</p>
         <p className="truncate text-accent">{q.answer}</p>
         <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-slate-400">
+          <span className="tabular-nums" title="問題文の文字数（前後の空白を除く）">{charCount(q.body)}文字</span>
           {q.genreId && <span>{gi.majorName(q.genreId)}{q.subGenreId && ` / ${gi.subName(q.genreId, q.subGenreId)}`}</span>}
           <PersonChip name={author.name} photoURL={author.photoURL} size={14} muted />
         </p>
