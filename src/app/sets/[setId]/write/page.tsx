@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { Loader2, Plus, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useSetContext } from "@/lib/SetContext";
 import { useQuestionStore } from "@/lib/QuestionsContext";
 import { canCreateQuestion } from "@/lib/permissions";
-import { ImageSlot, MAX_SOURCES, Question } from "@/lib/types";
-import { QuestionEditor } from "@/components/QuestionEditor";
+import { ImageSlot, MAX_SOURCES } from "@/lib/types";
+import { charCount } from "@/lib/text";
+import { QuestionBrowser } from "@/components/QuestionBrowser";
 import { ImageField, imageFilesFrom, useImageDraft } from "@/components/ImageField";
 import { Modal } from "@/components/Modal";
 import { Fab } from "@/components/Fab";
@@ -16,7 +16,8 @@ import { Fab } from "@/components/Fab";
 const input = "w-full rounded-lg border border-slate-200 bg-surface p-2.5 text-base text-slate-700 placeholder:text-slate-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100";
 const label = "mb-1 block text-xs text-slate-400";
 
-// 作問ページ。「＋」を押すとポップアップが開き、そこで問題を書く（画面を開いただけでは何も始まらない）。
+// 作問ページ。自分の問題を、1問ずつカードで並べる。カードを押すと、編集のポップアップが開く。
+// 「＋」を押すと、新しい問題を書くポップアップが開く（画面を開いただけでは、何も始まらない）。
 // 入力中の内容は、ポップアップを閉じても残る。［保存］するまでDBには何も作らない。
 export default function WritePage() {
   const { user } = useAuth();
@@ -36,7 +37,6 @@ export default function WritePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [savedCount, setSavedCount] = useState(0);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const imgs = useImageDraft([]);
 
@@ -97,7 +97,6 @@ export default function WritePage() {
   }
 
   const mine = useMemo(() => store.live.filter((q) => q.authorUid === user?.uid), [store.live, user]);
-  const recent = useMemo(() => mine.slice(-8).reverse(), [mine]);
 
   if (!canCreate) {
     return <p className="rounded-xl border border-dashed border-slate-200 bg-surface p-6 text-center text-sm text-slate-400">この権限では問題を作成できません。「問題」タブで内容を確認できます。</p>;
@@ -110,7 +109,7 @@ export default function WritePage() {
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold text-slate-800">作問</h2>
-          <p className="text-xs text-slate-400">「＋」から新しい問題を書けます。保存するまで登録されません。</p>
+          <p className="text-xs text-slate-400">「＋」から新しい問題を書けます。カードを押すと、編集できます。</p>
         </div>
         <button onClick={() => setOpen(true)} className={`${openBtn} hidden sm:flex`}><Plus size={16} />新しい問題</button>
       </div>
@@ -122,21 +121,8 @@ export default function WritePage() {
         </div>
       )}
 
-      {recent.length > 0 ? (
-        <div>
-          <div className="mb-2 flex items-center justify-between">
-            <p className="text-xs font-medium text-slate-400">最近作成した自分の問題（全{mine.length}問）</p>
-            <Link href={`/sets/${set.id}/mine`} className="text-xs text-accent hover:underline">すべて見る</Link>
-          </div>
-          <div className="space-y-2">
-            {recent.map((q: Question) => (
-              <button key={q.id} onClick={() => setEditingId(q.id)} className="block w-full rounded-xl border border-slate-200 bg-surface p-3 text-left text-sm hover:border-brand-300">
-                <p className="line-clamp-2 text-slate-700">{q.body || "（問題文なし）"}</p>
-                <p className="truncate text-accent">{q.answer}</p>
-              </button>
-            ))}
-          </div>
-        </div>
+      {mine.length > 0 ? (
+        <QuestionBrowser base={mine} storageKey={`qraft:f:${set.id}:write`} showAuthor={false} />
       ) : (
         !hasDraft && (
           <div className="rounded-2xl border border-dashed border-slate-200 bg-surface px-6 py-12 text-center">
@@ -163,7 +149,7 @@ export default function WritePage() {
             <label className={label}>問題文</label>
             <textarea ref={bodyRef} onPaste={(e) => pasteImg("body", e)} value={body} onChange={(e) => setBody(e.target.value)} rows={3} placeholder="問題文を入力" className={`${input} mb-1 resize-y leading-relaxed`} autoFocus />
             {dup && <p className="mb-1 rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs text-warn-strong">同じ問題文が既にあります（{set.memberProfiles?.[dup.authorUid]?.displayName || dup.authorName || "作問者不明"}）</p>}
-            <p className="mb-2 text-right text-[11px] text-slate-300">{body.length}文字</p>
+            <p className="mb-2 text-right text-xs tabular-nums text-slate-500" title="前後の空白を除いた文字数">{charCount(body)}文字</p>
             <ImageField field="body" draft={imgs} loaded={{}} />
             <label className={label}>解答</label>
             <textarea onPaste={(e) => pasteImg("answer", e)} value={answer} onChange={(e) => setAnswer(e.target.value)} rows={1} placeholder="解答" className={`${input} mb-3 resize-y font-medium text-accent-strong`} />
@@ -207,7 +193,6 @@ export default function WritePage() {
         </Modal>
       )}
 
-      {editingId && store.byId.get(editingId) && <QuestionEditor modal question={store.byId.get(editingId)!} onClose={() => setEditingId(null)} />}
       {!open && <Fab onClick={() => setOpen(true)} label="新しい問題を書く" />}
     </div>
   );

@@ -561,7 +561,7 @@ export default function Home() {
               <a href="#faq" className="hidden rounded-lg px-3 py-2 text-sm text-slate-500 hover:text-slate-800 sm:block">よくある質問</a>
               <ThemeButton />
               <Link href="/login" className="rounded-lg px-3 py-2 text-sm text-slate-600 hover:text-slate-800">ログイン</Link>
-              <Link href="/signup" className="rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 sm:px-4">無料で始める</Link>
+              <Link href="/signup" className="rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 sm:px-4">始める</Link>
             </nav>
           </div>
         </header>
@@ -572,14 +572,14 @@ export default function Home() {
             <div className="mx-auto max-w-3xl text-center">
               <h1 className="text-[2rem] font-bold leading-[1.2] tracking-[-0.02em] text-slate-900 sm:text-5xl" style={palt}>
                 <HeadLine delay={0.05}>作問から本番まで、</HeadLine>
-                <HeadLine delay={0.18}>一つの画面で。</HeadLine>
+                <HeadLine delay={0.18}>ひとつのツールで。</HeadLine>
               </h1>
               <motion.p initial={reduce ? false : { opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.5, ease }} className="mx-auto mt-4 max-w-lg text-slate-500 sm:text-lg" style={jp}>
                 競技クイズの問題づくりに特化した、チームのための専用エディタ。
               </motion.p>
               <motion.div initial={reduce ? false : { opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.62, ease }} className="mt-7 flex flex-wrap justify-center gap-3">
                 <Link href="/signup" className="group flex min-h-[44px] items-center gap-1.5 rounded-lg bg-brand-600 px-5 text-sm font-medium text-white hover:bg-brand-700">
-                  無料で始める
+                  今すぐ始める
                   <ArrowRight size={16} className="transition group-hover:translate-x-0.5" />
                 </Link>
                 <Link href="/login" className="flex min-h-[44px] items-center rounded-lg border border-slate-200 bg-surface px-5 text-sm font-medium text-slate-600 hover:border-brand-300 hover:text-accent">ログイン</Link>
@@ -615,7 +615,7 @@ export default function Home() {
               <h2 className="relative text-2xl font-bold leading-snug tracking-[-0.01em] text-slate-900 sm:text-3xl" style={palt}>最初の一問を、書きはじめよう。</h2>
               <p className="relative mx-auto mt-3 max-w-md text-slate-500" style={jp}>Googleアカウントで、すぐに始められます。</p>
               <Link href="/signup" className="group relative mt-6 inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-brand-600 px-6 text-sm font-medium text-white hover:bg-brand-700">
-                無料で始める
+                今すぐ始める
                 <ArrowRight size={16} className="transition group-hover:translate-x-0.5" />
               </Link>
             </div>

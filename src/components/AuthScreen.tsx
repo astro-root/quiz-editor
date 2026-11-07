@@ -201,7 +201,7 @@ export function AuthScreen({ mode }: { mode: "login" | "signup" }) {
         </Link>
         <div className="relative">
           <motion.h2 initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="mb-8 max-w-sm text-3xl font-bold leading-tight tracking-[-0.02em] text-slate-900" style={{ fontFeatureSettings: '"palt"' }}>
-            作問から本番まで、<br />一つの画面で。
+            作問から本番まで、<br />ひとつのツールで。
           </motion.h2>
           <WritingLoop />
         </div>

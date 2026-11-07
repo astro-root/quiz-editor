@@ -15,6 +15,7 @@ import { useRevisions } from "@/lib/useRevisions";
 import { CommentSection } from "./CommentSection";
 import { HistoryPanel } from "./HistoryPanel";
 import { Modal } from "./Modal";
+import { charCount } from "@/lib/text";
 import { ImageField, imageFilesFrom, useImageDraft } from "./ImageField";
 import { useQuestionImages } from "@/lib/questionImages";
 
@@ -182,7 +183,7 @@ export function QuestionEditor({ question, onClose, modal = false }: { question:
           <AlertTriangle size={13} />同じ問題文が既にあります（{personOf(dup.authorUid, dup.authorName).name}）
         </p>
       )}
-      <p className="mb-2 text-right text-[11px] text-slate-300">{draft.body.length}文字</p>
+      <p className="mb-2 text-right text-xs tabular-nums text-slate-500" title="前後の空白を除いた文字数">{charCount(draft.body)}文字</p>
       <ImageField field="body" draft={imgs} loaded={loaded} disabled={!canEdit} />
 
       <label className={label}>解答</label>
