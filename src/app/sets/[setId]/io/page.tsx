@@ -85,7 +85,7 @@ export default function IoPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="max-w-3xl">
       <section className={card}>
         <h2 className="mb-3 flex items-center gap-1.5 text-sm font-medium text-slate-600"><FileDown size={15} />エクスポート</h2>
         <div className="mb-3 flex flex-wrap items-center gap-3 text-sm">
