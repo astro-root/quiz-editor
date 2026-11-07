@@ -25,6 +25,9 @@ const config: Config = {
         sky: { 50: "rgb(var(--sky-50) / <alpha-value>)", 100: "rgb(var(--sky-100) / <alpha-value>)", 200: "rgb(var(--sky-200) / <alpha-value>)", 300: "rgb(var(--sky-300) / <alpha-value>)" },
         violet: { 50: "rgb(var(--violet-50) / <alpha-value>)", 100: "rgb(var(--violet-100) / <alpha-value>)", 200: "rgb(var(--violet-200) / <alpha-value>)", 300: "rgb(var(--violet-300) / <alpha-value>)" },
       },
+      fontFamily: {
+        sans: ["var(--font-sans)", "system-ui", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", "sans-serif"],
+      },
       boxShadow: {
         card: "var(--shadow-card)",
         pop: "var(--shadow-pop)",
