@@ -7,7 +7,8 @@ import { deleteQuestionSet } from "@/lib/deleteSet";
 import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useSetContext } from "@/lib/SetContext";
 import { useQuestionStore } from "@/lib/QuestionsContext";
-import { canManageGenres } from "@/lib/permissions";
+import { canManageGenres, canManageMembers } from "@/lib/permissions";
+import { RenameSet } from "@/components/RenameSet";
 import { newId } from "@/lib/genres";
 import { GenreNode, Round } from "@/lib/types";
 
@@ -156,6 +157,8 @@ export default function SettingsPage() {
     <div>
       {!editable && <p className="mb-4 rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-500">ジャンルとRoundの編集は管理者・問題統括のみ行えます。</p>}
       {error && <p role="alert" className="mb-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-danger">{error}</p>}
+
+      <RenameSet name={set.name} editable={canManageMembers(role)} onSave={actions.renameSet} />
 
       <section className={card}>
         <h2 className="mb-1 text-sm font-medium text-slate-600">ジャンル（大ジャンル → 小ジャンル）</h2>

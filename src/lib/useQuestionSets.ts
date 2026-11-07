@@ -84,6 +84,7 @@ export interface SetActions {
   saveRounds: (rounds: Round[]) => Promise<void>;
   updateNotice: (body: string) => Promise<void>;
   updateMembers: (patch: Record<string, unknown>) => Promise<void>;
+  renameSet: (name: string) => Promise<void>;
 }
 
 // 単一の問題セットをリアルタイム購読する。
@@ -159,6 +160,9 @@ export function useQuestionSet(setId: string) {
     },
     async updateNotice(noticeBody) {
       await updateDoc(doc(db, "questionSets", setId), { noticeBody, updatedAt: serverTimestamp() });
+    },
+    async renameSet(name) {
+      await updateDoc(doc(db, "questionSets", setId), { name, updatedAt: serverTimestamp() });
     },
     async updateMembers(patch) {
       await updateDoc(doc(db, "questionSets", setId), { ...patch, updatedAt: serverTimestamp() });
