@@ -55,7 +55,7 @@ export default function PrintPage() {
   }
 
   return (
-    <div className="max-w-3xl">
+    <div>
       <section className="mb-5 rounded-2xl border border-slate-100 bg-surface p-5 shadow-card print:hidden">
         <h2 className="mb-3 flex items-center gap-1.5 text-sm font-medium text-slate-600">
           <Printer size={15} />印刷・PDF出力

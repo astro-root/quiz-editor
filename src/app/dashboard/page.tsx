@@ -75,7 +75,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6">
+      <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
         <div className="mb-8 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Logo size={32} />
