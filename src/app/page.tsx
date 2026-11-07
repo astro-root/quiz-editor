@@ -551,7 +551,7 @@ export default function Home() {
     <MotionConfig reducedMotion="user">
       <div className="min-h-screen bg-slate-50">
         <header className={`sticky top-0 z-40 border-b transition-colors duration-300 ${scrolled ? "border-slate-200 bg-slate-50/80 backdrop-blur-md" : "border-transparent"}`}>
-          <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 sm:px-6">
+          <div className="mx-auto flex max-w-[96rem] lg:px-12 items-center justify-between px-4 py-3 sm:px-6">
             <div className="flex items-center gap-2.5">
               <Logo size={28} />
               <span className="font-semibold text-slate-800">Qraft</span>
@@ -568,13 +568,13 @@ export default function Home() {
 
         <section className="relative">
           <DotGrid />
-          <div className="relative mx-auto max-w-5xl px-4 pb-16 pt-12 sm:px-6 sm:pt-20 lg:pb-24">
-            <div className="mx-auto max-w-3xl text-center">
-              <h1 className="text-[2rem] font-bold leading-[1.2] tracking-[-0.02em] text-slate-900 sm:text-5xl" style={palt}>
+          <div className="relative mx-auto max-w-[96rem] lg:px-12 px-4 pb-16 pt-12 sm:px-6 sm:pt-20 lg:pb-24">
+            <div className="mx-auto max-w-4xl text-center">
+              <h1 className="text-[2rem] font-bold leading-[1.2] tracking-[-0.02em] text-slate-900 sm:text-5xl lg:text-7xl" style={palt}>
                 <HeadLine delay={0.05}>作問から本番まで、</HeadLine>
                 <HeadLine delay={0.18}>ひとつのツールで。</HeadLine>
               </h1>
-              <motion.p initial={reduce ? false : { opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.5, ease }} className="mx-auto mt-4 max-w-lg text-slate-500 sm:text-lg" style={jp}>
+              <motion.p initial={reduce ? false : { opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.5, ease }} className="mx-auto mt-4 max-w-lg text-slate-500 sm:text-lg lg:max-w-2xl lg:text-xl" style={jp}>
                 競技クイズの問題づくりに特化した、チームのための専用エディタ。
               </motion.p>
               <motion.div initial={reduce ? false : { opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.62, ease }} className="mt-7 flex flex-wrap justify-center gap-3">
@@ -594,13 +594,13 @@ export default function Home() {
           </div>
         </section>
 
-        <section id="features" className="mx-auto max-w-5xl scroll-mt-16 px-4 py-14 sm:px-6 sm:py-20">
-          <Reveal><h2 className="mb-8 text-2xl font-bold leading-snug tracking-[-0.01em] text-slate-900 sm:text-3xl" style={palt}>作問に必要なことを、ひとつに。</h2></Reveal>
+        <section id="features" className="mx-auto max-w-[96rem] lg:px-12 scroll-mt-16 px-4 py-14 sm:px-6 sm:py-20">
+          <Reveal><h2 className="mb-8 text-2xl font-bold leading-snug tracking-[-0.01em] text-slate-900 sm:text-3xl lg:text-4xl" style={palt}>作問に必要なことを、ひとつに。</h2></Reveal>
           <Features />
         </section>
 
-        <section id="faq" className="mx-auto max-w-3xl scroll-mt-16 px-4 pb-14 sm:px-6 sm:pb-20">
-          <Reveal><h2 className="mb-6 text-2xl font-bold leading-snug tracking-[-0.01em] text-slate-900 sm:text-3xl" style={palt}>よくある質問</h2></Reveal>
+        <section id="faq" className="mx-auto max-w-5xl scroll-mt-16 px-4 pb-14 sm:px-6 sm:pb-20">
+          <Reveal><h2 className="mb-6 text-2xl font-bold leading-snug tracking-[-0.01em] text-slate-900 sm:text-3xl lg:text-4xl" style={palt}>よくある質問</h2></Reveal>
           <Reveal delay={0.08}>
             <div className="divide-y divide-slate-200 border-y border-slate-200">
               {faqs.map((f, i) => <FaqItem key={f.q} q={f.q} a={f.a} id={`faq-${i}`} />)}
@@ -608,11 +608,11 @@ export default function Home() {
           </Reveal>
         </section>
 
-        <section className="mx-auto max-w-5xl px-4 pb-16 sm:px-6 sm:pb-24">
+        <section className="mx-auto max-w-[96rem] lg:px-12 px-4 pb-16 sm:px-6 sm:pb-24">
           <Reveal>
             <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-surface px-6 py-10 text-center sm:py-14">
               <DotGrid />
-              <h2 className="relative text-2xl font-bold leading-snug tracking-[-0.01em] text-slate-900 sm:text-3xl" style={palt}>最初の一問を、書きはじめよう。</h2>
+              <h2 className="relative text-2xl font-bold leading-snug tracking-[-0.01em] text-slate-900 sm:text-3xl lg:text-4xl" style={palt}>最初の一問を、書きはじめよう。</h2>
               <p className="relative mx-auto mt-3 max-w-md text-slate-500" style={jp}>Googleアカウントで、すぐに始められます。</p>
               <Link href="/signup" className="group relative mt-6 inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-brand-600 px-6 text-sm font-medium text-white hover:bg-brand-700">
                 今すぐ始める
@@ -622,7 +622,7 @@ export default function Home() {
           </Reveal>
         </section>
 
-        <footer className="mx-auto flex max-w-5xl items-center gap-2 px-4 pb-10 text-xs text-slate-400 sm:px-6">
+        <footer className="mx-auto flex max-w-[96rem] lg:px-12 items-center gap-2 px-4 pb-10 text-xs text-slate-400 sm:px-6">
           <Logo size={16} />
           <span>Qraft — クイズ作問エディタ</span>
         </footer>
