@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
-import { Noto_Sans_JP } from "next/font/google";
+import { IBM_Plex_Sans_JP } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import { ThemeProvider, THEME_INIT_SCRIPT } from "@/lib/theme";
 
 const DESCRIPTION = "問題を書く手を、止めない。競技クイズの作問から、裏どり・採用・出題順・印刷まで。チームで一つの問題セットを仕上げるための専用エディタ。";
 
-const sans = Noto_Sans_JP({ subsets: ["latin"], display: "swap", variable: "--font-sans", preload: false });
+const sans = IBM_Plex_Sans_JP({ subsets: ["latin"], weight: ["400", "500", "600", "700"], display: "swap", variable: "--font-sans", preload: false });
 
 export const metadata: Metadata = {
   title: { default: "Qraft — クイズ作問エディタ", template: "%s - Qraft" },
