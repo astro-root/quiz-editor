@@ -105,7 +105,7 @@ export default function WritePage() {
   const openBtn = "flex min-h-[44px] items-center gap-1.5 rounded-lg bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700";
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div>
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold text-slate-800">作問</h2>

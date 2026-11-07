@@ -26,7 +26,7 @@ export default function SetNoticePage() {
   }
 
   return (
-    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="mx-auto max-w-2xl">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }} className="max-w-3xl">
       <div className="mb-6 rounded-2xl border border-slate-100 bg-surface p-6 shadow-card">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-medium text-slate-500">お知らせ</h2>

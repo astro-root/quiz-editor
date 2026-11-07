@@ -37,7 +37,7 @@ function SetShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-slate-50 print:min-h-0 print:bg-surface">
-      <div className="mx-auto max-w-4xl px-3 pb-16 pt-4 sm:px-6 sm:pt-6 print:max-w-none print:p-0">
+      <div className="mx-auto max-w-6xl px-3 pb-16 pt-4 sm:px-6 sm:pt-6 lg:px-8 print:max-w-none print:p-0">
         <div className="mb-4 flex items-center justify-between gap-2 print:hidden">
           <div className="min-w-0">
             <Link href="/dashboard" className="mb-1 flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600">
