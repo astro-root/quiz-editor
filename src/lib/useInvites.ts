@@ -9,19 +9,49 @@ import { db } from "./firebase";
 import { Invite, PendingInvite, PublicProfile, QuestionSet, Role, SetInvite } from "./types";
 import { useAuth } from "./auth-context";
 import { normalizeText } from "./search";
+import { normalizeHandle } from "./handles";
 
-// ---------- ユーザー検索（表示名の前方一致。メールアドレスは扱わない） ----------
+// ---------- ユーザー検索 ----------
+// 入力の形で、探し方を変える。
+//  ・メールアドレス（xxx@yyy.zzz）… 完全一致だけ。emails/{メール} から uid を引く
+//  ・それ以外 … 表示名の前方一致 と ユーザーID（@は付けても付けなくてもよい）の前方一致 を合わせる
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const toProfile = (id: string, d: Record<string, any>): PublicProfile => ({
+  uid: id,
+  displayName: d.displayName ?? "",
+  photoURL: d.photoURL ?? "",
+  handle: typeof d.handle === "string" && d.handle ? d.handle : undefined,
+});
+
 export async function searchUsers(text: string, max = 20): Promise<PublicProfile[]> {
-  const t = normalizeText(text.trim());
-  if (!t) return [];
-  const snap = await getDocs(
-    query(collection(db, "publicProfiles"), orderBy("displayNameLower"), startAt(t), endAt(t + "\uf8ff"), limit(max))
-  );
-  return snap.docs.map((d) => ({
-    uid: d.id,
-    displayName: d.data().displayName ?? "",
-    photoURL: d.data().photoURL ?? "",
-  }));
+  const raw = text.trim();
+  if (!raw) return [];
+
+  if (EMAIL_RE.test(raw)) {
+    const e = await getDoc(doc(db, "emails", normalizeEmail(raw)));
+    if (!e.exists()) return [];
+    const uid = e.data().uid as string;
+    const p = await getDoc(doc(db, "publicProfiles", uid));
+    return p.exists() ? [toProfile(uid, p.data())] : [];
+  }
+
+  const t = normalizeText(raw);
+  const h = normalizeHandle(raw);
+  const [byHandle, byName] = await Promise.all([
+    /^[a-z0-9_.]+$/.test(h)
+      ? getDocs(query(collection(db, "publicProfiles"), orderBy("handle"), startAt(h), endAt(h + "\uf8ff"), limit(max)))
+      : Promise.resolve(null),
+    getDocs(query(collection(db, "publicProfiles"), orderBy("displayNameLower"), startAt(t), endAt(t + "\uf8ff"), limit(max))),
+  ]);
+  const seen = new Set<string>();
+  const out: PublicProfile[] = [];
+  for (const d of [...(byHandle?.docs ?? []), ...byName.docs]) {
+    if (seen.has(d.id)) continue;
+    seen.add(d.id);
+    out.push(toProfile(d.id, d.data()));
+  }
+  return out.slice(0, max);
 }
 
 // ---------- 新方式：ユーザーを選んで招待 ----------

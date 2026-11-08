@@ -87,6 +87,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (e) {
         console.error("プロフィールの同期に失敗しました", e);
       }
+      // メールアドレスでの招待検索用の登録。確認済みのメールだけ。失敗しても、ほかの動作には影響しない。
+      try {
+        if (user.email && user.emailVerified) {
+          const eref = doc(db, "emails", user.email.toLowerCase());
+          const cur = await getDoc(eref);
+          if (!cur.exists() || cur.data().uid !== user.uid) await setDoc(eref, { uid: user.uid, updatedAt: serverTimestamp() });
+        }
+      } catch (e) {
+        console.error("メールアドレスの検索用登録に失敗しました", e);
+      }
     })();
   }, [user]);
 
