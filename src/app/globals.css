@@ -211,3 +211,27 @@ div:has(> [role="dialog"][aria-modal="true"]) {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ---- スマホ対応 ---- */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+/* 画面の外にはみ出した要素で、横にスクロールできてしまうのを防ぐ（sticky などには影響しない） */
+body {
+  overflow-x: clip;
+}
+/* 入力欄の文字が16px未満だと、iPhone では、タップしたときに画面が勝手に拡大されてしまう */
+@media (max-width: 639px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+/* 指で押す端末では、選択欄を押しやすい高さにする */
+@media (pointer: coarse) {
+  select {
+    min-height: 44px;
+  }
+}

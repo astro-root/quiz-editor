@@ -549,7 +549,7 @@ export default function Home() {
 
   return (
     <MotionConfig reducedMotion="user">
-      <div className="min-h-screen bg-slate-50">
+      <div className="min-h-dvh bg-slate-50">
         <header className={`sticky top-0 z-40 border-b transition-colors duration-300 ${scrolled ? "border-slate-200 bg-slate-50/80 backdrop-blur-md" : "border-transparent"}`}>
           <div className="mx-auto flex max-w-[96rem] lg:px-12 items-center justify-between px-4 py-3 sm:px-6">
             <div className="flex items-center gap-2.5">
