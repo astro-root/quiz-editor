@@ -1,0 +1,433 @@
+diff --git a/README.md b/README.md
+index 31e6cae..d4b1bec 100644
+--- a/README.md
++++ b/README.md
+@@ -49,7 +49,8 @@ UIのボタン表示は `src/lib/permissions.ts`、最終的な認可は `firest
+ - 変更履歴: 採用状態・裏どり状態・担当・Roundの変更を、追記のみで記録する。
+ - コメント: 全メンバーが、問題ごとに付けられる（編集・削除は本人のみ）。
+ - 検索: 問題文・答え・別解・解説・出典・備考・正誤基準・タグ・作成者・ジャンル名が対象。全角/半角、大文字/小文字、ひらがな/カタカナの差を吸収し、スペースで AND 検索になる。
+-- 招待: ユーザーを選んで役割付きで招待する。招待された人は、ダッシュボードで承諾する。
++- 招待: ユーザーを選んで役割付きで招待する。検索は、表示名・ユーザーID（@は付けても付けなくてもよい）の前方一致と、メールアドレスの完全一致でできる。招待された人は、ダッシュボードで承諾する。
++- ユーザーID: 英数字・アンダースコア（_）・ピリオド（.）の3〜20文字。英字は小文字に統一し、重複は作れない。アカウント設定で、設定・変更できる。
+ - プロフィール: 表示名とアイコン（192px、約30KBまでに縮小）を変更できる。
+ - 表示: ライト／ダークの切り替え。タブのタイトルは「セット名 - Qraft」。
+ - 動き: ページ切り替え・ポップアップ・タブの選択表示に動きがある（OSの「視差効果を減らす」設定では止まる）。
+@@ -156,7 +157,9 @@ firebase deploy --only firestore:rules
+ 
+ ```
+ users/{uid}                              本人のみ。メールを含む
+-publicProfiles/{uid}                     招待時のユーザー検索用。メールは含めない
++publicProfiles/{uid}                     招待時のユーザー検索用。表示名・アイコン・ユーザーID。メールは含めない
++handles/{ユーザーID}                      ユーザーIDの持ち主（uid）。文書IDが小文字のID。作成のみで更新不可なので、重複しない。1件ずつ引くだけで、一覧は取れない
++emails/{小文字のメール}                  メールアドレスでの招待検索用（uid だけ）。本人の確認済みメールと一致するときだけ書ける。1件ずつ引くだけで、一覧は取れない
+ avatars/{uid}                            アイコン（base64、60KBまで）
+ questionSets/{setId}                     名前・オーナー・members（uid→役割）・memberProfiles・genreTree・rounds・お知らせ
+   ├ questions/{questionId}               問題
+@@ -176,6 +179,7 @@ invites/{email}                          旧方式（メール宛）。新規に
+ ├── .env.example                       環境変数の見本（6項目、値は空）
+ ├── .firebaserc                        Firebaseプロジェクトの紐づけ
+ ├── .gitignore                         node_modules・.next・.env.local などを除外
++├── check_readme_tree.py               READMEのファイル構成が、実際のファイルと合っているか確認する
+ ├── README.md                          このファイル
+ ├── eslint.config.mjs                  ESLintの設定
+ ├── firebase.json                      Firebase CLIの設定（Firestoreのルールとインデックスの場所）
+@@ -195,12 +199,16 @@ invites/{email}                          旧方式（メール宛）。新規に
+     │   ├── layout.tsx                 全体のレイアウト（フォント、テーマ、認証の提供）
+     │   ├── page.tsx                   ランディングページ（体験用の入力画面つき）
+     │   ├── login
++    │   │   ├── layout.tsx             ログイン画面のタブのタイトル
+     │   │   └── page.tsx               ログイン画面
+     │   ├── signup
++    │   │   ├── layout.tsx             新規登録画面のタブのタイトル
+     │   │   └── page.tsx               新規登録画面
+     │   ├── account
++    │   │   ├── layout.tsx             アカウント設定のタブのタイトル
+     │   │   └── page.tsx               アカウント設定（表示名・アイコン）
+     │   ├── dashboard
++    │   │   ├── layout.tsx             一覧画面のタブのタイトル
+     │   │   └── page.tsx               問題セットの一覧・新規作成・招待の承諾
+     │   └── sets
+     │       └── [setId]
+@@ -253,6 +261,7 @@ invites/{email}                          旧方式（メール宛）。新規に
+         ├── deleteSet.ts               問題セットの削除（配下の問題・画像・コメントも）
+         ├── firebase.ts                Firebaseの初期化（Firestoreのキャッシュを有効化）
+         ├── genres.ts                  ジャンルの索引・旧形式からの移行・ID生成
++        ├── handles.ts                  ユーザーIDの形式の確認・重複の確認・保存
+         ├── imageTools.ts              画像の縮小・再圧縮（問題用1280px、アイコン192px）
+         ├── io.ts                      Excel／CSVの入出力、取り込み前の検証
+         ├── orderRules.ts              出題順のルール定義、違反のチェック、シャッフル
+diff --git a/firestore.rules b/firestore.rules
+index e797af1..8d09c85 100644
+--- a/firestore.rules
++++ b/firestore.rules
+@@ -15,7 +15,7 @@ service cloud.firestore {
+       allow read: if request.auth != null;
+       allow create, update: if request.auth != null
+         && request.auth.uid == uid
+-        && request.resource.data.keys().hasOnly(['displayName', 'displayNameLower', 'photoURL', 'updatedAt'])
++        && request.resource.data.keys().hasOnly(['displayName', 'displayNameLower', 'photoURL', 'handle', 'updatedAt'])
+         && request.resource.data.displayName is string
+         && request.resource.data.displayName.size() > 0
+         && request.resource.data.displayName.size() <= 40
+@@ -23,7 +23,42 @@ service cloud.firestore {
+         && request.resource.data.displayNameLower.size() <= 80
+         && request.resource.data.photoURL is string
+         && request.resource.data.photoURL.size() <= 500
+-        && (request.resource.data.photoURL == '' || request.resource.data.photoURL.matches('^https://.*'));
++        && (request.resource.data.photoURL == '' || request.resource.data.photoURL.matches('^https://.*'))
++        // ユーザーID：自分が取ったIDしか書けない（同じ操作の中で作る handles 文書を見て確かめる）
++        && (!('handle' in request.resource.data)
++            || (request.resource.data.handle is string
++                && request.resource.data.handle.size() <= 20
++                && (request.resource.data.handle == ''
++                    || getAfter(/databases/$(database)/documents/handles/$(request.resource.data.handle)).data.uid == request.auth.uid)));
++      allow delete: if false;
++    }
++
++    // ---- handles（ユーザーID）----
++    // 文書IDがユーザーID（小文字）。作成のみで、更新はできないので、重複しない。1件ずつ引くことだけでき、一覧は取れない。
++    match /handles/{h} {
++      allow get: if request.auth != null;
++      allow list: if false;
++      allow create: if request.auth != null
++        && h.matches('^[a-z0-9_.]{3,20}$')
++        && !h.matches('^[.].*') && !h.matches('.*[.]$') && !h.matches('.*[.][.].*')
++        && !(h in ['admin', 'administrator', 'qraft', 'support', 'root', 'system', 'official'])
++        && request.resource.data.keys().hasOnly(['uid', 'createdAt'])
++        && request.resource.data.uid == request.auth.uid;
++      allow update: if false;
++      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
++    }
++
++    // ---- emails（メールアドレスでの招待検索用）----
++    // 文書IDが、小文字にしたメールアドレス。本人のログイン情報（確認済みのメール）と一致するときだけ書ける。
++    // 1件ずつ引くことだけでき、一覧は取れない。中身は uid だけで、表示名などは publicProfiles を引く。
++    match /emails/{email} {
++      allow get: if request.auth != null;
++      allow list: if false;
++      allow create, update: if request.auth != null
++        && request.auth.token.email_verified == true
++        && request.auth.token.email.lower() == email
++        && request.resource.data.keys().hasOnly(['uid', 'updatedAt'])
++        && request.resource.data.uid == request.auth.uid;
+       allow delete: if false;
+     }
+ 
+diff --git a/src/app/account/page.tsx b/src/app/account/page.tsx
+index b1597a0..8a1e6c1 100644
+--- a/src/app/account/page.tsx
++++ b/src/app/account/page.tsx
+@@ -3,12 +3,13 @@
+ import { useEffect, useRef, useState } from "react";
+ import Link from "next/link";
+ import { useRouter } from "next/navigation";
+-import { ArrowLeft, LogOut, Mail, Palette, UserRound } from "lucide-react";
++import { ArrowLeft, AtSign, LogOut, Mail, Palette, UserRound } from "lucide-react";
+ import { useAuth } from "@/lib/auth-context";
+ import { Avatar } from "@/components/Avatar";
+ import { ThemeSelector } from "@/components/ThemeSelector";
+ import { IMAGE_ACCEPT, packAvatar, Packed, toDataUrl } from "@/lib/imageTools";
+ import { parseAvatarRef, removeAvatar, saveAvatar } from "@/lib/avatars";
++import { getMyHandle, HANDLE_MAX, isHandleTaken, normalizeHandle, saveHandle, validateHandle } from "@/lib/handles";
+ 
+ const card = "mb-5 rounded-2xl border border-slate-100 bg-surface p-5 shadow-card";
+ const inputCls = "w-full rounded-lg border border-slate-200 p-2.5 text-sm focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100";
+@@ -31,6 +32,11 @@ export default function AccountPage() {
+   const [cleared, setCleared] = useState(false); // アイコンを外す指定
+   const [avBusy, setAvBusy] = useState(false);
+   const fileRef = useRef<HTMLInputElement>(null);
++  const [handle, setHandle] = useState("");
++  const [savedHandle, setSavedHandle] = useState("");
++  const [hCheck, setHCheck] = useState<"" | "checking" | "ok" | "taken">("");
++  const [hMsg, setHMsg] = useState<Msg>(null);
++  const [hBusy, setHBusy] = useState(false);
+ 
+   useEffect(() => {
+     if (!loading && !user) router.replace("/login");
+@@ -45,6 +51,26 @@ export default function AccountPage() {
+     // eslint-disable-next-line react-hooks/exhaustive-deps
+   }, [uid]);
+ 
++  // 設定済みのユーザーIDを読み込む
++  useEffect(() => {
++    if (!uid) return;
++    getMyHandle(uid).then((h) => { setSavedHandle(h); setHandle(h); }).catch((e) => console.error("ユーザーIDの取得に失敗しました", e));
++  }, [uid]);
++
++  // 入力のたびに、形式の確認と、使われていないかの確認をする（入力が止まってから）
++  const hNorm = normalizeHandle(handle);
++  const hErr = hNorm && hNorm !== savedHandle ? validateHandle(hNorm) : null;
++  useEffect(() => {
++    setHMsg(null);
++    if (!uid || !hNorm || hNorm === savedHandle || validateHandle(hNorm)) { setHCheck(""); return; }
++    setHCheck("checking");
++    let alive = true;
++    const t = setTimeout(() => {
++      isHandleTaken(hNorm, uid).then((taken) => alive && setHCheck(taken ? "taken" : "ok")).catch(() => alive && setHCheck(""));
++    }, 400);
++    return () => { alive = false; clearTimeout(t); };
++  }, [hNorm, savedHandle, uid]);
++
+   if (loading || !user) return null;
+   const email = user.email ?? "";
+   const viaGoogle = user.providerData.some((p) => p.providerId === "google.com");
+@@ -86,14 +112,34 @@ export default function AccountPage() {
+     }
+   }
+ 
++  async function submitHandle(e: React.FormEvent) {
++    e.preventDefault();
++    if (!user || hBusy) return;
++    setHMsg(null);
++    setHBusy(true);
++    try {
++      await saveHandle(user.uid, savedHandle, hNorm);
++      setSavedHandle(hNorm);
++      setHandle(hNorm);
++      setHCheck("");
++      setHMsg({ ok: true, text: "ユーザーIDを保存しました" });
++    } catch (err: any) {
++      setHMsg({ ok: false, text: err?.message || "ユーザーIDを保存できませんでした" });
++    } finally {
++      setHBusy(false);
++    }
++  }
++
+   return (
+-    <div className="min-h-screen bg-slate-50">
+-      <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6">
++    <div className="min-h-dvh bg-slate-50">
++      <div className="mx-auto max-w-[96rem] px-4 py-8 sm:px-6 lg:px-10">
+         <Link href="/dashboard" className="mb-1 flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600">
+           <ArrowLeft size={12} /> 一覧へ戻る
+         </Link>
+         <h1 className="mb-6 text-xl font-semibold text-slate-800">アカウント設定</h1>
+ 
++        <div className="grid items-start gap-x-5 lg:grid-cols-2 2xl:grid-cols-3">
++
+         <section className={card}>
+           <h2 className="mb-3 flex items-center gap-1.5 text-sm font-medium text-slate-600"><UserRound size={15} />プロフィール</h2>
+           <p className="mb-4 text-xs text-slate-400">表示名とアイコンは、招待のユーザー検索や問題の作成者表示に使われます。</p>
+@@ -121,6 +167,23 @@ export default function AccountPage() {
+           <Note m={profMsg} />
+         </section>
+ 
++        <section className={card}>
++          <h2 className="mb-3 flex items-center gap-1.5 text-sm font-medium text-slate-600"><AtSign size={15} />ユーザーID</h2>
++          <p className="mb-3 text-xs leading-relaxed text-slate-400">招待のときに、相手がIDで探せるようになります。英数字・アンダースコア（_）・ピリオド（.）が使え、{3}〜{HANDLE_MAX}文字です。英字は小文字になります。ほかの人と同じIDは使えません。</p>
++          <form onSubmit={submitHandle}>
++            <label className={labelCls} htmlFor="acc-handle">ユーザーID</label>
++            <div className="mb-1 flex items-center gap-2">
++              <span className="text-slate-400" aria-hidden>@</span>
++              <input id="acc-handle" value={handle} onChange={(e) => setHandle(e.target.value)} maxLength={HANDLE_MAX + 1} autoCapitalize="none" autoCorrect="off" spellCheck={false} aria-describedby="acc-handle-hint" className={inputCls} />
++            </div>
++            <p id="acc-handle-hint" role="status" className={`mb-3 min-h-[1.25rem] text-xs ${hErr || hCheck === "taken" ? "text-danger" : hCheck === "ok" ? "text-ok" : "text-slate-400"}`}>
++              {hErr ?? (hCheck === "checking" ? "確認中…" : hCheck === "taken" ? "このIDは、すでに使われています" : hCheck === "ok" ? "このIDは使えます" : savedHandle && hNorm === savedHandle ? "設定中のIDです" : "")}
++            </p>
++            <button type="submit" disabled={hBusy || !hNorm || hNorm === savedHandle || !!hErr || hCheck === "taken" || hCheck === "checking"} className={primaryBtn}>{hBusy ? "保存中…" : savedHandle ? "IDを変更" : "IDを設定"}</button>
++          </form>
++          <Note m={hMsg} />
++        </section>
++
+         <section className={card}>
+           <h2 className="mb-3 flex items-center gap-1.5 text-sm font-medium text-slate-600"><Palette size={15} />表示</h2>
+           <p className="mb-3 text-xs text-slate-400">この端末のブラウザに保存されます。ほかの端末では、それぞれで設定してください。</p>
+@@ -141,6 +204,7 @@ export default function AccountPage() {
+         <section className={card}>
+           <button onClick={logOut} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700"><LogOut size={14} />ログアウト</button>
+         </section>
++        </div>
+       </div>
+     </div>
+   );
+diff --git a/src/components/ShareDialog.tsx b/src/components/ShareDialog.tsx
+index 32900b6..31028fb 100644
+--- a/src/components/ShareDialog.tsx
++++ b/src/components/ShareDialog.tsx
+@@ -94,7 +94,7 @@ export function ShareDialog({ set, isAdmin, onClose }: { set: QuestionSet; isAdm
+ 
+   return (
+     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center" onClick={onClose}>
+-      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-surface p-5 shadow-xl sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
++      <div className="max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-surface p-5 shadow-xl sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+         <div className="mb-4 flex items-center justify-between">
+           <h2 className="text-lg font-semibold text-slate-800">メンバーと権限</h2>
+           <button onClick={onClose} aria-label="閉じる" className="rounded-full p-1 text-slate-400 hover:bg-slate-100"><X size={18} /></button>
+@@ -108,7 +108,7 @@ export function ShareDialog({ set, isAdmin, onClose }: { set: QuestionSet; isAdm
+               <input
+                 value={text}
+                 onChange={(e) => { setText(e.target.value); setSelected(null); setMsg(null); }}
+-                placeholder="表示名でユーザーを検索"
++                placeholder="表示名・ユーザーID・メールアドレス"
+                 autoFocus
+                 className="w-full rounded-lg border border-slate-200 p-2 pl-9 text-sm focus:border-brand-400 focus:outline-none"
+               />
+@@ -116,7 +116,7 @@ export function ShareDialog({ set, isAdmin, onClose }: { set: QuestionSet; isAdm
+             </div>
+ 
+             {text.trim() && !searching && results.length === 0 && (
+-              <p className="mt-2 text-xs text-slate-400">該当するユーザーが見つかりません（相手が一度ログインしている必要があります）</p>
++              <p className="mt-2 text-xs text-slate-400">該当するユーザーが見つかりません。メールアドレスは完全一致のみです。相手が、最近一度ログインしている必要があります。</p>
+             )}
+             {results.length > 0 && (
+               <ul className="mt-2 max-h-52 divide-y divide-slate-100 overflow-y-auto rounded-lg border border-slate-200">
+@@ -132,7 +132,7 @@ export function ShareDialog({ set, isAdmin, onClose }: { set: QuestionSet; isAdm
+                         className={`flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm ${isSel ? "bg-brand-50" : "hover:bg-slate-50"} disabled:opacity-50`}
+                       >
+                         <Avatar name={u.displayName} photoURL={u.photoURL} size={28} />
+-                        <span className="min-w-0 flex-1 truncate text-slate-700">{u.displayName}</span>
++                        <span className="min-w-0 flex-1 truncate text-slate-700">{u.displayName}{u.handle && <span className="ml-1.5 text-xs text-slate-400">@{u.handle}</span>}</span>
+                         {st && <span className="text-xs text-slate-400">{st}</span>}
+                         {isSel && <Check size={15} className="text-accent" />}
+                       </button>
+diff --git a/src/lib/auth-context.tsx b/src/lib/auth-context.tsx
+index 19b6b0d..3c6f7a3 100644
+--- a/src/lib/auth-context.tsx
++++ b/src/lib/auth-context.tsx
+@@ -87,6 +87,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
+       } catch (e) {
+         console.error("プロフィールの同期に失敗しました", e);
+       }
++      // メールアドレスでの招待検索用の登録。確認済みのメールだけ。失敗しても、ほかの動作には影響しない。
++      try {
++        if (user.email && user.emailVerified) {
++          const eref = doc(db, "emails", user.email.toLowerCase());
++          const cur = await getDoc(eref);
++          if (!cur.exists() || cur.data().uid !== user.uid) await setDoc(eref, { uid: user.uid, updatedAt: serverTimestamp() });
++        }
++      } catch (e) {
++        console.error("メールアドレスの検索用登録に失敗しました", e);
++      }
+     })();
+   }, [user]);
+ 
+diff --git a/src/lib/handles.ts b/src/lib/handles.ts
+new file mode 100644
+index 0000000..bb71fdb
+--- /dev/null
++++ b/src/lib/handles.ts
+@@ -0,0 +1,49 @@
++import { doc, getDoc, serverTimestamp, writeBatch } from "firebase/firestore";
++import { db } from "./firebase";
++
++// ユーザーID：英数字・アンダースコア・ピリオドだけ、3〜20文字。英字は小文字に統一する（大文字小文字の違いでは、別のIDにならない）。
++// 重複は、handles/{id} の文書IDが同じになることで防ぐ（作成のみ許可・更新不可なので、先に取った人のものになる）。
++export const HANDLE_MIN = 3;
++export const HANDLE_MAX = 20;
++export const HANDLE_RESERVED = ["admin", "administrator", "qraft", "support", "root", "system", "official"];
++
++export const normalizeHandle = (raw: string) => raw.trim().replace(/^@/, "").toLowerCase();
++
++// 問題なければ null、問題があれば、画面に出す文言を返す
++export function validateHandle(raw: string): string | null {
++  const h = normalizeHandle(raw);
++  if (h.length < HANDLE_MIN || h.length > HANDLE_MAX) return `${HANDLE_MIN}〜${HANDLE_MAX}文字で入力してください`;
++  if (!/^[a-z0-9_.]+$/.test(h)) return "使えるのは、英数字・アンダースコア（_）・ピリオド（.）だけです";
++  if (h.startsWith(".") || h.endsWith(".")) return "ピリオドは、先頭と末尾には使えません";
++  if (h.includes("..")) return "ピリオドは、2つ続けて使えません";
++  if (HANDLE_RESERVED.includes(h)) return "このIDは使えません";
++  return null;
++}
++
++export async function getMyHandle(uid: string): Promise<string> {
++  const s = await getDoc(doc(db, "publicProfiles", uid));
++  return typeof s.data()?.handle === "string" ? s.data()!.handle : "";
++}
++
++export async function isHandleTaken(handle: string, myUid: string): Promise<boolean> {
++  const s = await getDoc(doc(db, "handles", normalizeHandle(handle)));
++  return s.exists() && s.data().uid !== myUid;
++}
++
++// 古いIDを手放し、新しいIDを取り、公開プロフィールに書く。1回のバッチなので、途中までは反映されない。
++export async function saveHandle(uid: string, current: string, next: string) {
++  const n = normalizeHandle(next);
++  const err = validateHandle(n);
++  if (err) throw new Error(err);
++  if (n === current) return;
++  const batch = writeBatch(db);
++  if (current) batch.delete(doc(db, "handles", current));
++  batch.set(doc(db, "handles", n), { uid, createdAt: serverTimestamp() });
++  batch.set(doc(db, "publicProfiles", uid), { handle: n, updatedAt: serverTimestamp() }, { merge: true });
++  try {
++    await batch.commit();
++  } catch (e: any) {
++    if (e?.code === "permission-denied") throw new Error("そのIDは使えません（すでに使われているか、使えない文字が含まれています）");
++    throw e;
++  }
++}
+diff --git a/src/lib/types.ts b/src/lib/types.ts
+index de02c2a..418b794 100644
+--- a/src/lib/types.ts
++++ b/src/lib/types.ts
+@@ -146,4 +146,5 @@ export interface PublicProfile {
+   uid: string;
+   displayName: string;
+   photoURL: string;
++  handle?: string; // ユーザーID（小文字）。未設定の人もいる
+ }
+diff --git a/src/lib/useInvites.ts b/src/lib/useInvites.ts
+index d085be1..f23591b 100644
+--- a/src/lib/useInvites.ts
++++ b/src/lib/useInvites.ts
+@@ -9,19 +9,49 @@ import { db } from "./firebase";
+ import { Invite, PendingInvite, PublicProfile, QuestionSet, Role, SetInvite } from "./types";
+ import { useAuth } from "./auth-context";
+ import { normalizeText } from "./search";
++import { normalizeHandle } from "./handles";
++
++// ---------- ユーザー検索 ----------
++// 入力の形で、探し方を変える。
++//  ・メールアドレス（xxx@yyy.zzz）… 完全一致だけ。emails/{メール} から uid を引く
++//  ・それ以外 … 表示名の前方一致 と ユーザーID（@は付けても付けなくてもよい）の前方一致 を合わせる
++const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
++
++const toProfile = (id: string, d: Record<string, any>): PublicProfile => ({
++  uid: id,
++  displayName: d.displayName ?? "",
++  photoURL: d.photoURL ?? "",
++  handle: typeof d.handle === "string" && d.handle ? d.handle : undefined,
++});
+ 
+-// ---------- ユーザー検索（表示名の前方一致。メールアドレスは扱わない） ----------
+ export async function searchUsers(text: string, max = 20): Promise<PublicProfile[]> {
+-  const t = normalizeText(text.trim());
+-  if (!t) return [];
+-  const snap = await getDocs(
+-    query(collection(db, "publicProfiles"), orderBy("displayNameLower"), startAt(t), endAt(t + "\uf8ff"), limit(max))
+-  );
+-  return snap.docs.map((d) => ({
+-    uid: d.id,
+-    displayName: d.data().displayName ?? "",
+-    photoURL: d.data().photoURL ?? "",
+-  }));
++  const raw = text.trim();
++  if (!raw) return [];
++
++  if (EMAIL_RE.test(raw)) {
++    const e = await getDoc(doc(db, "emails", normalizeEmail(raw)));
++    if (!e.exists()) return [];
++    const uid = e.data().uid as string;
++    const p = await getDoc(doc(db, "publicProfiles", uid));
++    return p.exists() ? [toProfile(uid, p.data())] : [];
++  }
++
++  const t = normalizeText(raw);
++  const h = normalizeHandle(raw);
++  const [byHandle, byName] = await Promise.all([
++    /^[a-z0-9_.]+$/.test(h)
++      ? getDocs(query(collection(db, "publicProfiles"), orderBy("handle"), startAt(h), endAt(h + "\uf8ff"), limit(max)))
++      : Promise.resolve(null),
++    getDocs(query(collection(db, "publicProfiles"), orderBy("displayNameLower"), startAt(t), endAt(t + "\uf8ff"), limit(max))),
++  ]);
++  const seen = new Set<string>();
++  const out: PublicProfile[] = [];
++  for (const d of [...(byHandle?.docs ?? []), ...byName.docs]) {
++    if (seen.has(d.id)) continue;
++    seen.add(d.id);
++    out.push(toProfile(d.id, d.data()));
++  }
++  return out.slice(0, max);
+ }
+ 
+ // ---------- 新方式：ユーザーを選んで招待 ----------

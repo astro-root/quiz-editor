@@ -1,0 +1,217 @@
+diff --git a/src/app/dashboard/page.tsx b/src/app/dashboard/page.tsx
+index a63d1f6..4cec969 100644
+--- a/src/app/dashboard/page.tsx
++++ b/src/app/dashboard/page.tsx
+@@ -74,8 +74,8 @@ export default function DashboardPage() {
+   const newBtn = "flex min-h-[40px] items-center gap-1.5 rounded-lg bg-brand-600 px-4 text-sm font-medium text-white shadow-sm hover:bg-brand-700";
+ 
+   return (
+-    <div className="min-h-screen bg-slate-50">
+-      <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
++    <div className="min-h-dvh bg-slate-50">
++      <div className="mx-auto max-w-[96rem] px-4 py-8 sm:px-6 lg:px-10">
+         <div className="mb-8 flex items-center justify-between">
+           <div className="flex items-center gap-2">
+             <Logo size={32} />
+@@ -113,18 +113,18 @@ export default function DashboardPage() {
+           <button onClick={openNew} className={`${newBtn} hidden sm:flex`}><Plus size={16} />新規</button>
+         </div>
+ 
+-        <div className="space-y-2">
++        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+           {sets.map((s) => (
+             <Link key={s.id} href={`/sets/${s.id}`} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-surface p-4 shadow-sm transition hover:border-brand-300 hover:shadow-pop">
+               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-400"><FolderOpen size={16} /></div>
+-              <div>
+-                <p className="font-medium text-slate-800">{s.name}</p>
++              <div className="min-w-0">
++                <p className="truncate font-medium text-slate-800">{s.name}</p>
+                 <p className="text-xs text-slate-400">{s.ownerId === user.uid ? "自分が所有" : "共有されている"}・{roleLabel[s.members[user.uid]] ?? ""}</p>
+               </div>
+             </Link>
+           ))}
+           {!setsLoading && sets.length === 0 && (
+-            <div className="rounded-xl border border-dashed border-slate-200 bg-surface px-6 py-10 text-center">
++            <div className="col-span-full rounded-xl border border-dashed border-slate-200 bg-surface px-6 py-10 text-center">
+               <p className="mb-4 text-sm text-slate-400">まだ問題セットがありません。</p>
+               <button onClick={openNew} className={`${newBtn} mx-auto`}><Plus size={16} />最初の問題セットを作る</button>
+             </div>
+diff --git a/src/app/globals.css b/src/app/globals.css
+index b1dfbdb..ad0c13f 100644
+--- a/src/app/globals.css
++++ b/src/app/globals.css
+@@ -211,3 +211,27 @@ div:has(> [role="dialog"][aria-modal="true"]) {
+     transition-duration: 0.01ms !important;
+   }
+ }
++
++/* ---- スマホ対応 ---- */
++html {
++  -webkit-text-size-adjust: 100%;
++  text-size-adjust: 100%;
++}
++/* 画面の外にはみ出した要素で、横にスクロールできてしまうのを防ぐ（sticky などには影響しない） */
++body {
++  overflow-x: clip;
++}
++/* 入力欄の文字が16px未満だと、iPhone では、タップしたときに画面が勝手に拡大されてしまう */
++@media (max-width: 639px) {
++  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]),
++  select,
++  textarea {
++    font-size: 16px !important;
++  }
++}
++/* 指で押す端末では、選択欄を押しやすい高さにする */
++@media (pointer: coarse) {
++  select {
++    min-height: 44px;
++  }
++}
+diff --git a/src/app/page.tsx b/src/app/page.tsx
+index 10c4aab..4542fe5 100644
+--- a/src/app/page.tsx
++++ b/src/app/page.tsx
+@@ -549,7 +549,7 @@ export default function Home() {
+ 
+   return (
+     <MotionConfig reducedMotion="user">
+-      <div className="min-h-screen bg-slate-50">
++      <div className="min-h-dvh bg-slate-50">
+         <header className={`sticky top-0 z-40 border-b transition-colors duration-300 ${scrolled ? "border-slate-200 bg-slate-50/80 backdrop-blur-md" : "border-transparent"}`}>
+           <div className="mx-auto flex max-w-[96rem] lg:px-12 items-center justify-between px-4 py-3 sm:px-6">
+             <div className="flex items-center gap-2.5">
+diff --git a/src/app/sets/[setId]/layout.tsx b/src/app/sets/[setId]/layout.tsx
+index 83e9df1..ab3ed3e 100644
+--- a/src/app/sets/[setId]/layout.tsx
++++ b/src/app/sets/[setId]/layout.tsx
+@@ -37,7 +37,7 @@ function SetShell({ children }: { children: React.ReactNode }) {
+   usePageTitle(`${set.name} - Qraft`);
+ 
+   return (
+-    <div className="min-h-screen bg-slate-50 print:min-h-0 print:bg-surface">
++    <div className="min-h-dvh bg-slate-50 print:min-h-0 print:bg-surface">
+       <div className="mx-auto max-w-6xl px-3 pb-16 pt-4 sm:px-6 sm:pt-6 lg:px-8 print:max-w-none print:p-0">
+         <div className="mb-4 flex items-center justify-between gap-2 print:hidden">
+           <div className="min-w-0">
+diff --git a/src/app/sets/[setId]/members/page.tsx b/src/app/sets/[setId]/members/page.tsx
+index 9826ca9..507f257 100644
+--- a/src/app/sets/[setId]/members/page.tsx
++++ b/src/app/sets/[setId]/members/page.tsx
+@@ -44,7 +44,28 @@ export default function MembersPage() {
+         </button>
+       </div>
+ 
+-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-surface">
++      <ul className="space-y-2 sm:hidden">
++        {uids.map((uid) => {
++          const s = byUid.get(uid);
++          const p = personOf(uid, live.find((q) => q.authorUid === uid)?.authorName);
++          const r = set.members[uid];
++          return (
++            <li key={uid} className="rounded-xl border border-slate-200 bg-surface p-3">
++              <div className="mb-2 flex items-center justify-between gap-2">
++                <span className="flex min-w-0 items-center gap-2"><Avatar name={p.name} photoURL={p.photoURL} size={24} /><span className={`truncate ${p.known ? "text-slate-700" : "text-slate-400"}`}>{p.name}</span></span>
++                <span className="shrink-0 text-xs text-slate-500">{r ? roleLabel[r] : "退出"}</span>
++              </div>
++              <dl className="grid grid-cols-3 gap-2 text-center text-xs">
++                {([["作成", s?.created ?? 0], ["採用", s?.adopted ?? 0], ["却下", s?.rejected ?? 0], ["採用率", pct(s?.adoptRate ?? null)], ["裏どり担当", s?.assigned ?? 0], ["完了", s?.approved ?? 0]] as [string, string | number][]).map(([l, v]) => (
++                  <div key={l} className="rounded-lg bg-slate-50 py-1.5"><dt className="text-slate-400">{l}</dt><dd className="text-sm tabular-nums text-slate-700">{v}</dd></div>
++                ))}
++              </dl>
++            </li>
++          );
++        })}
++      </ul>
++
++      <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-surface sm:block">
+         <table className="w-full min-w-[640px] text-sm">
+           <thead className="bg-slate-50 text-xs text-slate-400">
+             <tr>
+diff --git a/src/app/sets/[setId]/write/page.tsx b/src/app/sets/[setId]/write/page.tsx
+index d58e8e1..e473cb0 100644
+--- a/src/app/sets/[setId]/write/page.tsx
++++ b/src/app/sets/[setId]/write/page.tsx
+@@ -31,7 +31,7 @@ export default function WritePage() {
+   const [answer, setAnswer] = useState("");
+   const [explanation, setExplanation] = useState("");
+   const [altAnswers, setAltAnswers] = useState("");
+-  const [source, setSource] = useState("");
++  const [sources, setSources] = useState<string[]>(() => Array(MAX_SOURCES).fill(""));
+   const [genreId, setGenreId] = useState("");
+   const [subGenreId, setSubGenreId] = useState("");
+   const [saving, setSaving] = useState(false);
+@@ -47,17 +47,17 @@ export default function WritePage() {
+       if (raw) {
+         const d = JSON.parse(raw);
+         setBody(d.body ?? ""); setAnswer(d.answer ?? ""); setExplanation(d.explanation ?? "");
+-        setAltAnswers(d.altAnswers ?? ""); setSource(d.source ?? ""); setGenreId(d.genreId ?? ""); setSubGenreId(d.subGenreId ?? "");
++        setAltAnswers(d.altAnswers ?? ""); setSources(Array.from({ length: MAX_SOURCES }, (_, i) => (Array.isArray(d.sources) ? d.sources[i] : i === 0 ? d.source : "") ?? "")); setGenreId(d.genreId ?? ""); setSubGenreId(d.subGenreId ?? "");
+       }
+     } catch { /* noop */ }
+   }, [draftKey]);
+   useEffect(() => {
+-    try { sessionStorage.setItem(draftKey, JSON.stringify({ body, answer, explanation, altAnswers, source, genreId, subGenreId })); } catch { /* noop */ }
+-  }, [draftKey, body, answer, explanation, altAnswers, source, genreId, subGenreId]);
++    try { sessionStorage.setItem(draftKey, JSON.stringify({ body, answer, explanation, altAnswers, sources, genreId, subGenreId })); } catch { /* noop */ }
++  }, [draftKey, body, answer, explanation, altAnswers, sources, genreId, subGenreId]);
+ 
+   const dup = store.findDuplicate(body);
+   const empty = !body.trim() && !answer.trim();
+-  const hasDraft = !empty || !!(explanation.trim() || altAnswers.trim() || source.trim()) || imgs.total > 0;
++  const hasDraft = !empty || !!(explanation.trim() || altAnswers.trim() || sources.some((x) => x.trim())) || imgs.total > 0;
+ 
+   function pasteImg(field: ImageSlot, e: React.ClipboardEvent) {
+     const fs = imageFilesFrom(e);
+@@ -68,7 +68,7 @@ export default function WritePage() {
+   }
+ 
+   function clearDraft() {
+-    setBody(""); setAnswer(""); setExplanation(""); setAltAnswers(""); setSource("");
++    setBody(""); setAnswer(""); setExplanation(""); setAltAnswers(""); setSources(Array(MAX_SOURCES).fill(""));
+     imgs.reset();
+   }
+ 
+@@ -81,7 +81,7 @@ export default function WritePage() {
+       await store.createQuestion({
+         body, answer, explanation, genreId, subGenreId, // ジャンルは連続作問のため、保存後も維持する
+         altAnswers: altAnswers.split(",").map((s) => s.trim()).filter(Boolean),
+-        sources: source.trim() ? [source.trim()] : [],
++        sources: sources.map((x) => x.trim()).filter(Boolean),
+         status: "draft",
+       }, imgs.added);
+       clearDraft();
+@@ -170,13 +170,18 @@ export default function WritePage() {
+                 </select>
+               </div>
+             </div>
++            <label className={label}>出典（最大{MAX_SOURCES}件）</label>
++            <div className="mb-3 space-y-1.5">
++              {sources.map((src, i) => (
++                <input key={i} value={src} onChange={(e) => setSources((a) => a.map((x, j) => (j === i ? e.target.value : x)))} placeholder={`出典${i + 1}（URLなど）`} aria-label={`出典${i + 1}`} className={input} />
++              ))}
++            </div>
+             <details className="mb-3">
+-              <summary className="cursor-pointer text-xs text-slate-500">解説・別解・出典を追加（最大{MAX_SOURCES}件はあとで一覧から追加できます）</summary>
++              <summary className="cursor-pointer text-xs text-slate-500">解説・別解を追加</summary>
+               <div className="mt-2 space-y-2">
+                 <input value={altAnswers} onChange={(e) => setAltAnswers(e.target.value)} placeholder="別解（カンマ区切り）" className={input} />
+                 <textarea onPaste={(e) => pasteImg("explanation", e)} value={explanation} onChange={(e) => setExplanation(e.target.value)} rows={2} placeholder="解説" className={`${input} resize-y`} />
+                 <ImageField field="explanation" draft={imgs} loaded={{}} />
+-                <input value={source} onChange={(e) => setSource(e.target.value)} placeholder="出典（URLなど）" className={input} />
+               </div>
+             </details>
+             {imgs.error && <p role="alert" className="mb-2 rounded-lg bg-rose-50 px-3 py-2 text-sm text-danger">{imgs.error}</p>}
+diff --git a/src/components/AuthScreen.tsx b/src/components/AuthScreen.tsx
+index 6e71378..526447d 100644
+--- a/src/components/AuthScreen.tsx
++++ b/src/components/AuthScreen.tsx
+@@ -183,7 +183,7 @@ export function AuthScreen({ mode }: { mode: "login" | "signup" }) {
+     : "border-[#747775] bg-[#ffffff] text-[#1f1f1f] hover:bg-[#f7f8f8]";
+ 
+   return (
+-    <div className="grid min-h-screen bg-slate-50 lg:grid-cols-[1.1fr_1fr]">
++    <div className="grid min-h-dvh bg-slate-50 lg:grid-cols-[1.1fr_1fr]">
+       <aside className="relative hidden flex-col justify-between overflow-hidden border-r border-slate-200 bg-surface p-10 lg:flex">
+         <div
+           aria-hidden
