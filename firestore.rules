@@ -256,9 +256,14 @@ service cloud.firestore {
 
       // 招待中一覧（管理者のみ閲覧）。新方式のドキュメントIDは招待された人のuid。
       match /pendingInvites/{pid} {
-        allow read: if isAdmin();
-        allow create: if isAdmin();
-        allow delete: if isAdmin()
+        // ここでの resource は招待中の文書そのもの（セットではない）ので、isAdmin() は使えない。親のセットを引いて確かめる。
+        function setAdmin() {
+          return request.auth != null
+            && get(/databases/$(database)/documents/questionSets/$(setId)).data.members.get(request.auth.uid, null) == 'admin';
+        }
+        allow read: if setAdmin();
+        allow create: if setAdmin();
+        allow delete: if setAdmin()
           || (request.auth != null && (request.auth.uid == pid || request.auth.token.email == pid));
         allow update: if false;
       }
