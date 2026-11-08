@@ -3,12 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, LogOut, Mail, Palette, UserRound } from "lucide-react";
+import { ArrowLeft, AtSign, LogOut, Mail, Palette, UserRound } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { Avatar } from "@/components/Avatar";
 import { ThemeSelector } from "@/components/ThemeSelector";
 import { IMAGE_ACCEPT, packAvatar, Packed, toDataUrl } from "@/lib/imageTools";
 import { parseAvatarRef, removeAvatar, saveAvatar } from "@/lib/avatars";
+import { getMyHandle, HANDLE_MAX, isHandleTaken, normalizeHandle, saveHandle, validateHandle } from "@/lib/handles";
 
 const card = "mb-5 rounded-2xl border border-slate-100 bg-surface p-5 shadow-card";
 const inputCls = "w-full rounded-lg border border-slate-200 p-2.5 text-sm focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100";
@@ -31,6 +32,11 @@ export default function AccountPage() {
   const [cleared, setCleared] = useState(false); // アイコンを外す指定
   const [avBusy, setAvBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [handle, setHandle] = useState("");
+  const [savedHandle, setSavedHandle] = useState("");
+  const [hCheck, setHCheck] = useState<"" | "checking" | "ok" | "taken">("");
+  const [hMsg, setHMsg] = useState<Msg>(null);
+  const [hBusy, setHBusy] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) router.replace("/login");
@@ -44,6 +50,26 @@ export default function AccountPage() {
     setPhoto(user.photoURL ?? "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uid]);
+
+  // 設定済みのユーザーIDを読み込む
+  useEffect(() => {
+    if (!uid) return;
+    getMyHandle(uid).then((h) => { setSavedHandle(h); setHandle(h); }).catch((e) => console.error("ユーザーIDの取得に失敗しました", e));
+  }, [uid]);
+
+  // 入力のたびに、形式の確認と、使われていないかの確認をする（入力が止まってから）
+  const hNorm = normalizeHandle(handle);
+  const hErr = hNorm && hNorm !== savedHandle ? validateHandle(hNorm) : null;
+  useEffect(() => {
+    setHMsg(null);
+    if (!uid || !hNorm || hNorm === savedHandle || validateHandle(hNorm)) { setHCheck(""); return; }
+    setHCheck("checking");
+    let alive = true;
+    const t = setTimeout(() => {
+      isHandleTaken(hNorm, uid).then((taken) => alive && setHCheck(taken ? "taken" : "ok")).catch(() => alive && setHCheck(""));
+    }, 400);
+    return () => { alive = false; clearTimeout(t); };
+  }, [hNorm, savedHandle, uid]);
 
   if (loading || !user) return null;
   const email = user.email ?? "";
@@ -86,13 +112,33 @@ export default function AccountPage() {
     }
   }
 
+  async function submitHandle(e: React.FormEvent) {
+    e.preventDefault();
+    if (!user || hBusy) return;
+    setHMsg(null);
+    setHBusy(true);
+    try {
+      await saveHandle(user.uid, savedHandle, hNorm);
+      setSavedHandle(hNorm);
+      setHandle(hNorm);
+      setHCheck("");
+      setHMsg({ ok: true, text: "ユーザーIDを保存しました" });
+    } catch (err: any) {
+      setHMsg({ ok: false, text: err?.message || "ユーザーIDを保存できませんでした" });
+    } finally {
+      setHBusy(false);
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6">
+    <div className="min-h-dvh bg-slate-50">
+      <div className="mx-auto max-w-[96rem] px-4 py-8 sm:px-6 lg:px-10">
         <Link href="/dashboard" className="mb-1 flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600">
           <ArrowLeft size={12} /> 一覧へ戻る
         </Link>
         <h1 className="mb-6 text-xl font-semibold text-slate-800">アカウント設定</h1>
+
+        <div className="grid items-start gap-x-5 lg:grid-cols-2 2xl:grid-cols-3">
 
         <section className={card}>
           <h2 className="mb-3 flex items-center gap-1.5 text-sm font-medium text-slate-600"><UserRound size={15} />プロフィール</h2>
@@ -122,6 +168,23 @@ export default function AccountPage() {
         </section>
 
         <section className={card}>
+          <h2 className="mb-3 flex items-center gap-1.5 text-sm font-medium text-slate-600"><AtSign size={15} />ユーザーID</h2>
+          <p className="mb-3 text-xs leading-relaxed text-slate-400">招待のときに、相手がIDで探せるようになります。英数字・アンダースコア（_）・ピリオド（.）が使え、{3}〜{HANDLE_MAX}文字です。英字は小文字になります。ほかの人と同じIDは使えません。</p>
+          <form onSubmit={submitHandle}>
+            <label className={labelCls} htmlFor="acc-handle">ユーザーID</label>
+            <div className="mb-1 flex items-center gap-2">
+              <span className="text-slate-400" aria-hidden>@</span>
+              <input id="acc-handle" value={handle} onChange={(e) => setHandle(e.target.value)} maxLength={HANDLE_MAX + 1} autoCapitalize="none" autoCorrect="off" spellCheck={false} aria-describedby="acc-handle-hint" className={inputCls} />
+            </div>
+            <p id="acc-handle-hint" role="status" className={`mb-3 min-h-[1.25rem] text-xs ${hErr || hCheck === "taken" ? "text-danger" : hCheck === "ok" ? "text-ok" : "text-slate-400"}`}>
+              {hErr ?? (hCheck === "checking" ? "確認中…" : hCheck === "taken" ? "このIDは、すでに使われています" : hCheck === "ok" ? "このIDは使えます" : savedHandle && hNorm === savedHandle ? "設定中のIDです" : "")}
+            </p>
+            <button type="submit" disabled={hBusy || !hNorm || hNorm === savedHandle || !!hErr || hCheck === "taken" || hCheck === "checking"} className={primaryBtn}>{hBusy ? "保存中…" : savedHandle ? "IDを変更" : "IDを設定"}</button>
+          </form>
+          <Note m={hMsg} />
+        </section>
+
+        <section className={card}>
           <h2 className="mb-3 flex items-center gap-1.5 text-sm font-medium text-slate-600"><Palette size={15} />表示</h2>
           <p className="mb-3 text-xs text-slate-400">この端末のブラウザに保存されます。ほかの端末では、それぞれで設定してください。</p>
           <ThemeSelector />
@@ -141,6 +204,7 @@ export default function AccountPage() {
         <section className={card}>
           <button onClick={logOut} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700"><LogOut size={14} />ログアウト</button>
         </section>
+        </div>
       </div>
     </div>
   );

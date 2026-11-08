@@ -49,7 +49,8 @@ UIのボタン表示は `src/lib/permissions.ts`、最終的な認可は `firest
 - 変更履歴: 採用状態・裏どり状態・担当・Roundの変更を、追記のみで記録する。
 - コメント: 全メンバーが、問題ごとに付けられる（編集・削除は本人のみ）。
 - 検索: 問題文・答え・別解・解説・出典・備考・正誤基準・タグ・作成者・ジャンル名が対象。全角/半角、大文字/小文字、ひらがな/カタカナの差を吸収し、スペースで AND 検索になる。
-- 招待: ユーザーを選んで役割付きで招待する。招待された人は、ダッシュボードで承諾する。
+- 招待: ユーザーを選んで役割付きで招待する。検索は、表示名・ユーザーID（@は付けても付けなくてもよい）の前方一致と、メールアドレスの完全一致でできる。招待された人は、ダッシュボードで承諾する。
+- ユーザーID: 英数字・アンダースコア（_）・ピリオド（.）の3〜20文字。英字は小文字に統一し、重複は作れない。アカウント設定で、設定・変更できる。
 - プロフィール: 表示名とアイコン（192px、約30KBまでに縮小）を変更できる。
 - 表示: ライト／ダークの切り替え。タブのタイトルは「セット名 - Qraft」。
 - 動き: ページ切り替え・ポップアップ・タブの選択表示に動きがある（OSの「視差効果を減らす」設定では止まる）。
@@ -156,7 +157,9 @@ firebase deploy --only firestore:rules
 
 ```
 users/{uid}                              本人のみ。メールを含む
-publicProfiles/{uid}                     招待時のユーザー検索用。メールは含めない
+publicProfiles/{uid}                     招待時のユーザー検索用。表示名・アイコン・ユーザーID。メールは含めない
+handles/{ユーザーID}                      ユーザーIDの持ち主（uid）。文書IDが小文字のID。作成のみで更新不可なので、重複しない。1件ずつ引くだけで、一覧は取れない
+emails/{小文字のメール}                  メールアドレスでの招待検索用（uid だけ）。本人の確認済みメールと一致するときだけ書ける。1件ずつ引くだけで、一覧は取れない
 avatars/{uid}                            アイコン（base64、60KBまで）
 questionSets/{setId}                     名前・オーナー・members（uid→役割）・memberProfiles・genreTree・rounds・お知らせ
   ├ questions/{questionId}               問題
@@ -176,6 +179,7 @@ invites/{email}                          旧方式（メール宛）。新規に
 ├── .env.example                       環境変数の見本（6項目、値は空）
 ├── .firebaserc                        Firebaseプロジェクトの紐づけ
 ├── .gitignore                         node_modules・.next・.env.local などを除外
+├── check_readme_tree.py               READMEのファイル構成が、実際のファイルと合っているか確認する
 ├── README.md                          このファイル
 ├── eslint.config.mjs                  ESLintの設定
 ├── firebase.json                      Firebase CLIの設定（Firestoreのルールとインデックスの場所）
@@ -195,12 +199,16 @@ invites/{email}                          旧方式（メール宛）。新規に
     │   ├── layout.tsx                 全体のレイアウト（フォント、テーマ、認証の提供）
     │   ├── page.tsx                   ランディングページ（体験用の入力画面つき）
     │   ├── login
+    │   │   ├── layout.tsx             ログイン画面のタブのタイトル
     │   │   └── page.tsx               ログイン画面
     │   ├── signup
+    │   │   ├── layout.tsx             新規登録画面のタブのタイトル
     │   │   └── page.tsx               新規登録画面
     │   ├── account
+    │   │   ├── layout.tsx             アカウント設定のタブのタイトル
     │   │   └── page.tsx               アカウント設定（表示名・アイコン）
     │   ├── dashboard
+    │   │   ├── layout.tsx             一覧画面のタブのタイトル
     │   │   └── page.tsx               問題セットの一覧・新規作成・招待の承諾
     │   └── sets
     │       └── [setId]
@@ -253,6 +261,7 @@ invites/{email}                          旧方式（メール宛）。新規に
         ├── deleteSet.ts               問題セットの削除（配下の問題・画像・コメントも）
         ├── firebase.ts                Firebaseの初期化（Firestoreのキャッシュを有効化）
         ├── genres.ts                  ジャンルの索引・旧形式からの移行・ID生成
+        ├── handles.ts                  ユーザーIDの形式の確認・重複の確認・保存
         ├── imageTools.ts              画像の縮小・再圧縮（問題用1280px、アイコン192px）
         ├── io.ts                      Excel／CSVの入出力、取り込み前の検証
         ├── orderRules.ts              出題順のルール定義、違反のチェック、シャッフル

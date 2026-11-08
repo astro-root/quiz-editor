@@ -146,4 +146,5 @@ export interface PublicProfile {
   uid: string;
   displayName: string;
   photoURL: string;
+  handle?: string; // ユーザーID（小文字）。未設定の人もいる
 }

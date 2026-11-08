@@ -15,7 +15,7 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow create, update: if request.auth != null
         && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['displayName', 'displayNameLower', 'photoURL', 'updatedAt'])
+        && request.resource.data.keys().hasOnly(['displayName', 'displayNameLower', 'photoURL', 'handle', 'updatedAt'])
         && request.resource.data.displayName is string
         && request.resource.data.displayName.size() > 0
         && request.resource.data.displayName.size() <= 40
@@ -23,7 +23,42 @@ service cloud.firestore {
         && request.resource.data.displayNameLower.size() <= 80
         && request.resource.data.photoURL is string
         && request.resource.data.photoURL.size() <= 500
-        && (request.resource.data.photoURL == '' || request.resource.data.photoURL.matches('^https://.*'));
+        && (request.resource.data.photoURL == '' || request.resource.data.photoURL.matches('^https://.*'))
+        // ユーザーID：自分が取ったIDしか書けない（同じ操作の中で作る handles 文書を見て確かめる）
+        && (!('handle' in request.resource.data)
+            || (request.resource.data.handle is string
+                && request.resource.data.handle.size() <= 20
+                && (request.resource.data.handle == ''
+                    || getAfter(/databases/$(database)/documents/handles/$(request.resource.data.handle)).data.uid == request.auth.uid)));
+      allow delete: if false;
+    }
+
+    // ---- handles（ユーザーID）----
+    // 文書IDがユーザーID（小文字）。作成のみで、更新はできないので、重複しない。1件ずつ引くことだけでき、一覧は取れない。
+    match /handles/{h} {
+      allow get: if request.auth != null;
+      allow list: if false;
+      allow create: if request.auth != null
+        && h.matches('^[a-z0-9_.]{3,20}$')
+        && !h.matches('^[.].*') && !h.matches('.*[.]$') && !h.matches('.*[.][.].*')
+        && !(h in ['admin', 'administrator', 'qraft', 'support', 'root', 'system', 'official'])
+        && request.resource.data.keys().hasOnly(['uid', 'createdAt'])
+        && request.resource.data.uid == request.auth.uid;
+      allow update: if false;
+      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
+    }
+
+    // ---- emails（メールアドレスでの招待検索用）----
+    // 文書IDが、小文字にしたメールアドレス。本人のログイン情報（確認済みのメール）と一致するときだけ書ける。
+    // 1件ずつ引くことだけでき、一覧は取れない。中身は uid だけで、表示名などは publicProfiles を引く。
+    match /emails/{email} {
+      allow get: if request.auth != null;
+      allow list: if false;
+      allow create, update: if request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email.lower() == email
+        && request.resource.data.keys().hasOnly(['uid', 'updatedAt'])
+        && request.resource.data.uid == request.auth.uid;
       allow delete: if false;
     }
 
