@@ -31,7 +31,7 @@ export default function WritePage() {
   const [answer, setAnswer] = useState("");
   const [explanation, setExplanation] = useState("");
   const [altAnswers, setAltAnswers] = useState("");
-  const [source, setSource] = useState("");
+  const [sources, setSources] = useState<string[]>(() => Array(MAX_SOURCES).fill(""));
   const [genreId, setGenreId] = useState("");
   const [subGenreId, setSubGenreId] = useState("");
   const [saving, setSaving] = useState(false);
@@ -47,17 +47,17 @@ export default function WritePage() {
       if (raw) {
         const d = JSON.parse(raw);
         setBody(d.body ?? ""); setAnswer(d.answer ?? ""); setExplanation(d.explanation ?? "");
-        setAltAnswers(d.altAnswers ?? ""); setSource(d.source ?? ""); setGenreId(d.genreId ?? ""); setSubGenreId(d.subGenreId ?? "");
+        setAltAnswers(d.altAnswers ?? ""); setSources(Array.from({ length: MAX_SOURCES }, (_, i) => (Array.isArray(d.sources) ? d.sources[i] : i === 0 ? d.source : "") ?? "")); setGenreId(d.genreId ?? ""); setSubGenreId(d.subGenreId ?? "");
       }
     } catch { /* noop */ }
   }, [draftKey]);
   useEffect(() => {
-    try { sessionStorage.setItem(draftKey, JSON.stringify({ body, answer, explanation, altAnswers, source, genreId, subGenreId })); } catch { /* noop */ }
-  }, [draftKey, body, answer, explanation, altAnswers, source, genreId, subGenreId]);
+    try { sessionStorage.setItem(draftKey, JSON.stringify({ body, answer, explanation, altAnswers, sources, genreId, subGenreId })); } catch { /* noop */ }
+  }, [draftKey, body, answer, explanation, altAnswers, sources, genreId, subGenreId]);
 
   const dup = store.findDuplicate(body);
   const empty = !body.trim() && !answer.trim();
-  const hasDraft = !empty || !!(explanation.trim() || altAnswers.trim() || source.trim()) || imgs.total > 0;
+  const hasDraft = !empty || !!(explanation.trim() || altAnswers.trim() || sources.some((x) => x.trim())) || imgs.total > 0;
 
   function pasteImg(field: ImageSlot, e: React.ClipboardEvent) {
     const fs = imageFilesFrom(e);
@@ -68,7 +68,7 @@ export default function WritePage() {
   }
 
   function clearDraft() {
-    setBody(""); setAnswer(""); setExplanation(""); setAltAnswers(""); setSource("");
+    setBody(""); setAnswer(""); setExplanation(""); setAltAnswers(""); setSources(Array(MAX_SOURCES).fill(""));
     imgs.reset();
   }
 
@@ -81,7 +81,7 @@ export default function WritePage() {
       await store.createQuestion({
         body, answer, explanation, genreId, subGenreId, // ジャンルは連続作問のため、保存後も維持する
         altAnswers: altAnswers.split(",").map((s) => s.trim()).filter(Boolean),
-        sources: source.trim() ? [source.trim()] : [],
+        sources: sources.map((x) => x.trim()).filter(Boolean),
         status: "draft",
       }, imgs.added);
       clearDraft();
@@ -170,13 +170,18 @@ export default function WritePage() {
                 </select>
               </div>
             </div>
+            <label className={label}>出典（最大{MAX_SOURCES}件）</label>
+            <div className="mb-3 space-y-1.5">
+              {sources.map((src, i) => (
+                <input key={i} value={src} onChange={(e) => setSources((a) => a.map((x, j) => (j === i ? e.target.value : x)))} placeholder={`出典${i + 1}（URLなど）`} aria-label={`出典${i + 1}`} className={input} />
+              ))}
+            </div>
             <details className="mb-3">
-              <summary className="cursor-pointer text-xs text-slate-500">解説・別解・出典を追加（最大{MAX_SOURCES}件はあとで一覧から追加できます）</summary>
+              <summary className="cursor-pointer text-xs text-slate-500">解説・別解を追加</summary>
               <div className="mt-2 space-y-2">
                 <input value={altAnswers} onChange={(e) => setAltAnswers(e.target.value)} placeholder="別解（カンマ区切り）" className={input} />
                 <textarea onPaste={(e) => pasteImg("explanation", e)} value={explanation} onChange={(e) => setExplanation(e.target.value)} rows={2} placeholder="解説" className={`${input} resize-y`} />
                 <ImageField field="explanation" draft={imgs} loaded={{}} />
-                <input value={source} onChange={(e) => setSource(e.target.value)} placeholder="出典（URLなど）" className={input} />
               </div>
             </details>
             {imgs.error && <p role="alert" className="mb-2 rounded-lg bg-rose-50 px-3 py-2 text-sm text-danger">{imgs.error}</p>}

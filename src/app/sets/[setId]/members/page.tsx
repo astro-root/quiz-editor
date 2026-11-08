@@ -44,7 +44,28 @@ export default function MembersPage() {
         </button>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-surface">
+      <ul className="space-y-2 sm:hidden">
+        {uids.map((uid) => {
+          const s = byUid.get(uid);
+          const p = personOf(uid, live.find((q) => q.authorUid === uid)?.authorName);
+          const r = set.members[uid];
+          return (
+            <li key={uid} className="rounded-xl border border-slate-200 bg-surface p-3">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <span className="flex min-w-0 items-center gap-2"><Avatar name={p.name} photoURL={p.photoURL} size={24} /><span className={`truncate ${p.known ? "text-slate-700" : "text-slate-400"}`}>{p.name}</span></span>
+                <span className="shrink-0 text-xs text-slate-500">{r ? roleLabel[r] : "退出"}</span>
+              </div>
+              <dl className="grid grid-cols-3 gap-2 text-center text-xs">
+                {([["作成", s?.created ?? 0], ["採用", s?.adopted ?? 0], ["却下", s?.rejected ?? 0], ["採用率", pct(s?.adoptRate ?? null)], ["裏どり担当", s?.assigned ?? 0], ["完了", s?.approved ?? 0]] as [string, string | number][]).map(([l, v]) => (
+                  <div key={l} className="rounded-lg bg-slate-50 py-1.5"><dt className="text-slate-400">{l}</dt><dd className="text-sm tabular-nums text-slate-700">{v}</dd></div>
+                ))}
+              </dl>
+            </li>
+          );
+        })}
+      </ul>
+
+      <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-surface sm:block">
         <table className="w-full min-w-[640px] text-sm">
           <thead className="bg-slate-50 text-xs text-slate-400">
             <tr>

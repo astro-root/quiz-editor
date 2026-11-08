@@ -183,7 +183,7 @@ export function AuthScreen({ mode }: { mode: "login" | "signup" }) {
     : "border-[#747775] bg-[#ffffff] text-[#1f1f1f] hover:bg-[#f7f8f8]";
 
   return (
-    <div className="grid min-h-screen bg-slate-50 lg:grid-cols-[1.1fr_1fr]">
+    <div className="grid min-h-dvh bg-slate-50 lg:grid-cols-[1.1fr_1fr]">
       <aside className="relative hidden flex-col justify-between overflow-hidden border-r border-slate-200 bg-surface p-10 lg:flex">
         <div
           aria-hidden

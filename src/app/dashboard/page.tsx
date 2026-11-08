@@ -74,8 +74,8 @@ export default function DashboardPage() {
   const newBtn = "flex min-h-[40px] items-center gap-1.5 rounded-lg bg-brand-600 px-4 text-sm font-medium text-white shadow-sm hover:bg-brand-700";
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
+    <div className="min-h-dvh bg-slate-50">
+      <div className="mx-auto max-w-[96rem] px-4 py-8 sm:px-6 lg:px-10">
         <div className="mb-8 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Logo size={32} />
@@ -113,18 +113,18 @@ export default function DashboardPage() {
           <button onClick={openNew} className={`${newBtn} hidden sm:flex`}><Plus size={16} />新規</button>
         </div>
 
-        <div className="space-y-2">
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {sets.map((s) => (
             <Link key={s.id} href={`/sets/${s.id}`} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-surface p-4 shadow-sm transition hover:border-brand-300 hover:shadow-pop">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-400"><FolderOpen size={16} /></div>
-              <div>
-                <p className="font-medium text-slate-800">{s.name}</p>
+              <div className="min-w-0">
+                <p className="truncate font-medium text-slate-800">{s.name}</p>
                 <p className="text-xs text-slate-400">{s.ownerId === user.uid ? "自分が所有" : "共有されている"}・{roleLabel[s.members[user.uid]] ?? ""}</p>
               </div>
             </Link>
           ))}
           {!setsLoading && sets.length === 0 && (
-            <div className="rounded-xl border border-dashed border-slate-200 bg-surface px-6 py-10 text-center">
+            <div className="col-span-full rounded-xl border border-dashed border-slate-200 bg-surface px-6 py-10 text-center">
               <p className="mb-4 text-sm text-slate-400">まだ問題セットがありません。</p>
               <button onClick={openNew} className={`${newBtn} mx-auto`}><Plus size={16} />最初の問題セットを作る</button>
             </div>
