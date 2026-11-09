@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, AtSign, LogOut, Mail, Palette, UserRound } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { PageSkeleton } from "@/components/Skeleton";
 import { Avatar } from "@/components/Avatar";
 import { ThemeSelector } from "@/components/ThemeSelector";
 import { IMAGE_ACCEPT, packAvatar, Packed, toDataUrl } from "@/lib/imageTools";
@@ -71,7 +72,7 @@ export default function AccountPage() {
     return () => { alive = false; clearTimeout(t); };
   }, [hNorm, savedHandle, uid]);
 
-  if (loading || !user) return null;
+  if (loading || !user) return <PageSkeleton />;
   const email = user.email ?? "";
   const viaGoogle = user.providerData.some((p) => p.providerId === "google.com");
 
