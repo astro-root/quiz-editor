@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { LogOut, Plus, FolderOpen, UserCog, X, Loader2 } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { useAuth } from "@/lib/auth-context";
+import { PageSkeleton } from "@/components/Skeleton";
 import { useQuestionSets } from "@/lib/useQuestionSets";
 import { acceptLegacyInvite, acceptUserInvite, declineUserInvite, useMyInvites } from "@/lib/useInvites";
 import { roleLabel } from "@/lib/permissions";
@@ -30,7 +31,7 @@ export default function DashboardPage() {
     if (!loading && !user) router.replace("/login");
   }, [user, loading, router]);
 
-  if (loading || !user) return null;
+  if (loading || !user) return <PageSkeleton />;
   const me = { uid: user.uid, email: user.email ?? "", displayName: user.displayName ?? "", photoURL: user.photoURL ?? "" };
 
   function openNew() {

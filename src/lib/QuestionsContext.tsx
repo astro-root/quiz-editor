@@ -102,6 +102,7 @@ function baseDoc(input: QuestionInput, uid: string, authorName: string, order: n
 
 export function QuestionsProvider({ setId, children }: { setId: string; children: ReactNode }) {
   const { user } = useAuth();
+  const uid = user?.uid;
   const [all, setAll] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -112,7 +113,7 @@ export function QuestionsProvider({ setId, children }: { setId: string; children
 
   // セット単位で1回だけ購読する。タブを切り替えても読み直さない（2000問×タブ切替ごとの再読込を防ぐ）
   useEffect(() => {
-    if (!setId) return;
+    if (!setId || !uid) return;
     setLoading(true);
     const q = query(collection(db, "questionSets", setId, "questions"), orderBy("order", "asc"));
     const unsub = onSnapshot(
@@ -129,7 +130,7 @@ export function QuestionsProvider({ setId, children }: { setId: string; children
       }
     );
     return unsub;
-  }, [setId]);
+  }, [setId, uid]);
 
   const derived = useMemo(() => {
     const live: Question[] = [];
