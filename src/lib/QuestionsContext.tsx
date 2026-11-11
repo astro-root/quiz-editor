@@ -9,6 +9,7 @@ import { db } from "./firebase";
 import { HistoryField, MAX_SOURCES, Question } from "./types";
 import { cleanMeta, deleteImages, ImageChange, NewImage, toMeta, writeImages } from "./questionImages";
 import { isEmptyQuestion } from "./permissions";
+import { normalizeText } from "./search";
 import { useAuth } from "./auth-context";
 
 function padSources(sources: string[] | undefined): string[] {
@@ -31,6 +32,8 @@ export function normalizeQuestion(id: string, data: any): Question {
     sources: padSources(data.sources ?? (data.source ? [data.source] : [])),
     memo: data.memo ?? "",
     tags: Array.isArray(data.tags) ? data.tags : [],
+    parallel: data.parallel === true,
+    current: data.current === true,
     authorUid: data.authorUid ?? "",
     authorName: data.authorName ?? "",
     status: data.status ?? "draft",
@@ -46,6 +49,8 @@ export function normalizeQuestion(id: string, data: any): Question {
     updatedAt: toMillis(data.updatedAt),
   };
 }
+
+export interface AnswerDup { question: Question; matched: string }
 
 export type QuestionInput = Partial<Omit<Question, "id" | "createdAt" | "updatedAt" | "deletedAt" | "deletedBy">>;
 export interface HistoryLog { field: HistoryField; from: string; to: string }
@@ -65,7 +70,8 @@ interface Store {
   hardDelete: (ids: string[]) => Promise<void>;
   setPlayOrders: (orders: { id: string; playOrder: number | null }[]) => Promise<void>;
   importQuestions: (rows: QuestionInput[], onProgress?: (done: number) => void) => Promise<void>;
-  findDuplicate: (body: string, excludeId?: string) => Question | null;
+  // 同じ答え（別解を含む）の問題を探す。表記の揺れ（全角/半角・大文字/小文字・ひらがな/カタカナ）は同じとみなす
+  findAnswerDuplicates: (answers: string[], excludeId?: string) => AnswerDup[];
 }
 
 const Ctx = createContext<Store | null>(null);
@@ -84,6 +90,8 @@ function baseDoc(input: QuestionInput, uid: string, authorName: string, order: n
     sources: padSources(input.sources),
     memo: input.memo ?? "",
     tags: input.tags ?? [],
+    parallel: input.parallel ?? false,
+    current: input.current ?? false,
     authorUid: uid,
     authorName,
     status: input.status ?? "draft",
@@ -109,7 +117,7 @@ export function QuestionsProvider({ setId, children }: { setId: string; children
   const creating = useRef(false);
   const imgSrcRef = useRef<Question[]>([]); // 完全削除のとき、添付画像の目録を引くため
   imgSrcRef.current = all;
-  const dupIndexRef = useRef<Map<string, Question[]>>(new Map());
+  const answerIndexRef = useRef<Map<string, Question[]>>(new Map());
 
   // セット単位で1回だけ購読する。タブを切り替えても読み直さない（2000問×タブ切替ごとの再読込を防ぐ）
   useEffect(() => {
@@ -147,20 +155,22 @@ export function QuestionsProvider({ setId, children }: { setId: string; children
     return { live, trash, emptyLegacy, byId };
   }, [all]);
 
-  // 問題文（前後の空白除去）→ その問題文を持つ未削除の問題。入力のたびの全件走査を避ける
-  const dupIndex = useMemo(() => {
+  // 答え・別解（表記を揃えたもの）→ その答えを持つ未削除の問題。入力のたびの全件走査を避ける
+  const answerIndex = useMemo(() => {
     const m = new Map<string, Question[]>();
     for (const q of all) {
       if (q.deletedAt) continue;
-      const k = q.body.trim();
-      if (!k) continue;
-      const arr = m.get(k);
-      if (arr) arr.push(q);
-      else m.set(k, [q]);
+      for (const a of [q.answer, ...q.altAnswers]) {
+        const k = normalizeText(a).trim();
+        if (!k) continue;
+        const arr = m.get(k);
+        if (!arr) m.set(k, [q]);
+        else if (!arr.includes(q)) arr.push(q);
+      }
     }
     return m;
   }, [all]);
-  dupIndexRef.current = dupIndex;
+  answerIndexRef.current = answerIndex;
 
   const col = useCallback((...p: string[]) => collection(db, "questionSets", setId, "questions", ...p), [setId]);
   const nameOfMe = () => user?.displayName || user?.email || "匿名";
@@ -285,15 +295,21 @@ export function QuestionsProvider({ setId, children }: { setId: string; children
     [user, col]
   );
 
-  const findDuplicate = useCallback((body: string, excludeId?: string) => {
-    const t = body.trim();
-    if (!t) return null;
-    return dupIndexRef.current.get(t)?.find((q) => q.id !== excludeId) ?? null;
+  const findAnswerDuplicates = useCallback((answers: string[], excludeId?: string): AnswerDup[] => {
+    const out = new Map<string, AnswerDup>();
+    for (const a of answers) {
+      const k = normalizeText(a).trim();
+      if (!k) continue;
+      for (const q of answerIndexRef.current.get(k) ?? []) {
+        if (q.id !== excludeId && !out.has(q.id)) out.set(q.id, { question: q, matched: a.trim() });
+      }
+    }
+    return [...out.values()];
   }, []);
 
   const value: Store = {
     loading, error, all, ...derived,
-    createQuestion, updateQuestion, softDelete, restore, hardDelete, setPlayOrders, importQuestions, findDuplicate,
+    createQuestion, updateQuestion, softDelete, restore, hardDelete, setPlayOrders, importQuestions, findAnswerDuplicates,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

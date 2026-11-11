@@ -20,6 +20,7 @@ function toSet(id: string, data: any): QuestionSet {
     genres: data.genres ?? [],
     genreTree: data.genreTree ?? [],
     rounds: data.rounds ?? [],
+    quotas: data.quotas && typeof data.quotas === "object" ? data.quotas : {},
     noticeBody: data.noticeBody ?? "",
     createdAt: toMillis(data.createdAt),
     updatedAt: toMillis(data.updatedAt),

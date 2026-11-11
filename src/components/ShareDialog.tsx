@@ -108,7 +108,7 @@ export function ShareDialog({ set, isAdmin, onClose }: { set: QuestionSet; isAdm
               <input
                 value={text}
                 onChange={(e) => { setText(e.target.value); setSelected(null); setMsg(null); }}
-                placeholder="表示名・ユーザーID・メールアドレス"
+                placeholder="相手のユーザーID（完全一致）"
                 autoFocus
                 className="w-full rounded-lg border border-slate-200 p-2 pl-9 text-sm focus:border-brand-400 focus:outline-none"
               />
@@ -116,7 +116,7 @@ export function ShareDialog({ set, isAdmin, onClose }: { set: QuestionSet; isAdm
             </div>
 
             {text.trim() && !searching && results.length === 0 && (
-              <p className="mt-2 text-xs text-slate-400">該当するユーザーが見つかりません。メールアドレスは完全一致のみです。相手が、最近一度ログインしている必要があります。</p>
+              <p className="mt-2 text-xs text-slate-400">該当するユーザーが見つかりません。相手のユーザーID（アカウント設定で確認できます）を、正確に入力してください。</p>
             )}
             {results.length > 0 && (
               <ul className="mt-2 max-h-52 divide-y divide-slate-100 overflow-y-auto rounded-lg border border-slate-200">

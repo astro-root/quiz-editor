@@ -17,8 +17,11 @@ export function Modal({ onRequestClose, label, children, size = "lg", onKeyDown 
   const [opener] = useState(() => (typeof document !== "undefined" ? document.activeElement : null));
 
   useEffect(() => {
+    // 背面のスクロールを止める。html に overflow-y: scroll を指定しているため、body だけでは止まらない
     const prevOverflow = document.body.style.overflow;
+    const prevHtmlOverflow = document.documentElement.style.overflow;
     document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.preventDefault();
@@ -46,6 +49,7 @@ export function Modal({ onRequestClose, label, children, size = "lg", onKeyDown 
     return () => {
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = prevOverflow;
+      document.documentElement.style.overflow = prevHtmlOverflow;
       if (opener instanceof HTMLElement && document.contains(opener)) opener.focus({ preventScroll: true });
     };
   }, [opener]);

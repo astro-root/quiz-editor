@@ -4,7 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { Download, FileDown, FileUp, Loader2 } from "lucide-react";
 import { useSetContext } from "@/lib/SetContext";
 import { useQuestionStore } from "@/lib/QuestionsContext";
-import { canCreateQuestion, canJudge } from "@/lib/permissions";
+import { canCreateQuestion, canJudge, canManageGenres } from "@/lib/permissions";
 import { downloadQuestions, downloadTemplate, ExportCtx, ImportResult, parseImportFile } from "@/lib/io";
 import { normalizeText } from "@/lib/search";
 import { Question } from "@/lib/types";
@@ -13,7 +13,7 @@ const card = "mb-5 rounded-2xl border border-slate-100 bg-surface p-5 shadow-car
 const btn = "flex items-center gap-1.5 rounded-lg border border-slate-200 bg-surface px-3 py-1.5 text-sm text-slate-600 hover:border-brand-300 hover:text-accent disabled:opacity-40";
 
 export default function IoPage() {
-  const { set, role, tree, gi, personOf } = useSetContext();
+  const { set, role, tree, gi, personOf, actions } = useSetContext();
   const store = useQuestionStore();
   const [scope, setScope] = useState("all"); // all | adopted | round:<id> | none
   const [onlyProofed, setOnlyProofed] = useState(false);
@@ -51,7 +51,7 @@ export default function IoPage() {
     setParsing(true);
     try {
       const existing = new Set(store.live.map((q) => normalizeText(q.body)));
-      setResult(await parseImportFile(file, { tree, rounds: set.rounds, existingBodies: existing, canJudge: canJudge(role) }));
+      setResult(await parseImportFile(file, { tree, rounds: set.rounds, existingBodies: existing, canJudge: canJudge(role), canManageGenres: canManageGenres(role) }));
     } catch (err) {
       console.error(err);
       setMsg({ ok: false, text: "ファイルの解析に失敗しました" });
@@ -73,6 +73,11 @@ export default function IoPage() {
     setMsg(null);
     setProgress({ done: 0, total: importable.length });
     try {
+      // ファイルにあった、未登録のジャンル・Roundを、先に登録する
+      if (result?.plan) {
+        if (result.plan.addedMajors.length || result.plan.addedSubs.length) await actions.saveGenreTree(result.plan.tree);
+        if (result.plan.addedRounds.length) await actions.saveRounds(result.plan.rounds);
+      }
       await store.importQuestions(importable.map((r) => r.input!), (done) => setProgress({ done, total: importable.length }));
       setMsg({ ok: true, text: `${importable.length}問を取り込みました` });
       setResult(null);
@@ -124,6 +129,15 @@ export default function IoPage() {
                   全{result.rows.length}行：取り込み可能 <b className="text-ok">{importable.length}</b> ／ エラー <b className="text-danger">{errorRows.length}</b> ／ 重複 <b className="text-warn">{result.rows.filter((r) => r.duplicate).length}</b>
                 </p>
                 <label className="mb-3 flex items-center gap-1.5 text-xs text-slate-600"><input type="checkbox" checked={skipDup} onChange={(e) => setSkipDup(e.target.checked)} />重複している問題は取り込まない</label>
+
+                {result.plan && (
+                  <div className="mb-3 rounded-lg border border-brand-200 bg-brand-50 p-2 text-xs text-slate-600">
+                    <p className="mb-1 font-medium text-accent">取り込みと同時に、次を自動で追加します</p>
+                    {result.plan.addedMajors.length > 0 && <p>大ジャンル：{result.plan.addedMajors.join("、")}</p>}
+                    {result.plan.addedSubs.length > 0 && <p>小ジャンル：{result.plan.addedSubs.join("、")}</p>}
+                    {result.plan.addedRounds.length > 0 && <p>Round：{result.plan.addedRounds.join("、")}</p>}
+                  </div>
+                )}
 
                 {errorRows.length > 0 && (
                   <div className="mb-3 max-h-56 overflow-y-auto rounded-lg border border-rose-200 bg-rose-50 p-2 text-xs text-danger">

@@ -37,10 +37,11 @@ export default function ProofreadPage() {
       key={key}
       base={live}
       storageKey={storageKey}
+      allowJudge
       header={
         <div className="mb-3">
           <p className="mb-2 text-xs text-slate-400">
-            自分の担当 {mineCount}問 ／ 確認済み {doneCount}／{live.length}問　— 問題をクリックすると出典を確認しながら状態を更新できます
+            自分の担当 {mineCount}問 ／ 確認済み {doneCount}／{live.length}問　— 問題をクリックすると、出典を確認しながら、裏どり状態の更新と、採用・却下の判断ができます
           </p>
           <div className="flex flex-wrap gap-1.5">
             {presets.map((p) => (

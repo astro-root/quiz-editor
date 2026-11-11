@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { deleteQuestionSet } from "@/lib/deleteSet";
-import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Check, ChevronRight, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useSetContext } from "@/lib/SetContext";
 import { useQuestionStore } from "@/lib/QuestionsContext";
 import { canManageGenres, canManageMembers } from "@/lib/permissions";
@@ -34,6 +34,13 @@ export default function SettingsPage() {
   const [newMajor, setNewMajor] = useState("");
   const [newSub, setNewSub] = useState<Record<string, string>>({});
   const [newRound, setNewRound] = useState("");
+  const [openIds, setOpenIds] = useState<Set<string>>(new Set()); // 開いている大ジャンル
+  const [gq, setGq] = useState("");
+  const toggleOpen = (id: string) => setOpenIds((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const shown = useMemo(() => {
+    const t = gq.trim().toLowerCase();
+    return t ? tree.filter((g) => g.name.toLowerCase().includes(t) || g.subs.some((x) => x.name.toLowerCase().includes(t))) : tree;
+  }, [tree, gq]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const { user } = useAuth();
@@ -164,20 +171,38 @@ export default function SettingsPage() {
         <h2 className="mb-1 text-sm font-medium text-slate-600">ジャンル（大ジャンル → 小ジャンル）</h2>
         <p className="mb-3 text-xs text-slate-400">名前を変更しても既存の問題は自動的に新しい名前で表示されます。使用中のジャンルは削除できません。</p>
         {tree.length === 0 && <p className="mb-3 text-sm text-slate-300">まだジャンルがありません</p>}
-        <div className="space-y-3">
-          {tree.map((g) => (
+        {tree.length > 4 && (
+          <input value={gq} onChange={(e) => setGq(e.target.value)} placeholder="ジャンルを絞り込み（大・小どちらでも）" aria-label="ジャンルを絞り込み" className={`${inputCls} mb-3`} />
+        )}
+        {tree.length > 1 && (
+          <div className="mb-2 flex gap-4 text-xs text-slate-400">
+            <button onClick={() => setOpenIds(new Set(tree.map((g) => g.id)))} className="hover:text-slate-600">すべて開く</button>
+            <button onClick={() => setOpenIds(new Set())} className="hover:text-slate-600">すべて閉じる</button>
+          </div>
+        )}
+        {shown.length === 0 && gq.trim() && <p className="mb-3 text-sm text-slate-300">該当するジャンルがありません</p>}
+        <div className="grid items-start gap-2 xl:grid-cols-2">
+          {shown.map((g) => {
+            const isOpen = openIds.has(g.id) || !!gq.trim();
+            return (
             <div key={g.id} className="rounded-xl border border-slate-200 p-3">
               <div className="flex items-center gap-2">
                 {editing === `m:${g.id}` ? (
                   <InlineName value={g.name} onSave={(v) => renameMajor(g.id, v)} onCancel={() => setEditing(null)} />
                 ) : (
                   <>
-                    <span className="flex-1 font-medium text-slate-700">{g.name}<span className="ml-2 text-xs font-normal text-slate-300">{usage.major.get(g.id) ?? 0}問</span></span>
+                    <button onClick={() => toggleOpen(g.id)} aria-expanded={isOpen} className="flex min-h-[32px] min-w-0 flex-1 items-center gap-1.5 text-left">
+                      <ChevronRight size={14} className={`shrink-0 text-slate-300 transition-transform ${isOpen ? "rotate-90" : ""}`} />
+                      <span className="truncate font-medium text-slate-700">{g.name}</span>
+                      <span className="shrink-0 text-xs font-normal text-slate-300">{usage.major.get(g.id) ?? 0}問・小{g.subs.length}</span>
+                    </button>
                     {editable && <><button disabled={busy} onClick={() => setEditing(`m:${g.id}`)} aria-label="名前を変更" className={iconBtn}><Pencil size={14} /></button>
                     <button disabled={busy} onClick={() => deleteMajor(g)} aria-label="削除" className={iconBtn}><Trash2 size={14} /></button></>}
                   </>
                 )}
               </div>
+              {isOpen && (
+                <>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {g.subs.map((s) =>
                   editing === `s:${g.id}/${s.id}` ? (
@@ -198,8 +223,11 @@ export default function SettingsPage() {
                   <button disabled={busy} onClick={() => addSub(g)} className="flex items-center gap-1 rounded-lg bg-brand-600 px-3 text-sm text-white hover:bg-brand-700 disabled:opacity-50"><Plus size={14} />追加</button>
                 </div>
               )}
+                </>
+              )}
             </div>
-          ))}
+            );
+          })}
         </div>
         {editable && (
           <div className="mt-3 flex gap-2">
