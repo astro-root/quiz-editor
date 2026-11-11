@@ -47,9 +47,10 @@ interface Props {
   showAuthor?: boolean;
   emptyText?: string;
   onFilteredChange?: (list: Question[]) => void;
+  allowJudge?: boolean; // 開く編集画面で、採用・却下を変更できるようにする（裏どり画面だけ）
 }
 
-export function QuestionBrowser({ base, storageKey, initialFilters, header, showAuthor = true, emptyText, onFilteredChange }: Props) {
+export function QuestionBrowser({ base, storageKey, initialFilters, header, showAuthor = true, emptyText, onFilteredChange, allowJudge = false }: Props) {
   const { user } = useAuth();
   const uid = user?.uid ?? "";
   const { set, tree, gi } = useSetContext();
@@ -200,7 +201,7 @@ export function QuestionBrowser({ base, storageKey, initialFilters, header, show
         })}
       </div>
 
-      {expanded && <QuestionEditor modal question={expanded} onClose={close} />}
+      {expanded && <QuestionEditor modal question={expanded} onClose={close} allowJudge={allowJudge} />}
     </div>
   );
 }

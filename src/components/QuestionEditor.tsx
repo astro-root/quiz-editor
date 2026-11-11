@@ -17,6 +17,8 @@ import { HistoryPanel } from "./HistoryPanel";
 import { Modal } from "./Modal";
 import { charCount } from "@/lib/text";
 import { ImageField, imageFilesFrom, useImageDraft } from "./ImageField";
+import { ListInput } from "./ListInput";
+import { AnswerDupNotice } from "./AnswerDupNotice";
 import { useQuestionImages } from "@/lib/questionImages";
 
 const input =
@@ -29,14 +31,15 @@ function toDraft(q: Question): Draft {
   return {
     body: q.body, answer: q.answer, altAnswers: q.altAnswers, judgingCriteria: q.judgingCriteria,
     genreId: q.genreId, subGenreId: q.subGenreId, explanation: q.explanation, sources: q.sources, memo: q.memo,
-    tags: q.tags, status: q.status, proofreadStatus: q.proofreadStatus, assigneeUid: q.assigneeUid, roundId: q.roundId,
+    tags: q.tags, parallel: q.parallel, current: q.current, status: q.status, proofreadStatus: q.proofreadStatus, assigneeUid: q.assigneeUid, roundId: q.roundId,
   };
 }
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
 // 一覧の中でその場に展開されるエディタ。明示的な［保存］［キャンセル］で確定する
 // （打鍵ごとの自動保存はしない＝書き込み回数と、他人の更新との競合を減らす）。
-export function QuestionEditor({ question, onClose, modal = false }: { question: Question; onClose: () => void; modal?: boolean }) {
+// allowJudge: 採用・却下を、この画面から変更できるようにする（原則、「裏どり」タブからだけ）
+export function QuestionEditor({ question, onClose, modal = false, allowJudge = false }: { question: Question; onClose: () => void; modal?: boolean; allowJudge?: boolean }) {
   const { user } = useAuth();
   const { set, role, tree, gi, personOf } = useSetContext();
   const store = useQuestionStore();
@@ -55,7 +58,8 @@ export function QuestionEditor({ question, onClose, modal = false }: { question:
   const canDel = canDeleteQuestion(role, question, uid);
   const judge = canJudge(role);
   const proof = canProofread(role, question, uid);
-  const statusOptions = allowedStatusOptions(role);
+  const statusOptions = allowedStatusOptions(role).filter((s) => allowJudge || s === "draft" || s === "completed");
+  const judged = draft.status === "adopted" || draft.status === "rejected";
 
   useEffect(() => {
     bodyRef.current?.focus({ preventScroll: true }); // 展開でスクロールが飛ばないようにする
@@ -77,7 +81,7 @@ export function QuestionEditor({ question, onClose, modal = false }: { question:
   // 自分が編集中に他の人が同じ問題を更新した場合に知らせる
   const remoteChanged = question.updatedAt !== base.current.updatedAt && dirty;
 
-  const dup = store.findDuplicate(draft.body, question.id);
+  const dups = store.findAnswerDuplicates([draft.answer, ...draft.altAnswers], question.id);
   const subs = gi.subsOf(draft.genreId);
 
   function set_<K extends keyof Draft>(k: K, v: Draft[K]) {
@@ -152,18 +156,11 @@ export function QuestionEditor({ question, onClose, modal = false }: { question:
     }
   }
 
-  function onKeyDown(e: React.KeyboardEvent) {
-    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-      e.preventDefault();
-      if (!saving) handleSave();
-    }
-  }
-
   const members = Object.keys(set.members);
   const proofOptions: ProofreadStatus[] = ["unchecked", "in_review", "approved", "needs_fix", "on_hold"];
 
   const panel = (
-    <div onKeyDown={modal ? undefined : onKeyDown} className={modal ? "p-4 sm:p-5" : "rounded-2xl border-2 border-brand-200 bg-surface p-4 shadow-pop"} role="group" aria-label="問題の編集">
+    <div className={modal ? "p-4 sm:p-5" : "rounded-2xl border-2 border-brand-200 bg-surface p-4 shadow-pop"} role="group" aria-label="問題の編集">
       <div className="mb-3 flex items-center justify-between">
         <span className="text-sm font-medium text-accent">問題を編集</span>
         {!canEdit && <span className="flex items-center gap-1 text-xs text-slate-400"><Lock size={12} />内容は閲覧のみ</span>}
@@ -178,11 +175,6 @@ export function QuestionEditor({ question, onClose, modal = false }: { question:
 
       <label className={label}>問題文</label>
       <textarea ref={bodyRef} onPaste={(e) => pasteImg("body", e)} value={draft.body} onChange={(e) => set_("body", e.target.value)} disabled={!canEdit} rows={3} className={`${input} mb-1 resize-y leading-relaxed`} />
-      {dup && (
-        <p className="mb-1 flex items-center gap-1.5 rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs text-warn-strong">
-          <AlertTriangle size={13} />同じ問題文が既にあります（{personOf(dup.authorUid, dup.authorName).name}）
-        </p>
-      )}
       <p className="mb-2 text-right text-xs tabular-nums text-slate-500" title="前後の空白を除いた文字数">{charCount(draft.body)}文字</p>
       <ImageField field="body" draft={imgs} loaded={loaded} disabled={!canEdit} />
 
@@ -190,16 +182,12 @@ export function QuestionEditor({ question, onClose, modal = false }: { question:
       <textarea onPaste={(e) => pasteImg("answer", e)} value={draft.answer} onChange={(e) => set_("answer", e.target.value)} disabled={!canEdit} rows={1} className={`${input} mb-3 resize-y font-medium text-accent-strong`} />
       <ImageField field="answer" draft={imgs} loaded={loaded} disabled={!canEdit} />
 
-      <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div>
-          <label className={label}>別解・表記揺れ（カンマ区切り）</label>
-          <input disabled={!canEdit} value={draft.altAnswers.join(", ")} onChange={(e) => set_("altAnswers", e.target.value.split(",").map((s) => s.trim()).filter(Boolean))} className={input} />
-        </div>
-        <div>
-          <label className={label}>正誤判定基準</label>
-          <input disabled={!canEdit} value={draft.judgingCriteria} onChange={(e) => set_("judgingCriteria", e.target.value)} className={input} />
-        </div>
-      </div>
+      <label className={label}>別解・表記揺れ（「,」「、」か改行で区切る）</label>
+      <ListInput disabled={!canEdit} value={draft.altAnswers} onChange={(v) => set_("altAnswers", v)} className={`${input} mb-2`} ariaLabel="別解" />
+      <AnswerDupNotice dups={dups} personName={(u, f) => personOf(u, f).name} />
+
+      <label className={label}>正誤判定基準</label>
+      <textarea disabled={!canEdit} value={draft.judgingCriteria} onChange={(e) => set_("judgingCriteria", e.target.value)} rows={4} className={`${input} mb-3 resize-y leading-relaxed`} />
 
       <label className={label}>解説</label>
       <textarea disabled={!canEdit} onPaste={(e) => pasteImg("explanation", e)} value={draft.explanation} onChange={(e) => set_("explanation", e.target.value)} rows={2} className={`${input} mb-3 resize-y`} />
@@ -249,21 +237,20 @@ export function QuestionEditor({ question, onClose, modal = false }: { question:
         </div>
       </div>
 
-      <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div>
-          <label className={label}>タグ（カンマ区切り）</label>
-          <input disabled={!canEdit} value={draft.tags.join(", ")} onChange={(e) => set_("tags", e.target.value.split(",").map((s) => s.trim()).filter(Boolean))} className={input} />
-        </div>
-        <div>
-          <label className={label}>備考</label>
-          <input disabled={!canEdit} value={draft.memo} onChange={(e) => set_("memo", e.target.value)} className={input} />
-        </div>
+      <label className={label}>タグ（「,」「、」か改行で区切る）</label>
+      <ListInput disabled={!canEdit} value={draft.tags} onChange={(v) => set_("tags", v)} className={`${input} mb-2`} ariaLabel="タグ" />
+      <div className="mb-3 flex flex-wrap gap-x-5 gap-y-1">
+        <label className="flex min-h-[32px] items-center gap-2 text-sm text-slate-600"><input type="checkbox" disabled={!canEdit} checked={draft.parallel} onChange={(e) => set_("parallel", e.target.checked)} className="h-4 w-4" />パラレル</label>
+        <label className="flex min-h-[32px] items-center gap-2 text-sm text-slate-600"><input type="checkbox" disabled={!canEdit} checked={draft.current} onChange={(e) => set_("current", e.target.checked)} className="h-4 w-4" />時事</label>
       </div>
+
+      <label className={label}>備考</label>
+      <textarea disabled={!canEdit} value={draft.memo} onChange={(e) => set_("memo", e.target.value)} rows={4} className={`${input} mb-3 resize-y leading-relaxed`} />
 
       <div className="mb-3 grid grid-cols-2 gap-3 border-t border-slate-100 pt-3 sm:grid-cols-4">
         <div>
-          <label className={label}>採用状態</label>
-          <select disabled={statusOptions.length === 0 || (!judge && (draft.status === "adopted" || draft.status === "rejected"))} value={draft.status} onChange={(e) => set_("status", e.target.value as Question["status"])} className={input}>
+          <label className={label}>{allowJudge ? "採用状態" : "作問状況"}</label>
+          <select disabled={statusOptions.length === 0 || (judged && !allowJudge)} value={draft.status} onChange={(e) => set_("status", e.target.value as Question["status"])} className={input}>
             {!statusOptions.includes(draft.status) && <option value={draft.status}>{statusLabel[draft.status]}</option>}
             {statusOptions.map((s) => <option key={s} value={s}>{statusLabel[s]}</option>)}
           </select>
@@ -302,7 +289,6 @@ export function QuestionEditor({ question, onClose, modal = false }: { question:
         <button onClick={handleCancel} disabled={saving} className="min-h-[40px] rounded-lg border border-slate-200 px-4 text-sm text-slate-600 hover:bg-slate-50">
           キャンセル
         </button>
-        <span className="hidden text-[11px] text-slate-300 sm:inline">Ctrl/⌘+Enterで保存</span>
         <button onClick={() => setShowLog((v) => !v)} className="ml-auto flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600">
           <History size={13} />履歴・コメント
         </button>
@@ -318,7 +304,7 @@ export function QuestionEditor({ question, onClose, modal = false }: { question:
   );
 
   if (!modal) return panel;
-  return <Modal onRequestClose={handleCancel} label="問題の編集" onKeyDown={onKeyDown}>{panel}</Modal>;
+  return <Modal onRequestClose={handleCancel} label="問題の編集">{panel}</Modal>;
 }
 
 // 同じ問題を1回の編集で何度も保存しても改訂履歴が増えすぎないよう、保存前の内容を1件だけ記録する

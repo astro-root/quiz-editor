@@ -1,6 +1,7 @@
 import * as XLSX from "xlsx";
 import { GenreNode, MAX_SOURCES, Question, QuestionSet, Round } from "./types";
 import { normalizeText } from "./search";
+import { newId } from "./genres";
 import { judgeLabel, proofreadLabel } from "./permissions";
 import { QuestionInput } from "./QuestionsContext";
 
@@ -105,8 +106,17 @@ export interface ImportRow {
   warnings: string[];
   duplicate: "" | "file" | "existing";
 }
+// 取り込みと同時に追加する、ジャンル・Round（未登録の名前が、ファイルにあった場合）
+export interface ImportPlan {
+  tree: GenreNode[]; // 追加後のジャンル全体
+  rounds: Round[]; // 追加後のRound全体
+  addedMajors: string[];
+  addedSubs: string[]; // 「大ジャンル / 小ジャンル」
+  addedRounds: string[];
+}
 export interface ImportResult {
   rows: ImportRow[];
+  plan: ImportPlan | null;
   fatal: string; // 見出しが読めない等、取り込み自体が不可能な場合
   unknownColumns: string[];
 }
@@ -128,21 +138,21 @@ function splitMulti(s: string): string[] {
 
 export async function parseImportFile(
   file: File,
-  ctx: { tree: GenreNode[]; rounds: Round[]; existingBodies: Set<string>; canJudge: boolean }
+  ctx: { tree: GenreNode[]; rounds: Round[]; existingBodies: Set<string>; canJudge: boolean; canManageGenres: boolean }
 ): Promise<ImportResult> {
   const MAX_BYTES = 10 * 1024 * 1024;
-  if (file.size > MAX_BYTES) return { rows: [], fatal: "ファイルが大きすぎます（10MBまで）", unknownColumns: [] };
+  if (file.size > MAX_BYTES) return { rows: [], plan: null, fatal: "ファイルが大きすぎます（10MBまで）", unknownColumns: [] };
   let wb: XLSX.WorkBook;
   try {
     wb = await readFileToWorkbook(file);
   } catch (e) {
     console.error(e);
-    return { rows: [], fatal: "ファイルを読み込めませんでした。Excel(.xlsx) またはCSVを選んでください", unknownColumns: [] };
+    return { rows: [], plan: null, fatal: "ファイルを読み込めませんでした。Excel(.xlsx) またはCSVを選んでください", unknownColumns: [] };
   }
   const sheet = wb.Sheets[wb.SheetNames[0]];
-  if (!sheet) return { rows: [], fatal: "シートが見つかりません", unknownColumns: [] };
+  if (!sheet) return { rows: [], plan: null, fatal: "シートが見つかりません", unknownColumns: [] };
   const matrix = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, blankrows: false, defval: "", raw: false });
-  if (matrix.length < 2) return { rows: [], fatal: "データ行がありません（1行目は見出しにしてください）", unknownColumns: [] };
+  if (matrix.length < 2) return { rows: [], plan: null, fatal: "データ行がありません（1行目は見出しにしてください）", unknownColumns: [] };
 
   const header = (matrix[0] as unknown[]).map((h) => normalizeText(String(h ?? "").trim()));
   const col: Record<string, number> = {};
@@ -153,11 +163,17 @@ export async function parseImportFile(
   const known = new Set(Object.values(col));
   const unknownColumns = (matrix[0] as unknown[]).map((h, i) => (known.has(i) ? "" : String(h ?? "").trim())).filter(Boolean);
   if (col.body === undefined || col.answer === undefined) {
-    return { rows: [], fatal: "見出し行に「問題文」と「正解」の列が必要です", unknownColumns };
+    return { rows: [], plan: null, fatal: "見出し行に「問題文」と「正解」の列が必要です", unknownColumns };
   }
 
-  const majorByName = new Map(ctx.tree.map((g) => [normalizeText(g.name), g]));
-  const roundByName = new Map(ctx.rounds.map((r) => [normalizeText(r.name), r]));
+  // 未登録のジャンル・Roundは、権限があれば自動で追加する（作業用の写しに足していき、取り込みのときにまとめて保存する）
+  const tree: GenreNode[] = ctx.tree.map((g) => ({ ...g, subs: [...g.subs] }));
+  const roundList: Round[] = [...ctx.rounds];
+  const addedMajors: string[] = [];
+  const addedSubs: string[] = [];
+  const addedRounds: string[] = [];
+  const majorByName = new Map(tree.map((g) => [normalizeText(g.name), g]));
+  const roundByName = new Map(roundList.map((r) => [normalizeText(r.name), r]));
   const seenInFile = new Set<string>();
   const rows: ImportRow[] = [];
 
@@ -177,14 +193,25 @@ export async function parseImportFile(
     let subGenreId = "";
     const majorName = get("major");
     if (majorName) {
-      const g = majorByName.get(normalizeText(majorName));
-      if (!g) errors.push(`大ジャンル「${majorName}」は未登録です`);
+      let g = majorByName.get(normalizeText(majorName));
+      if (!g && ctx.canManageGenres) {
+        g = { id: newId("g"), name: majorName, subs: [] };
+        tree.push(g);
+        majorByName.set(normalizeText(majorName), g);
+        addedMajors.push(majorName);
+      }
+      if (!g) errors.push(`大ジャンル「${majorName}」は未登録です（追加する権限がありません）`);
       else {
         genreId = g.id;
         const subName = get("sub");
         if (subName) {
-          const s = g.subs.find((x) => normalizeText(x.name) === normalizeText(subName));
-          if (!s) errors.push(`小ジャンル「${subName}」は「${g.name}」に未登録です`);
+          let s = g.subs.find((x) => normalizeText(x.name) === normalizeText(subName));
+          if (!s && ctx.canManageGenres) {
+            s = { id: newId("s"), name: subName };
+            g.subs.push(s);
+            addedSubs.push(`${g.name} / ${subName}`);
+          }
+          if (!s) errors.push(`小ジャンル「${subName}」は「${g.name}」に未登録です（追加する権限がありません）`);
           else subGenreId = s.id;
         }
       }
@@ -195,10 +222,17 @@ export async function parseImportFile(
     let roundId = "";
     const roundName = get("round");
     if (roundName) {
-      const rd = roundByName.get(normalizeText(roundName));
-      if (!rd) errors.push(`Round「${roundName}」は未登録です`);
-      else if (!ctx.canJudge) warnings.push("Roundを指定する権限がないため無視します");
-      else roundId = rd.id;
+      let rd = roundByName.get(normalizeText(roundName));
+      if (!ctx.canJudge) warnings.push("Roundを指定する権限がないため無視します");
+      else {
+        if (!rd) {
+          rd = { id: newId("r"), name: roundName };
+          roundList.push(rd);
+          roundByName.set(normalizeText(roundName), rd);
+          addedRounds.push(roundName);
+        }
+        roundId = rd.id;
+      }
     }
 
     let status: Question["status"] = "draft";
@@ -243,5 +277,6 @@ export async function parseImportFile(
           },
     });
   }
-  return { rows, fatal: rows.length === 0 ? "取り込めるデータ行がありません" : "", unknownColumns };
+  const added = addedMajors.length + addedSubs.length + addedRounds.length > 0;
+  return { rows, plan: added ? { tree, rounds: roundList, addedMajors, addedSubs, addedRounds } : null, fatal: rows.length === 0 ? "取り込めるデータ行がありません" : "", unknownColumns };
 }

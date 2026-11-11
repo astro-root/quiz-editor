@@ -49,6 +49,7 @@ export interface QuestionSet {
   genreTree: GenreNode[];
   rounds: Round[];
   noticeBody: string;
+  quotas?: Record<string, number>; // 作問ノルマ（uid → 問数）。管理者が設定する
   createdAt: number;
   updatedAt: number;
 }
@@ -72,6 +73,8 @@ export interface Question {
   sources: string[];
   memo: string;
   tags: string[];
+  parallel: boolean; // パラレル
+  current: boolean; // 時事
   authorUid: string;
   authorName: string; // 作成時点のスナップショット。表示は memberProfiles を優先
   status: QuestionStatus;

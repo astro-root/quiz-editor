@@ -16,6 +16,7 @@ import {
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { auth, db } from "./firebase";
 import { normalizeText } from "./search";
+import { assignRandomHandle, createProfileWithRandomHandle } from "./handles";
 
 // Google でログインした結果。「needs-link」は、同じメールアドレスの、パスワードで作られたアカウントがすでにある場合。
 export type GoogleSignInResult = { status: "ok" } | { status: "needs-link"; email: string; credential: AuthCredential };
@@ -75,27 +76,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     profileSynced.current = user.uid;
     (async () => {
       try {
-        const name = (user.displayName || user.email?.split("@")[0] || "名無し").slice(0, 40);
         const uref = doc(db, "users", user.uid);
-        if (!(await getDoc(uref)).exists()) {
+        const isNew = !(await getDoc(uref)).exists();
+        if (isNew) {
+          // 初めてのログイン：Googleの名前やメールが、そのまま他の人に見えてしまわないよう、
+          // ランダムなユーザーIDを作り、表示名もそのIDにする。アイコンも、Googleの写真は使わない。名前もアイコンも、あとから変えられる。
+          const h = await createProfileWithRandomHandle(user.uid);
+          const name = h || "名無し";
           await setDoc(uref, { email: user.email ?? "", displayName: name, createdAt: serverTimestamp() });
+          await updateProfile(user, { displayName: name, photoURL: "" }).catch((e) => console.error(e));
+          if (!h) await writePublicProfile(user.uid, name, "");
+          return;
         }
+        const name = (user.displayName || user.email?.split("@")[0] || "名無し").slice(0, 40);
         const snap = await getDoc(doc(db, "publicProfiles", user.uid));
         if (!snap.exists() || snap.data().displayName !== name) {
           await writePublicProfile(user.uid, name, snap.data()?.photoURL ?? user.photoURL ?? "");
         }
+        // 以前からのアカウントで、まだユーザーIDが無い人には、ランダムなIDをつける（招待の検索は、IDだけでできるため）
+        if (!snap.data()?.handle) await assignRandomHandle(user.uid);
       } catch (e) {
         console.error("プロフィールの同期に失敗しました", e);
-      }
-      // メールアドレスでの招待検索用の登録。確認済みのメールだけ。失敗しても、ほかの動作には影響しない。
-      try {
-        if (user.email && user.emailVerified) {
-          const eref = doc(db, "emails", user.email.toLowerCase());
-          const cur = await getDoc(eref);
-          if (!cur.exists() || cur.data().uid !== user.uid) await setDoc(eref, { uid: user.uid, updatedAt: serverTimestamp() });
-        }
-      } catch (e) {
-        console.error("メールアドレスの検索用登録に失敗しました", e);
       }
     })();
   }, [user]);

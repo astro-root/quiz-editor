@@ -1,5 +1,6 @@
 import { doc, getDoc, serverTimestamp, writeBatch } from "firebase/firestore";
 import { db } from "./firebase";
+import { normalizeText } from "./search";
 
 // ユーザーID：英数字・アンダースコア・ピリオドだけ、3〜20文字。英字は小文字に統一する（大文字小文字の違いでは、別のIDにならない）。
 // 重複は、handles/{id} の文書IDが同じになることで防ぐ（作成のみ許可・更新不可なので、先に取った人のものになる）。
@@ -46,4 +47,44 @@ export async function saveHandle(uid: string, current: string, next: string) {
     if (e?.code === "permission-denied") throw new Error("そのIDは使えません（すでに使われているか、使えない文字が含まれています）");
     throw e;
   }
+}
+
+// ---------- 初期IDの自動作成 ----------
+// メールアドレスや本名から作ると、そこから個人が分かってしまうので、ランダムな文字列にする。
+const ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
+export function randomHandle(): string {
+  const bytes = new Uint8Array(8);
+  crypto.getRandomValues(bytes);
+  return "user_" + Array.from(bytes, (b) => ALPHABET[b % ALPHABET.length]).join("");
+}
+
+// 重複したら（作成が拒否されたら）、別のIDで数回やり直す。作れたIDを返す。作れなければ ""
+async function claimRandom(write: (handle: string, batch: ReturnType<typeof writeBatch>) => void, uid: string): Promise<string> {
+  for (let i = 0; i < 6; i++) {
+    const h = randomHandle();
+    const batch = writeBatch(db);
+    batch.set(doc(db, "handles", h), { uid, createdAt: serverTimestamp() });
+    write(h, batch);
+    try {
+      await batch.commit();
+      return h;
+    } catch (e: any) {
+      if (e?.code !== "permission-denied") throw e;
+    }
+  }
+  return "";
+}
+
+// 初めてのログイン：公開プロフィールを、ランダムなIDと、それと同じ表示名で作る（Googleの名前は使わない）
+export function createProfileWithRandomHandle(uid: string): Promise<string> {
+  return claimRandom((h, batch) => {
+    batch.set(doc(db, "publicProfiles", uid), { displayName: h, displayNameLower: normalizeText(h), photoURL: "", handle: h, updatedAt: serverTimestamp() }, { merge: true });
+  }, uid);
+}
+
+// すでにアカウントがあるが、IDを持っていない人に、ランダムなIDをつける（表示名はそのまま）
+export function assignRandomHandle(uid: string): Promise<string> {
+  return claimRandom((h, batch) => {
+    batch.set(doc(db, "publicProfiles", uid), { handle: h, updatedAt: serverTimestamp() }, { merge: true });
+  }, uid);
 }

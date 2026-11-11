@@ -170,7 +170,7 @@ export default function AccountPage() {
 
         <section className={card}>
           <h2 className="mb-3 flex items-center gap-1.5 text-sm font-medium text-slate-600"><AtSign size={15} />ユーザーID</h2>
-          <p className="mb-3 text-xs leading-relaxed text-slate-400">招待のときに、相手がIDで探せるようになります。英数字・アンダースコア（_）・ピリオド（.）が使え、{3}〜{HANDLE_MAX}文字です。英字は小文字になります。ほかの人と同じIDは使えません。</p>
+          <p className="mb-3 text-xs leading-relaxed text-slate-400">招待は、ユーザーIDの完全一致で探します（表示名やメールアドレスでは探せません）。招待してほしい人に、このIDを伝えてください。英数字・アンダースコア（_）・ピリオド（.）が使え、{3}〜{HANDLE_MAX}文字です。英字は小文字になります。ほかの人と同じIDは使えません。</p>
           <form onSubmit={submitHandle}>
             <label className={labelCls} htmlFor="acc-handle">ユーザーID</label>
             <div className="mb-1 flex items-center gap-2">
