@@ -11,6 +11,8 @@ import { useQuestionSets } from "@/lib/useQuestionSets";
 import { acceptLegacyInvite, acceptUserInvite, declineUserInvite, useMyInvites } from "@/lib/useInvites";
 import { roleLabel } from "@/lib/permissions";
 import { Avatar } from "@/components/Avatar";
+import { NoticeBell } from "@/components/NoticeBell";
+import { useIsSiteAdmin } from "@/lib/siteAdmin";
 import { Modal } from "@/components/Modal";
 import { Fab } from "@/components/Fab";
 import { LinkGoogleBanner } from "@/components/LinkGoogleBanner";
@@ -20,6 +22,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const { sets, loading: setsLoading, createQuestionSet } = useQuestionSets();
   const { invites, legacy } = useMyInvites();
+  const siteAdmin = useIsSiteAdmin();
   const [showNew, setShowNew] = useState(false);
   const [newSetName, setNewSetName] = useState("");
   const [creating, setCreating] = useState(false);
@@ -83,6 +86,8 @@ export default function DashboardPage() {
             <h1 className="text-lg font-semibold text-slate-800">Qraft</h1>
           </div>
           <div className="flex items-center gap-3">
+            {siteAdmin.isAdmin && <Link href="/admin" className="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-500 hover:bg-slate-100">管理</Link>}
+            <NoticeBell />
             <Link href="/account" aria-label="アカウント設定" className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700">
               <Avatar name={me.displayName || me.email} photoURL={me.photoURL} size={22} /><UserCog size={14} />
             </Link>
@@ -93,19 +98,20 @@ export default function DashboardPage() {
         <LinkGoogleBanner />
         {error && <p role="alert" className="mb-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-danger">{error}</p>}
 
+        {(invites.length > 0 || legacy) && <p className="mb-2 text-sm font-medium text-slate-700">招待が届いています</p>}
         {invites.map((inv) => (
           <div key={inv.id} className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-brand-100 bg-brand-50 p-4 text-sm">
             <span className="text-slate-700">{inv.inviterName && `${inv.inviterName}さんから`}「{inv.setName}」への招待（{roleLabel[inv.role] ?? inv.role}）</span>
             <span className="flex gap-2">
-              <button onClick={() => declineUserInvite(inv).catch(() => setError("辞退に失敗しました"))} disabled={busyId === inv.id} className="rounded-lg border border-slate-200 bg-surface px-3 py-1.5 text-slate-500 hover:bg-slate-50">辞退</button>
-              <button onClick={() => accept(inv.id, () => acceptUserInvite(inv, me), inv.setId)} disabled={busyId === inv.id} className="rounded-lg bg-brand-600 px-3 py-1.5 text-white shadow-sm hover:bg-brand-700 disabled:opacity-50">参加する</button>
+              <button onClick={() => declineUserInvite(inv).catch(() => setError("辞退に失敗しました"))} disabled={busyId === inv.id} className="min-h-[40px] rounded-lg border border-slate-200 bg-surface px-3 py-1.5 text-slate-500 hover:bg-slate-50">参加しない</button>
+              <button onClick={() => accept(inv.id, () => acceptUserInvite(inv, me), inv.setId)} disabled={busyId === inv.id} className="min-h-[40px] rounded-lg bg-brand-600 px-3 py-1.5 text-white shadow-sm hover:bg-brand-700 disabled:opacity-50">参加する</button>
             </span>
           </div>
         ))}
         {legacy && (
           <div className="mb-3 flex items-center justify-between rounded-xl border border-brand-100 bg-brand-50 p-4 text-sm">
             <span className="text-slate-700">「{legacy.setName}」への招待があります（{roleLabel[legacy.role] ?? legacy.role}）</span>
-            <button onClick={() => accept("legacy", () => acceptLegacyInvite(legacy, me), legacy.setId)} disabled={busyId === "legacy"} className="rounded-lg bg-brand-600 px-3 py-1.5 text-white shadow-sm hover:bg-brand-700 disabled:opacity-50">参加する</button>
+            <button onClick={() => accept("legacy", () => acceptLegacyInvite(legacy, me), legacy.setId)} disabled={busyId === "legacy"} className="min-h-[40px] rounded-lg bg-brand-600 px-3 py-1.5 text-white shadow-sm hover:bg-brand-700 disabled:opacity-50">参加する</button>
           </div>
         )}
 

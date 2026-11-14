@@ -118,7 +118,7 @@ export function QuestionEditor({ question, onClose, modal = false, allowJudge = 
     try {
       // 問題統括・管理者による本文/答えの変更は、変更前を改訂履歴に残す
       if ((patch.body !== undefined || patch.answer !== undefined) && shouldLogRevision(role) && user) {
-        await saveRevisionOnce(set.id, question.id, base.current.body, base.current.answer, user.uid, user.displayName || user.email || "匿名");
+        await saveRevisionOnce(set.id, question.id, base.current.body, base.current.answer, user.uid, user.displayName || "匿名");
       }
       await store.updateQuestion(question.id, patch, logs, imgs.dirty ? imgs.change : undefined);
       onClose();

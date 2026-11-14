@@ -56,7 +56,7 @@ export function useRevisions(setId: string, questionId: string | null) {
         body,
         answer,
         editedByUid: user.uid,
-        editedByName: user.displayName || user.email || "匿名",
+        editedByName: user.displayName || "匿名",
         createdAt: serverTimestamp(),
       }
     );

@@ -571,11 +571,11 @@ export default function Home() {
           <div className="relative mx-auto max-w-[96rem] lg:px-12 px-4 pb-16 pt-12 sm:px-6 sm:pt-20 lg:pb-24">
             <div className="mx-auto max-w-4xl text-center">
               <h1 className="text-[2rem] font-bold leading-[1.2] tracking-[-0.02em] text-slate-900 sm:text-5xl lg:text-7xl" style={palt}>
-                <HeadLine delay={0.05}>作問から本番まで、</HeadLine>
-                <HeadLine delay={0.18}>ひとつのツールで。</HeadLine>
+                <HeadLine delay={0.05}>クイズ作りに、</HeadLine>
+                <HeadLine delay={0.18}>新しいスタンダードを。</HeadLine>
               </h1>
               <motion.p initial={reduce ? false : { opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.5, ease }} className="mx-auto mt-4 max-w-lg text-slate-500 sm:text-lg lg:max-w-2xl lg:text-xl" style={jp}>
-                競技クイズの問題づくりに特化した、チームのための専用エディタ。
+                作問から本番まで、ひとつのツールで。競技クイズの問題づくりに特化した、チームのための専用エディタ。
               </motion.p>
               <motion.div initial={reduce ? false : { opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.62, ease }} className="mt-7 flex flex-wrap justify-center gap-3">
                 <Link href="/signup" className="group flex min-h-[44px] items-center gap-1.5 rounded-lg bg-brand-600 px-5 text-sm font-medium text-white hover:bg-brand-700">
@@ -625,6 +625,11 @@ export default function Home() {
         <footer className="mx-auto flex max-w-[96rem] lg:px-12 items-center gap-2 px-4 pb-10 text-xs text-slate-400 sm:px-6">
           <Logo size={16} />
           <span>Qraft — クイズ作問エディタ</span>
+          <nav aria-label="規約など" className="ml-auto flex flex-wrap gap-x-4 gap-y-1">
+            <Link href="/terms" className="hover:text-slate-600">利用規約</Link>
+            <Link href="/privacy" className="hover:text-slate-600">プライバシーポリシー</Link>
+            <Link href="/contact" className="hover:text-slate-600">お問い合わせ</Link>
+          </nav>
         </footer>
       </div>
     </MotionConfig>

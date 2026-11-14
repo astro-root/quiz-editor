@@ -173,7 +173,7 @@ export function QuestionsProvider({ setId, children }: { setId: string; children
   answerIndexRef.current = answerIndex;
 
   const col = useCallback((...p: string[]) => collection(db, "questionSets", setId, "questions", ...p), [setId]);
-  const nameOfMe = () => user?.displayName || user?.email || "匿名";
+  const nameOfMe = () => user?.displayName || "匿名";
 
   const createQuestion = useCallback(
     async (input: QuestionInput, newImages: NewImage[] = []) => {
