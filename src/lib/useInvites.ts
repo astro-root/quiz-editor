@@ -130,7 +130,7 @@ export function useMyInvites() {
 export async function acceptUserInvite(inv: SetInvite, me: { uid: string; email: string; displayName: string; photoURL: string }) {
   await updateDoc(doc(db, "questionSets", inv.setId), {
     [`members.${me.uid}`]: inv.role,
-    [`memberProfiles.${me.uid}`]: { email: me.email, displayName: me.displayName, photoURL: me.photoURL },
+    [`memberProfiles.${me.uid}`]: { email: "", displayName: me.displayName, photoURL: me.photoURL },
     updatedAt: serverTimestamp(),
   });
   const batch = writeBatch(db);
@@ -150,7 +150,7 @@ export function normalizeEmail(email: string) {
 export async function acceptLegacyInvite(inv: Invite, me: { uid: string; email: string; displayName: string; photoURL: string }) {
   await updateDoc(doc(db, "questionSets", inv.setId), {
     [`members.${me.uid}`]: inv.role,
-    [`memberProfiles.${me.uid}`]: { email: me.email, displayName: me.displayName, photoURL: me.photoURL },
+    [`memberProfiles.${me.uid}`]: { email: "", displayName: me.displayName, photoURL: me.photoURL },
     updatedAt: serverTimestamp(),
   });
   const n = normalizeEmail(me.email);

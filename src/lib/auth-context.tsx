@@ -17,6 +17,8 @@ import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { auth, db } from "./firebase";
 import { normalizeText } from "./search";
 import { assignRandomHandle, createProfileWithRandomHandle } from "./handles";
+import { usePathname } from "next/navigation";
+import { BannedScreen } from "@/components/BannedScreen";
 
 // Google でログインした結果。「needs-link」は、同じメールアドレスの、パスワードで作られたアカウントがすでにある場合。
 export type GoogleSignInResult = { status: "ok" } | { status: "needs-link"; email: string; credential: AuthCredential };
@@ -60,6 +62,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const profileSynced = useRef<string | null>(null);
+  const [banned, setBanned] = useState(false);
+  const pathname = usePathname();
+  const uid = user?.uid;
+
+  // 停止中のアカウントか（bans/{uid} があるか）。ログイン時と、そのあと5分ごとに確かめる。
+  // 停止中は、データの読み書きがルールで拒否される。ここは、その旨を画面に出すためのもの。
+  useEffect(() => {
+    if (!uid) { setBanned(false); return; }
+    let alive = true;
+    const check = () => getDoc(doc(db, "bans", uid)).then((s) => alive && setBanned(s.exists())).catch(() => { /* 確認できないときは、そのまま */ });
+    check();
+    const t = setInterval(check, 5 * 60 * 1000);
+    return () => { alive = false; clearInterval(t); };
+  }, [uid]);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
@@ -144,7 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={{ user, loading, signInWithGoogle, linkGoogleToPasswordAccount, linkGoogle, logOut, updateMyProfile }}>
-      {children}
+      {banned && !["/contact", "/terms", "/privacy"].some((p) => pathname?.startsWith(p)) ? <BannedScreen onLogout={logOut} /> : children}
     </AuthContext.Provider>
   );
 }

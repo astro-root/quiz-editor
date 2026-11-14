@@ -10,7 +10,7 @@ import { useAuth } from "./auth-context";
 const LEGACY_ROLE_MAP: Record<string, string> = { owner: "admin", editor: "writer" };
 
 
-function toSet(id: string, data: any): QuestionSet {
+export function toSet(id: string, data: any): QuestionSet {
   return {
     id,
     name: data.name ?? "",
@@ -65,7 +65,7 @@ export function useQuestionSets() {
       ownerId: user.uid,
       members: { [user.uid]: "admin" },
       memberProfiles: {
-        [user.uid]: { email: user.email ?? "", displayName: user.displayName ?? "", photoURL: user.photoURL ?? "" },
+        [user.uid]: { email: "", displayName: user.displayName ?? "", photoURL: user.photoURL ?? "" }, // メールは、他のメンバーが読める場所には置かない
       },
       genres: [],
       genreTree: [],
@@ -132,11 +132,11 @@ export function useQuestionSet(setId: string) {
         const photo = user.photoURL ?? "";
         if (
           rawRole && !mapped && !profileRef.current && mine &&
-          (mine.displayName !== name || (mine.photoURL ?? "") !== photo)
+          (mine.displayName !== name || (mine.photoURL ?? "") !== photo || (mine.email ?? "") !== "")
         ) {
           profileRef.current = true;
           updateDoc(doc(db, "questionSets", setId), {
-            [`memberProfiles.${user.uid}`]: { email: mine.email ?? user.email ?? "", displayName: name, photoURL: photo },
+            [`memberProfiles.${user.uid}`]: { email: "", displayName: name, photoURL: photo },
             updatedAt: serverTimestamp(),
           })
             .catch((e) => console.error("プロフィール同期に失敗しました", e))

@@ -3,9 +3,19 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // 停止されたアカウントか（bans/{uid} があれば停止中）。停止中は、データの読み書きがすべて拒否される。
+    function notBanned() {
+      return request.auth != null && !exists(/databases/$(database)/documents/bans/$(request.auth.uid));
+    }
+    // サイトの運営者か（siteAdmins/{uid} があれば運営者。この文書は、Firebase コンソールからしか作れない）
+    function isSiteAdmin() {
+      return request.auth != null && exists(/databases/$(database)/documents/siteAdmins/$(request.auth.uid));
+    }
+
     // ---- users（メールを含むため本人のみ）----
     match /users/{uid} {
-      allow read, create, update: if request.auth != null && request.auth.uid == uid;
+      allow read: if (request.auth != null && request.auth.uid == uid) || isSiteAdmin();
+      allow create, update: if request.auth != null && request.auth.uid == uid && notBanned();
       allow delete: if false;
     }
 
@@ -14,6 +24,7 @@ service cloud.firestore {
     match /publicProfiles/{uid} {
       allow read: if request.auth != null;
       allow create, update: if request.auth != null
+        && notBanned()
         && request.auth.uid == uid
         && request.resource.data.keys().hasOnly(['displayName', 'displayNameLower', 'photoURL', 'handle', 'updatedAt'])
         && request.resource.data.displayName is string
@@ -39,6 +50,7 @@ service cloud.firestore {
       allow get: if request.auth != null;
       allow list: if false;
       allow create: if request.auth != null
+        && notBanned()
         && h.matches('^[a-z0-9_.]{3,20}$')
         && !h.matches('^[.].*') && !h.matches('.*[.]$') && !h.matches('.*[.][.].*')
         && !(h in ['admin', 'administrator', 'qraft', 'support', 'root', 'system', 'official'])
@@ -52,7 +64,7 @@ service cloud.firestore {
     match /questionSets/{setId} {
 
       function members() { return resource.data.members; }
-      function myRole() { return request.auth == null ? null : members().get(request.auth.uid, null); }
+      function myRole() { return !notBanned() ? null : members().get(request.auth.uid, null); }
       function isMember() { return myRole() != null; }
       function isAdmin() { return myRole() == 'admin'; }
       function isSupervisorOrAbove() { return myRole() in ['admin', 'supervisor']; }
@@ -120,25 +132,26 @@ service cloud.firestore {
       }
 
       allow create: if request.auth != null
+        && notBanned()
         && request.resource.data.ownerId == request.auth.uid
         && request.resource.data.members[request.auth.uid] == 'admin'
         && request.resource.data.members.keys().hasOnly([request.auth.uid]);
 
-      allow read: if isMember();
+      allow read: if isMember() || isSiteAdmin();
 
-      allow update: if (isAdmin() && ownerKept())
+      allow update: if notBanned() && ((isAdmin() && ownerKept())
         || supervisorEditsTaxonomy()
         || syncingOwnProfile()
         || acceptingUidInvite()
         || acceptingLegacyInvite()
-        || migratingOwnLegacyRole();
+        || migratingOwnLegacyRole());
 
       allow delete: if isAdmin() && request.auth.uid == resource.data.ownerId;
 
       // ------------------------------------------------------------
       match /questions/{questionId} {
         function setData() { return get(/databases/$(database)/documents/questionSets/$(setId)).data; }
-        function role() { return request.auth == null ? null : setData().members.get(request.auth.uid, null); }
+        function role() { return !notBanned() ? null : setData().members.get(request.auth.uid, null); }
         function isSup() { return role() in ['admin', 'supervisor']; }
         function isWriter() { return role() == 'writer'; }
         function isMemberOfSet() { return role() != null; }
@@ -179,7 +192,7 @@ service cloud.firestore {
             && request.resource.data.proofreadStatus in ['unchecked', 'in_review', 'needs_fix', 'approved', 'on_hold'];
         }
 
-        allow read: if isMemberOfSet();
+        allow read: if isMemberOfSet() || isSiteAdmin();
 
         // 問題文も答えも空のドキュメントは作れない（空問題が増える不具合の再発防止）
         allow create: if (isSup() || isWriter())
@@ -203,7 +216,7 @@ service cloud.firestore {
 
         // 添付画像。1枚が1文書（上限は約337KB＝base64で45万文字）。差し替えは「削除して新しく作る」。
         match /images/{imageId} {
-          allow read: if isMemberOfSet();
+          allow read: if isMemberOfSet() || isSiteAdmin();
           allow create: if role() in ['admin', 'supervisor', 'writer']
             && request.resource.data.authorUid == request.auth.uid
             && request.resource.data.keys().hasOnly(['data', 'mime', 'field', 'w', 'h', 'authorUid', 'createdAt'])
@@ -258,7 +271,7 @@ service cloud.firestore {
     // ---- avatars（アイコン画像。小さく圧縮した base64。本人だけが書き換え・削除できる）----
     match /avatars/{uid} {
       allow read: if request.auth != null;
-      allow create, update: if request.auth != null && request.auth.uid == uid
+      allow create, update: if request.auth != null && notBanned() && request.auth.uid == uid
         && request.resource.data.keys().hasOnly(['mime', 'data', 'v', 'updatedAt'])
         && request.resource.data.mime in ['image/webp', 'image/jpeg', 'image/png']
         && request.resource.data.data is string
@@ -275,6 +288,7 @@ service cloud.firestore {
         && (resource.data.inviteeUid == request.auth.uid
             || setOf(resource.data.setId).members.get(request.auth.uid, null) == 'admin');
       allow create: if request.auth != null
+        && notBanned()
         && inviteId == request.resource.data.setId + '_' + request.resource.data.inviteeUid
         && request.resource.data.invitedBy == request.auth.uid
         && request.resource.data.inviteeUid != request.auth.uid
@@ -296,6 +310,61 @@ service cloud.firestore {
         && (request.auth.token.email == email
             || get(/databases/$(database)/documents/questionSets/$(resource.data.setId))
                  .data.members.get(request.auth.uid, null) == 'admin');
+    }
+
+    // ---- siteAdmins（サイトの運営者）。アプリからは書けない。Firebase コンソールで、文書ID＝運営者のuid で作る ----
+    match /siteAdmins/{uid} {
+      allow get: if request.auth != null && request.auth.uid == uid;
+      allow list, write: if false;
+    }
+
+    // ---- bans（アカウントの停止）。運営者だけが作る・消す。本人は、自分の分だけ読める ----
+    match /bans/{uid} {
+      allow get: if request.auth != null && (request.auth.uid == uid || isSiteAdmin());
+      allow list: if isSiteAdmin();
+      allow create, update: if isSiteAdmin()
+        && request.resource.data.keys().hasOnly(['reason', 'bannedBy', 'createdAt']);
+      allow delete: if isSiteAdmin();
+    }
+
+    // ---- お知らせ ----
+    // 全員向け：ログイン済みなら誰でも読める。運営者だけが作る・消す。
+    match /broadcasts/{id} {
+      allow read: if request.auth != null;
+      allow create: if isSiteAdmin()
+        && request.resource.data.keys().hasOnly(['title', 'body', 'createdAt'])
+        && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 60
+        && request.resource.data.body is string && request.resource.data.body.size() <= 1000;
+      allow update: if false;
+      allow delete: if isSiteAdmin();
+    }
+    // 個人向け：本人と運営者だけが読める。運営者だけが作る・消す。
+    match /userNotices/{uid}/items/{id} {
+      allow read: if (request.auth != null && request.auth.uid == uid) || isSiteAdmin();
+      allow create: if isSiteAdmin()
+        && request.resource.data.keys().hasOnly(['title', 'body', 'createdAt'])
+        && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 60
+        && request.resource.data.body is string && request.resource.data.body.size() <= 1000;
+      allow update: if false;
+      allow delete: if isSiteAdmin();
+    }
+
+    // ---- contacts（お問い合わせ）----
+    // ログインしていなくても送れる（停止中の人も送れるように）。読める・状態を変えられる・消せるのは、運営者だけ。
+    match /contacts/{id} {
+      allow create: if request.resource.data.keys().hasOnly(['name', 'email', 'category', 'message', 'uid', 'status', 'createdAt'])
+        && request.resource.data.name is string && request.resource.data.name.size() <= 50
+        && request.resource.data.email is string && request.resource.data.email.size() <= 200
+        && request.resource.data.category in ['service', 'bug', 'account', 'legal', 'other']
+        && request.resource.data.message is string
+        && request.resource.data.message.size() > 0 && request.resource.data.message.size() <= 3000
+        && request.resource.data.uid == (request.auth != null ? request.auth.uid : '')
+        && request.resource.data.status == 'new'
+        && request.resource.data.createdAt == request.time;
+      allow read, delete: if isSiteAdmin();
+      allow update: if isSiteAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+        && request.resource.data.status in ['new', 'done'];
     }
   }
 }

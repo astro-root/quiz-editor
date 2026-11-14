@@ -201,7 +201,7 @@ export function AuthScreen({ mode }: { mode: "login" | "signup" }) {
         </Link>
         <div className="relative">
           <motion.h2 initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="mb-8 max-w-sm text-3xl font-bold leading-tight tracking-[-0.02em] text-slate-900" style={{ fontFeatureSettings: '"palt"' }}>
-            作問から本番まで、<br />ひとつのツールで。
+            クイズ作りに、<br />新しいスタンダードを。
           </motion.h2>
           <WritingLoop />
         </div>
@@ -223,7 +223,10 @@ export function AuthScreen({ mode }: { mode: "login" | "signup" }) {
               </button>
               {error && <p role="alert" className="mt-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-danger">{error}</p>}
               <p className="mt-6 text-xs leading-relaxed text-slate-400" style={jp}>
-                ログインすると、Googleアカウントの名前とアイコンが、ログインしている他の利用者から見えるようになります（招待の検索や、メンバーの表示に使われます）。メールアドレスは、画面には出ませんが、参加している問題セットのメンバーが読み取れる形で保存されます。
+                初めてログインすると、ランダムなユーザーIDが作られ、表示名もそのIDになります。Googleの名前や写真は、他の利用者には表示されません（表示名とアイコンは、アカウント設定で変えられます）。メールアドレスは、他の利用者には表示されません。
+              </p>
+              <p className="mt-3 text-xs leading-relaxed text-slate-400" style={jp}>
+                ログインすると、<Link href="/terms" className="underline hover:text-slate-600">利用規約</Link>と<Link href="/privacy" className="underline hover:text-slate-600">プライバシーポリシー</Link>に同意したものとみなされます。
               </p>
               <p className="mt-3 text-xs leading-relaxed text-slate-400" style={jp}>
                 LINEなどのアプリ内ブラウザでは、Googleでログインできないことがあります。その場合は、ChromeやSafariで開いてください。
