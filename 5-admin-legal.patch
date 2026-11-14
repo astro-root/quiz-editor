@@ -1,0 +1,1704 @@
+diff --git a/README.md b/README.md
+index b859ff2..f4f27f2 100644
+--- a/README.md
++++ b/README.md
+@@ -50,6 +50,7 @@ UIのボタン表示は `src/lib/permissions.ts`、最終的な認可は `firest
+ - コメント: 全メンバーが、問題ごとに付けられる（編集・削除は本人のみ）。
+ - 検索: 問題文・答え・別解・解説・出典・備考・正誤基準・タグ・作成者・ジャンル名が対象。全角/半角、大文字/小文字、ひらがな/カタカナの差を吸収し、スペースで AND 検索になる。
+ - 招待: ユーザーを選んで役割付きで招待する。検索は、プライバシーのため、**ユーザーIDの完全一致のみ**（表示名・メールアドレスでは探せず、前方一致で一覧をたどることもできない）。招待された人は、ダッシュボードで承諾または辞退する。
++- プライバシー: メールアドレスは、他の利用者が読める場所（問題セットのメンバー情報など）には保存しない。初めてログインしたときは、Googleの名前・写真は使わず、ランダムなIDと、同じ表示名にする。
+ - ユーザーID: 英数字・アンダースコア（_）・ピリオド（.）の3〜20文字。英字は小文字に統一し、重複は作れない。初めてログインしたときは、ランダムなID（`user_` ＋ 8文字）が自動で作られ、表示名もそのIDになる（Googleの名前・写真は使わない）。アカウント設定で変更できる。
+ - プロフィール: 表示名とアイコン（192px、約30KBまでに縮小）を変更できる。
+ - 表示: ライト／ダークの切り替え。タブのタイトルは「セット名 - Qraft」。
+@@ -159,6 +160,11 @@ firebase deploy --only firestore:rules
+ users/{uid}                              本人のみ。メールを含む
+ publicProfiles/{uid}                     表示名・アイコン・ユーザーID。メールは含めない。ユーザーIDでの招待検索に使う
+ handles/{ユーザーID}                      ユーザーIDの持ち主（uid）。文書IDが小文字のID。作成のみで更新不可なので、重複しない。1件ずつ引くだけで、一覧は取れない（IDの完全一致検索に使う）
++siteAdmins/{uid}                         運営者の登録。アプリからは書けない（Firebase コンソールで作る）。本人だけが自分の分を読める
++bans/{uid}                               停止中のアカウント（理由・停止した人・日時）。運営者だけが作る・消す。本人は自分の分だけ読める
++broadcasts/{id}                          全員向けのお知らせ。ログイン済みなら読める。運営者だけが作る・消す
++userNotices/{uid}/items/{id}             個人向けのお知らせ。本人と運営者だけが読める。運営者だけが作る・消す
++contacts/{id}                            お問い合わせ。ログインしていなくても作れる。読める・状態を変えられる・消せるのは運営者だけ
+ avatars/{uid}                            アイコン（base64、60KBまで）
+ questionSets/{setId}                     名前・オーナー・members（uid→役割）・memberProfiles・genreTree・rounds・お知らせ
+   ├ questions/{questionId}               問題
+@@ -203,6 +209,22 @@ invites/{email}                          旧方式（メール宛）。新規に
+     │   ├── signup
+     │   │   ├── layout.tsx             新規登録画面のタブのタイトル
+     │   │   └── page.tsx               新規登録画面
++    │   ├── admin
++    │   │   ├── layout.tsx             管理ページのタブのタイトル（検索に出さない設定つき）
++    │   │   ├── page.tsx               管理ページ（運営者だけ。タブの切り替えと、入れる人の確認）
++    │   │   ├── AccountsTab.tsx        アカウント一覧・所属セット・通知の送信・停止／解除
++    │   │   ├── SetsTab.tsx            問題セットの一覧と、中身の閲覧（読み取り専用）
++    │   │   ├── ContactsTab.tsx        お問い合わせの確認・対応済みの切り替え・削除
++    │   │   └── NoticesTab.tsx         全員へのお知らせの送信・削除
++    │   ├── terms
++    │   │   ├── layout.tsx             利用規約のタブのタイトル
++    │   │   └── page.tsx               利用規約
++    │   ├── privacy
++    │   │   ├── layout.tsx             プライバシーポリシーのタブのタイトル
++    │   │   └── page.tsx               プライバシーポリシー
++    │   ├── contact
++    │   │   ├── layout.tsx             お問い合わせのタブのタイトル
++    │   │   └── page.tsx               お問い合わせフォーム（ログインしていなくても送れる）
+     │   ├── account
+     │   │   ├── layout.tsx             アカウント設定のタブのタイトル
+     │   │   └── page.tsx               アカウント設定（表示名・アイコン）
+@@ -240,6 +262,7 @@ invites/{email}                          旧方式（メール宛）。新規に
+     ├── components
+     │   ├── AnswerDupNotice.tsx       同じ答え（別解を含む）の問題がある、というお知らせ
+     │   ├── Avatar.tsx                 ユーザーのアイコン表示
++    │   ├── BannedScreen.tsx          停止されたアカウントに出す画面
+     │   ├── AuthScreen.tsx             ログイン・新規登録の共通画面
+     │   ├── CommentSection.tsx         問題ごとのコメント
+     │   ├── Fab.tsx                    画面の隅の「＋」ボタン
+@@ -247,7 +270,9 @@ invites/{email}                          旧方式（メール宛）。新規に
+     │   ├── ImageField.tsx             画像の添付欄と、書きかけの画像の管理
+     │   ├── LinkGoogleBanner.tsx       Googleの連結を促す案内（移行期間のみ）
+     │   ├── Logo.tsx                   ロゴ
++    │   ├── LegalPage.tsx             利用規約・プライバシーポリシー・お問い合わせの共通の枠
+     │   ├── Modal.tsx                  ポップアップ（Escで閉じる、フォーカスを閉じ込める）
++    │   ├── NoticeBell.tsx            運営からのお知らせのベル（未読の件数・一覧）
+     │   ├── ListInput.tsx             別解・タグの入力（「,」「、」改行で区切る。打っている途中の文字を保つ）
+     │   ├── QuestionBrowser.tsx        問題の一覧（検索・絞り込み・仮想スクロール、カードを押すと編集）
+     │   ├── QuestionEditor.tsx         問題の編集（ポップアップの中身）
+@@ -259,6 +284,7 @@ invites/{email}                          旧方式（メール宛）。新規に
+     └── lib
+         ├── QuestionsContext.tsx       問題の購読と、作成・更新・削除・復元の操作
+         ├── SetContext.tsx             現在の問題セットと自分の役割を、配下に渡す
++        ├── adminData.ts              管理ページ用の読み書き（アカウント・問題セット・お問い合わせ・停止）
+         ├── auth-context.tsx           ログイン状態、Googleログイン、連結
+         ├── avatars.ts                 アイコンの読み書き
+         ├── deleteSet.ts               問題セットの削除（配下の問題・画像・コメントも）
+@@ -267,10 +293,13 @@ invites/{email}                          旧方式（メール宛）。新規に
+         ├── handles.ts                  ユーザーIDの形式の確認・重複の確認・保存
+         ├── imageTools.ts              画像の縮小・再圧縮（問題用1280px、アイコン192px）
+         ├── io.ts                      Excel／CSVの入出力、取り込み前の検証
++        ├── notices.ts                お知らせの取得・送信・既読（ブラウザ内）
++        ├── legal.ts                  規約・ポリシーに出す運営者の情報（公開前に書き換える）
+         ├── orderRules.ts              出題順のルール定義、違反のチェック、シャッフル
+         ├── permissions.ts             役割ごとの権限と、各種ラベル（UI側の制御）
+         ├── questionImages.ts          問題の画像の保存・削除・目録
+         ├── search.ts                  検索の正規化と絞り込み
++        ├── siteAdmin.ts              運営者かどうかの判定
+         ├── stats.ts                   メンバーごとの統計
+         ├── text.ts                    文字数の数え方（charCount）
+         ├── theme.tsx                  ライト／ダークの管理
+@@ -292,6 +321,37 @@ invites/{email}                          旧方式（メール宛）。新規に
+ - 新しい出題順ルールは、`orderRules.ts` の `RULE_DEFS` に足すだけで、チェックとシャッフルの両方に反映される。
+ - 権限を変えるときは、`permissions.ts` と `firestore.rules` を、必ず一緒に変える。
+ 
++## 10-2. 運営者向け：管理ページ・停止・お知らせ・お問い合わせ
++
++運営者だけが入れる管理ページ（`/admin`）がある。次のことができる。
++
++- アカウントの一覧（表示名・ユーザーID・メール・登録日）、参加している問題セット、問題セットの中身の閲覧（読み取り専用）
++- 個別の通知（アカウントごと）と、全員へのお知らせの送信。利用者は、ダッシュボードのベルで読む（メールでは届かない）
++- アカウントの停止・解除。停止中は、ルールで、データの読み書きがすべて拒否され、画面にも「停止されています」と出る（お問い合わせは送れる）
++- お問い合わせの確認、対応済みの切り替え、削除
++
++### 運営者の登録（最初の1回）
++
++1. 管理ページに入りたいアカウントで、一度ログインする。
++2. Firebase コンソール → Authentication → Users で、そのアカウントの「ユーザーUID」をコピーする。
++3. Firestore Database で、コレクション `siteAdmins` を作り、**文書ID＝コピーしたUID**、フィールド `createdAt`（タイムスタンプ）で、文書を作る。
++4. ダッシュボードの右上に「管理」が出る。
++
++運営者の登録は、アプリからは変更できない（ルールで禁止）。外す場合は、コンソールで文書を削除する。
++
++### 規約・ポリシーの書き換え
++
++`src/lib/legal.ts` の、運営者の名前・最終更新日を、公開前に書き換える。文面は雛形で、法的な助言ではない。必要に応じて、専門家の確認を受ける。
++
++### 運営者が見られる情報
++
++運営者は、アカウント情報（メールを含む）と、問題セットの内容（コメント・変更履歴・改訂履歴を除く）を読める。プライバシーポリシーに書いてあるとおりで、この範囲を変えるときは、ポリシーも変える。
++
++### 無料枠への影響
++
++停止の判定（`bans` の確認）は、ルールの中で行うので、読み取りが、1回の操作あたり1件増える。小さな規模では、問題にならない。
++
++
+ ## 11. 設計上の判断
+ 
+ - **無料枠で動かす。** Spark プランの範囲（読み取り5万／日、書き込み2万／日、1GiB）に収めるため、Firestoreのブラウザ側キャッシュを有効にし、リロードのたびに全件を読み直さないようにしている。変更履歴を、ステータス・裏どり状態・担当・Roundの変更に限っているのも、書き込みを増やさないため。
+diff --git a/firestore.rules b/firestore.rules
+index 6541ee7..282f52b 100644
+--- a/firestore.rules
++++ b/firestore.rules
+@@ -3,9 +3,19 @@ rules_version = '2';
+ service cloud.firestore {
+   match /databases/{database}/documents {
+ 
++    // 停止されたアカウントか（bans/{uid} があれば停止中）。停止中は、データの読み書きがすべて拒否される。
++    function notBanned() {
++      return request.auth != null && !exists(/databases/$(database)/documents/bans/$(request.auth.uid));
++    }
++    // サイトの運営者か（siteAdmins/{uid} があれば運営者。この文書は、Firebase コンソールからしか作れない）
++    function isSiteAdmin() {
++      return request.auth != null && exists(/databases/$(database)/documents/siteAdmins/$(request.auth.uid));
++    }
++
+     // ---- users（メールを含むため本人のみ）----
+     match /users/{uid} {
+-      allow read, create, update: if request.auth != null && request.auth.uid == uid;
++      allow read: if (request.auth != null && request.auth.uid == uid) || isSiteAdmin();
++      allow create, update: if request.auth != null && request.auth.uid == uid && notBanned();
+       allow delete: if false;
+     }
+ 
+@@ -14,6 +24,7 @@ service cloud.firestore {
+     match /publicProfiles/{uid} {
+       allow read: if request.auth != null;
+       allow create, update: if request.auth != null
++        && notBanned()
+         && request.auth.uid == uid
+         && request.resource.data.keys().hasOnly(['displayName', 'displayNameLower', 'photoURL', 'handle', 'updatedAt'])
+         && request.resource.data.displayName is string
+@@ -39,6 +50,7 @@ service cloud.firestore {
+       allow get: if request.auth != null;
+       allow list: if false;
+       allow create: if request.auth != null
++        && notBanned()
+         && h.matches('^[a-z0-9_.]{3,20}$')
+         && !h.matches('^[.].*') && !h.matches('.*[.]$') && !h.matches('.*[.][.].*')
+         && !(h in ['admin', 'administrator', 'qraft', 'support', 'root', 'system', 'official'])
+@@ -52,7 +64,7 @@ service cloud.firestore {
+     match /questionSets/{setId} {
+ 
+       function members() { return resource.data.members; }
+-      function myRole() { return request.auth == null ? null : members().get(request.auth.uid, null); }
++      function myRole() { return !notBanned() ? null : members().get(request.auth.uid, null); }
+       function isMember() { return myRole() != null; }
+       function isAdmin() { return myRole() == 'admin'; }
+       function isSupervisorOrAbove() { return myRole() in ['admin', 'supervisor']; }
+@@ -120,25 +132,26 @@ service cloud.firestore {
+       }
+ 
+       allow create: if request.auth != null
++        && notBanned()
+         && request.resource.data.ownerId == request.auth.uid
+         && request.resource.data.members[request.auth.uid] == 'admin'
+         && request.resource.data.members.keys().hasOnly([request.auth.uid]);
+ 
+-      allow read: if isMember();
++      allow read: if isMember() || isSiteAdmin();
+ 
+-      allow update: if (isAdmin() && ownerKept())
++      allow update: if notBanned() && ((isAdmin() && ownerKept())
+         || supervisorEditsTaxonomy()
+         || syncingOwnProfile()
+         || acceptingUidInvite()
+         || acceptingLegacyInvite()
+-        || migratingOwnLegacyRole();
++        || migratingOwnLegacyRole());
+ 
+       allow delete: if isAdmin() && request.auth.uid == resource.data.ownerId;
+ 
+       // ------------------------------------------------------------
+       match /questions/{questionId} {
+         function setData() { return get(/databases/$(database)/documents/questionSets/$(setId)).data; }
+-        function role() { return request.auth == null ? null : setData().members.get(request.auth.uid, null); }
++        function role() { return !notBanned() ? null : setData().members.get(request.auth.uid, null); }
+         function isSup() { return role() in ['admin', 'supervisor']; }
+         function isWriter() { return role() == 'writer'; }
+         function isMemberOfSet() { return role() != null; }
+@@ -179,7 +192,7 @@ service cloud.firestore {
+             && request.resource.data.proofreadStatus in ['unchecked', 'in_review', 'needs_fix', 'approved', 'on_hold'];
+         }
+ 
+-        allow read: if isMemberOfSet();
++        allow read: if isMemberOfSet() || isSiteAdmin();
+ 
+         // 問題文も答えも空のドキュメントは作れない（空問題が増える不具合の再発防止）
+         allow create: if (isSup() || isWriter())
+@@ -203,7 +216,7 @@ service cloud.firestore {
+ 
+         // 添付画像。1枚が1文書（上限は約337KB＝base64で45万文字）。差し替えは「削除して新しく作る」。
+         match /images/{imageId} {
+-          allow read: if isMemberOfSet();
++          allow read: if isMemberOfSet() || isSiteAdmin();
+           allow create: if role() in ['admin', 'supervisor', 'writer']
+             && request.resource.data.authorUid == request.auth.uid
+             && request.resource.data.keys().hasOnly(['data', 'mime', 'field', 'w', 'h', 'authorUid', 'createdAt'])
+@@ -258,7 +271,7 @@ service cloud.firestore {
+     // ---- avatars（アイコン画像。小さく圧縮した base64。本人だけが書き換え・削除できる）----
+     match /avatars/{uid} {
+       allow read: if request.auth != null;
+-      allow create, update: if request.auth != null && request.auth.uid == uid
++      allow create, update: if request.auth != null && notBanned() && request.auth.uid == uid
+         && request.resource.data.keys().hasOnly(['mime', 'data', 'v', 'updatedAt'])
+         && request.resource.data.mime in ['image/webp', 'image/jpeg', 'image/png']
+         && request.resource.data.data is string
+@@ -275,6 +288,7 @@ service cloud.firestore {
+         && (resource.data.inviteeUid == request.auth.uid
+             || setOf(resource.data.setId).members.get(request.auth.uid, null) == 'admin');
+       allow create: if request.auth != null
++        && notBanned()
+         && inviteId == request.resource.data.setId + '_' + request.resource.data.inviteeUid
+         && request.resource.data.invitedBy == request.auth.uid
+         && request.resource.data.inviteeUid != request.auth.uid
+@@ -297,5 +311,60 @@ service cloud.firestore {
+             || get(/databases/$(database)/documents/questionSets/$(resource.data.setId))
+                  .data.members.get(request.auth.uid, null) == 'admin');
+     }
++
++    // ---- siteAdmins（サイトの運営者）。アプリからは書けない。Firebase コンソールで、文書ID＝運営者のuid で作る ----
++    match /siteAdmins/{uid} {
++      allow get: if request.auth != null && request.auth.uid == uid;
++      allow list, write: if false;
++    }
++
++    // ---- bans（アカウントの停止）。運営者だけが作る・消す。本人は、自分の分だけ読める ----
++    match /bans/{uid} {
++      allow get: if request.auth != null && (request.auth.uid == uid || isSiteAdmin());
++      allow list: if isSiteAdmin();
++      allow create, update: if isSiteAdmin()
++        && request.resource.data.keys().hasOnly(['reason', 'bannedBy', 'createdAt']);
++      allow delete: if isSiteAdmin();
++    }
++
++    // ---- お知らせ ----
++    // 全員向け：ログイン済みなら誰でも読める。運営者だけが作る・消す。
++    match /broadcasts/{id} {
++      allow read: if request.auth != null;
++      allow create: if isSiteAdmin()
++        && request.resource.data.keys().hasOnly(['title', 'body', 'createdAt'])
++        && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 60
++        && request.resource.data.body is string && request.resource.data.body.size() <= 1000;
++      allow update: if false;
++      allow delete: if isSiteAdmin();
++    }
++    // 個人向け：本人と運営者だけが読める。運営者だけが作る・消す。
++    match /userNotices/{uid}/items/{id} {
++      allow read: if (request.auth != null && request.auth.uid == uid) || isSiteAdmin();
++      allow create: if isSiteAdmin()
++        && request.resource.data.keys().hasOnly(['title', 'body', 'createdAt'])
++        && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 60
++        && request.resource.data.body is string && request.resource.data.body.size() <= 1000;
++      allow update: if false;
++      allow delete: if isSiteAdmin();
++    }
++
++    // ---- contacts（お問い合わせ）----
++    // ログインしていなくても送れる（停止中の人も送れるように）。読める・状態を変えられる・消せるのは、運営者だけ。
++    match /contacts/{id} {
++      allow create: if request.resource.data.keys().hasOnly(['name', 'email', 'category', 'message', 'uid', 'status', 'createdAt'])
++        && request.resource.data.name is string && request.resource.data.name.size() <= 50
++        && request.resource.data.email is string && request.resource.data.email.size() <= 200
++        && request.resource.data.category in ['service', 'bug', 'account', 'legal', 'other']
++        && request.resource.data.message is string
++        && request.resource.data.message.size() > 0 && request.resource.data.message.size() <= 3000
++        && request.resource.data.uid == (request.auth != null ? request.auth.uid : '')
++        && request.resource.data.status == 'new'
++        && request.resource.data.createdAt == request.time;
++      allow read, delete: if isSiteAdmin();
++      allow update: if isSiteAdmin()
++        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
++        && request.resource.data.status in ['new', 'done'];
++    }
+   }
+ }
+diff --git a/src/app/admin/AccountsTab.tsx b/src/app/admin/AccountsTab.tsx
+new file mode 100644
+index 0000000..67f57bb
+--- /dev/null
++++ b/src/app/admin/AccountsTab.tsx
+@@ -0,0 +1,113 @@
++"use client";
++
++import { useMemo, useState } from "react";
++import { Ban, Bell, ChevronRight, ShieldCheck } from "lucide-react";
++import { AdminUser, banUser, unbanUser } from "@/lib/adminData";
++import { sendNotice } from "@/lib/notices";
++import { QuestionSet } from "@/lib/types";
++import { roleLabel } from "@/lib/permissions";
++
++const input = "w-full rounded-lg border border-slate-200 bg-surface p-2.5 text-base text-slate-700 placeholder:text-slate-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100";
++const smallBtn = "min-h-[36px] rounded-lg border border-slate-200 bg-surface px-3 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-40";
++export const fmt = (ms: number) => (ms ? new Date(ms).toLocaleString("ja-JP") : "—");
++
++// アカウント一覧。所属する問題セットの確認、通知の送信、停止・解除ができる。
++export function AccountsTab({ me, accounts, sets, onChanged, onOpenSet }: {
++  me: string; accounts: AdminUser[]; sets: QuestionSet[]; onChanged: () => Promise<void>; onOpenSet: (setId: string) => void;
++}) {
++  const [q, setQ] = useState("");
++  const [only, setOnly] = useState<"all" | "banned">("all");
++  const [open, setOpen] = useState<string | null>(null);
++  const [panel, setPanel] = useState<{ uid: string; kind: "notice" | "ban" } | null>(null);
++  const [title, setTitle] = useState("");
++  const [body, setBody] = useState("");
++  const [reason, setReason] = useState("");
++  const [busy, setBusy] = useState(false);
++  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
++
++  const list = useMemo(() => {
++    const t = q.trim().toLowerCase();
++    return accounts.filter((a) => (only === "all" || a.banned) && (!t || [a.displayName, a.handle, a.email, a.uid].some((x) => x.toLowerCase().includes(t))));
++  }, [accounts, q, only]);
++
++  const setsOf = (uid: string) => sets.filter((s) => s.members[uid]);
++
++  async function run(fn: () => Promise<unknown>, okText: string) {
++    setBusy(true); setMsg(null);
++    try { await fn(); setMsg({ ok: true, text: okText }); setPanel(null); setTitle(""); setBody(""); setReason(""); await onChanged(); }
++    catch (e: any) { console.error(e); setMsg({ ok: false, text: e?.message || "操作に失敗しました" }); }
++    finally { setBusy(false); }
++  }
++
++  return (
++    <div>
++      <div className="mb-3 flex flex-wrap items-center gap-2">
++        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="表示名・ID・メール・uid で絞り込み" aria-label="アカウントを絞り込み" className={`${input} min-w-0 flex-1 sm:max-w-md`} />
++        <label className="flex min-h-[40px] items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked={only === "banned"} onChange={(e) => setOnly(e.target.checked ? "banned" : "all")} className="h-4 w-4" />停止中のみ</label>
++        <span className="text-xs text-slate-400">{list.length} / {accounts.length} 件</span>
++      </div>
++      {msg && <p role="status" className={`mb-3 rounded-lg px-3 py-2 text-sm ${msg.ok ? "bg-emerald-50 text-ok" : "bg-rose-50 text-danger"}`}>{msg.text}</p>}
++      <ul className="space-y-2">
++        {list.map((a) => {
++          const isOpen = open === a.uid;
++          const mine = setsOf(a.uid);
++          const self = a.uid === me;
++          return (
++            <li key={a.uid} className={`rounded-xl border bg-surface p-3 ${a.banned ? "border-rose-200" : "border-slate-100"}`}>
++              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
++                <button onClick={() => setOpen(isOpen ? null : a.uid)} aria-expanded={isOpen} className="flex min-w-0 flex-1 items-center gap-1.5 text-left">
++                  <ChevronRight size={14} className={`shrink-0 text-slate-300 transition-transform ${isOpen ? "rotate-90" : ""}`} />
++                  <span className="truncate font-medium text-slate-700">{a.displayName || "（表示名なし）"}</span>
++                  {a.handle && <span className="shrink-0 text-xs text-slate-400">@{a.handle}</span>}
++                  {a.banned && <span className="shrink-0 rounded-full bg-rose-100 px-2 text-[11px] text-rose-600">停止中</span>}
++                  {self && <span className="shrink-0 rounded-full bg-brand-100 px-2 text-[11px] text-accent">あなた</span>}
++                </button>
++                <span className="truncate text-xs text-slate-500">{a.email}</span>
++                <span className="text-xs text-slate-400">{fmt(a.createdAt)}</span>
++              </div>
++              {isOpen && (
++                <div className="mt-3 border-t border-slate-100 pt-3">
++                  <p className="mb-2 break-all text-[11px] text-slate-300">uid: {a.uid}</p>
++                  {a.banned && <p className="mb-2 rounded-lg bg-rose-50 px-3 py-2 text-xs text-danger">停止の理由：{a.banReason || "（記録なし）"}</p>}
++                  <p className="mb-1 text-xs font-medium text-slate-500">参加している問題セット（{mine.length}）</p>
++                  {mine.length === 0 ? <p className="mb-3 text-xs text-slate-300">なし</p> : (
++                    <ul className="mb-3 space-y-1">
++                      {mine.map((s) => (
++                        <li key={s.id} className="flex items-center justify-between gap-2 text-sm text-slate-600">
++                          <span className="min-w-0 truncate">{s.name}<span className="ml-2 text-xs text-slate-400">{roleLabel[s.members[a.uid]] ?? s.members[a.uid]}{s.ownerId === a.uid && "・オーナー"}</span></span>
++                          <button onClick={() => onOpenSet(s.id)} className={smallBtn}>中身を見る</button>
++                        </li>
++                      ))}
++                    </ul>
++                  )}
++                  <div className="flex flex-wrap gap-2">
++                    <button onClick={() => { setPanel(panel?.uid === a.uid && panel.kind === "notice" ? null : { uid: a.uid, kind: "notice" }); setMsg(null); }} className={`${smallBtn} flex items-center gap-1.5`}><Bell size={13} />通知を送る</button>
++                    {a.banned ? (
++                      <button disabled={busy} onClick={() => confirm(`${a.displayName || a.email} の停止を解除しますか？`) && run(() => unbanUser(a.uid), "停止を解除しました")} className={`${smallBtn} flex items-center gap-1.5`}><ShieldCheck size={13} />停止を解除</button>
++                    ) : (
++                      <button disabled={self} title={self ? "自分のアカウントは停止できません" : ""} onClick={() => { setPanel(panel?.uid === a.uid && panel.kind === "ban" ? null : { uid: a.uid, kind: "ban" }); setMsg(null); }} className={`${smallBtn} flex items-center gap-1.5 text-danger`}><Ban size={13} />停止する</button>
++                    )}
++                  </div>
++                  {panel?.uid === a.uid && panel.kind === "notice" && (
++                    <form className="mt-3 space-y-2" onSubmit={(e) => { e.preventDefault(); run(() => sendNotice(a.uid, title, body), "通知を送りました"); }}>
++                      <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={60} placeholder="件名（60文字まで）" aria-label="件名" className={input} />
++                      <textarea value={body} onChange={(e) => setBody(e.target.value)} maxLength={1000} rows={4} placeholder="本文（1000文字まで）" aria-label="本文" className={`${input} resize-y`} />
++                      <button type="submit" disabled={busy || !title.trim()} className="min-h-[40px] rounded-lg bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-40">送信</button>
++                    </form>
++                  )}
++                  {panel?.uid === a.uid && panel.kind === "ban" && (
++                    <form className="mt-3 space-y-2" onSubmit={(e) => { e.preventDefault(); if (confirm(`${a.displayName || a.email} を停止します。停止すると、データの読み書きができなくなります。よろしいですか？`)) run(() => banUser(me, a.uid, reason), "アカウントを停止しました"); }}>
++                      <textarea value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} rows={3} placeholder="停止の理由（記録用。本人には表示されません）" aria-label="停止の理由" className={`${input} resize-y`} />
++                      <button type="submit" disabled={busy} className="min-h-[40px] rounded-lg bg-rose-600 px-4 text-sm font-medium text-white hover:bg-rose-700 disabled:opacity-40">停止する</button>
++                    </form>
++                  )}
++                </div>
++              )}
++            </li>
++          );
++        })}
++      </ul>
++      {list.length === 0 && <p className="py-10 text-center text-sm text-slate-400">該当するアカウントがありません</p>}
++    </div>
++  );
++}
+diff --git a/src/app/admin/ContactsTab.tsx b/src/app/admin/ContactsTab.tsx
+new file mode 100644
+index 0000000..1ad42ad
+--- /dev/null
++++ b/src/app/admin/ContactsTab.tsx
+@@ -0,0 +1,62 @@
++"use client";
++
++import { useCallback, useEffect, useState } from "react";
++import { Loader2, Mail, Trash2 } from "lucide-react";
++import { AdminContact, contactCategoryLabel, deleteContact, loadContacts, setContactStatus } from "@/lib/adminData";
++import { fmt } from "./AccountsTab";
++
++// お問い合わせフォームに届いた内容。状態（新規／対応済み）の切り替えと、削除ができる。
++export function ContactsTab({ nameOf }: { nameOf: (uid: string) => string }) {
++  const [items, setItems] = useState<AdminContact[] | null>(null);
++  const [error, setError] = useState("");
++  const [onlyNew, setOnlyNew] = useState(true);
++
++  const reload = useCallback(async () => {
++    setError("");
++    try { setItems(await loadContacts()); } catch (e) { console.error(e); setError("お問い合わせを読み込めませんでした"); }
++  }, []);
++  useEffect(() => { reload(); }, [reload]);
++
++  async function toggle(c: AdminContact) {
++    const next = c.status === "new" ? "done" : "new";
++    setItems((xs) => xs && xs.map((x) => (x.id === c.id ? { ...x, status: next } : x)));
++    try { await setContactStatus(c.id, next); } catch (e) { console.error(e); setError("状態を変更できませんでした"); reload(); }
++  }
++  async function remove(c: AdminContact) {
++    if (!confirm("このお問い合わせを削除しますか？（元に戻せません）")) return;
++    try { await deleteContact(c.id); setItems((xs) => xs && xs.filter((x) => x.id !== c.id)); } catch (e) { console.error(e); setError("削除できませんでした"); }
++  }
++
++  if (!items && !error) return <p className="flex items-center gap-2 py-6 text-sm text-slate-400"><Loader2 size={14} className="animate-spin" />読み込み中</p>;
++  const list = (items ?? []).filter((c) => !onlyNew || c.status === "new");
++  const newCount = (items ?? []).filter((c) => c.status === "new").length;
++  return (
++    <div>
++      <div className="mb-3 flex flex-wrap items-center gap-3">
++        <label className="flex min-h-[40px] items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked={onlyNew} onChange={(e) => setOnlyNew(e.target.checked)} className="h-4 w-4" />未対応のみ</label>
++        <span className="text-xs text-slate-400">未対応 {newCount}件 / 全 {items?.length ?? 0}件（新しい順、最大200件）</span>
++      </div>
++      {error && <p role="alert" className="mb-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-danger">{error}</p>}
++      <ul className="space-y-2">
++        {list.map((c) => (
++          <li key={c.id} className={`rounded-xl border bg-surface p-3 ${c.status === "new" ? "border-brand-200" : "border-slate-100 opacity-80"}`}>
++            <div className="mb-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400">
++              <span className={`rounded-full px-2 py-0.5 ${c.status === "new" ? "bg-brand-100 text-accent" : "bg-slate-100 text-slate-500"}`}>{c.status === "new" ? "未対応" : "対応済み"}</span>
++              <span>{contactCategoryLabel[c.category] ?? c.category}</span>
++              <span>{fmt(c.createdAt)}</span>
++              {c.name && <span className="text-slate-600">{c.name}</span>}
++              {c.uid && <span title={c.uid}>ログイン済み：{nameOf(c.uid)}</span>}
++              {c.email && <a href={`mailto:${c.email}`} className="flex items-center gap-1 text-accent underline"><Mail size={12} />{c.email}</a>}
++            </div>
++            <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-700">{c.message}</p>
++            <div className="mt-2 flex gap-2">
++              <button onClick={() => toggle(c)} className="min-h-[36px] rounded-lg border border-slate-200 bg-surface px-3 text-xs text-slate-600 hover:bg-slate-50">{c.status === "new" ? "対応済みにする" : "未対応に戻す"}</button>
++              <button onClick={() => remove(c)} aria-label="削除" className="flex min-h-[36px] items-center rounded-lg border border-slate-200 bg-surface px-2.5 text-slate-400 hover:text-danger"><Trash2 size={14} /></button>
++            </div>
++          </li>
++        ))}
++      </ul>
++      {list.length === 0 && !error && <p className="py-10 text-center text-sm text-slate-400">{onlyNew ? "未対応のお問い合わせはありません" : "お問い合わせはありません"}</p>}
++    </div>
++  );
++}
+diff --git a/src/app/admin/NoticesTab.tsx b/src/app/admin/NoticesTab.tsx
+new file mode 100644
+index 0000000..9a19ed4
+--- /dev/null
++++ b/src/app/admin/NoticesTab.tsx
+@@ -0,0 +1,69 @@
++"use client";
++
++import { useCallback, useEffect, useState } from "react";
++import { collection, getDocs, limit, orderBy, query } from "firebase/firestore";
++import { Trash2 } from "lucide-react";
++import { db } from "@/lib/firebase";
++import { toMillis } from "@/lib/time";
++import { deleteBroadcast, sendNotice } from "@/lib/notices";
++import { fmt } from "./AccountsTab";
++
++interface Sent { id: string; title: string; body: string; createdAt: number }
++const input = "w-full rounded-lg border border-slate-200 bg-surface p-2.5 text-base text-slate-700 placeholder:text-slate-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100";
++
++// 全員向けのお知らせを送る。特定の人への通知は、「アカウント」から送る。
++export function NoticesTab() {
++  const [title, setTitle] = useState("");
++  const [body, setBody] = useState("");
++  const [busy, setBusy] = useState(false);
++  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
++  const [sent, setSent] = useState<Sent[]>([]);
++
++  const reload = useCallback(async () => {
++    try {
++      const snap = await getDocs(query(collection(db, "broadcasts"), orderBy("createdAt", "desc"), limit(30)));
++      setSent(snap.docs.map((d) => ({ id: d.id, title: d.data().title ?? "", body: d.data().body ?? "", createdAt: toMillis(d.data().createdAt) })));
++    } catch (e) { console.error(e); }
++  }, []);
++  useEffect(() => { reload(); }, [reload]);
++
++  async function submit(e: React.FormEvent) {
++    e.preventDefault();
++    if (busy || !title.trim()) return;
++    if (!confirm("全員にお知らせを送ります。よろしいですか？")) return;
++    setBusy(true); setMsg(null);
++    try { await sendNotice("all", title, body); setTitle(""); setBody(""); setMsg({ ok: true, text: "全員に送りました" }); await reload(); }
++    catch (err: any) { console.error(err); setMsg({ ok: false, text: err?.message || "送信できませんでした" }); }
++    finally { setBusy(false); }
++  }
++
++  return (
++    <div className="grid gap-6 lg:grid-cols-2">
++      <form onSubmit={submit} className="space-y-2">
++        <h2 className="text-sm font-medium text-slate-600">全員へのお知らせ</h2>
++        <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={60} placeholder="件名（60文字まで）" aria-label="件名" className={input} />
++        <textarea value={body} onChange={(e) => setBody(e.target.value)} maxLength={1000} rows={6} placeholder="本文（1000文字まで）" aria-label="本文" className={`${input} resize-y`} />
++        {msg && <p role="status" className={`rounded-lg px-3 py-2 text-sm ${msg.ok ? "bg-emerald-50 text-ok" : "bg-rose-50 text-danger"}`}>{msg.text}</p>}
++        <button type="submit" disabled={busy || !title.trim()} className="min-h-[44px] rounded-lg bg-brand-600 px-5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-40">全員に送る</button>
++        <p className="text-xs text-slate-400">利用者は、ダッシュボードのベルで見られます。メールでは届きません。</p>
++      </form>
++      <div>
++        <h2 className="mb-2 text-sm font-medium text-slate-600">送ったお知らせ（新しい順）</h2>
++        {sent.length === 0 ? <p className="text-sm text-slate-300">まだありません</p> : (
++          <ul className="space-y-2">
++            {sent.map((n) => (
++              <li key={n.id} className="rounded-xl border border-slate-100 bg-surface p-3">
++                <div className="flex items-start justify-between gap-2">
++                  <p className="text-sm font-medium text-slate-700">{n.title}</p>
++                  <button onClick={async () => { if (confirm("このお知らせを削除しますか？（利用者の画面からも消えます）")) { await deleteBroadcast(n.id).catch((e) => console.error(e)); reload(); } }} aria-label="削除" className="shrink-0 text-slate-300 hover:text-danger"><Trash2 size={14} /></button>
++                </div>
++                {n.body && <p className="mt-1 whitespace-pre-wrap break-words text-xs text-slate-500">{n.body}</p>}
++                <p className="mt-1 text-[11px] text-slate-300">{fmt(n.createdAt)}</p>
++              </li>
++            ))}
++          </ul>
++        )}
++      </div>
++    </div>
++  );
++}
+diff --git a/src/app/admin/SetsTab.tsx b/src/app/admin/SetsTab.tsx
+new file mode 100644
+index 0000000..4ce4a58
+--- /dev/null
++++ b/src/app/admin/SetsTab.tsx
+@@ -0,0 +1,126 @@
++"use client";
++
++import { useEffect, useMemo, useState } from "react";
++import { ArrowLeft, ChevronRight, Loader2 } from "lucide-react";
++import { AdminUser, loadQuestions } from "@/lib/adminData";
++import { Question, QuestionSet } from "@/lib/types";
++import { judgeLabel, proofreadLabel, roleLabel, statusLabel } from "@/lib/permissions";
++import { fmt } from "./AccountsTab";
++
++const PAGE = 50;
++
++// 問題セットの一覧と、その中身（読み取り専用）。運営者は、ここから編集はできない。
++export function SetsTab({ sets, accounts, focusSetId, onFocusDone }: {
++  sets: QuestionSet[]; accounts: AdminUser[]; focusSetId: string | null; onFocusDone: () => void;
++}) {
++  const [q, setQ] = useState("");
++  const [selected, setSelected] = useState<string | null>(null);
++  const names = useMemo(() => new Map(accounts.map((a) => [a.uid, a.displayName || a.email])), [accounts]);
++
++  useEffect(() => {
++    if (focusSetId) { setSelected(focusSetId); onFocusDone(); }
++  }, [focusSetId, onFocusDone]);
++
++  const set = sets.find((s) => s.id === selected);
++  if (set) return <SetDetail set={set} names={names} onBack={() => setSelected(null)} />;
++
++  const t = q.trim().toLowerCase();
++  const list = sets.filter((s) => !t || s.name.toLowerCase().includes(t) || (names.get(s.ownerId) ?? "").toLowerCase().includes(t));
++  return (
++    <div>
++      <div className="mb-3 flex flex-wrap items-center gap-2">
++        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="セット名・オーナー名で絞り込み" aria-label="問題セットを絞り込み" className="w-full min-w-0 flex-1 rounded-lg border border-slate-200 bg-surface p-2.5 text-base focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100 sm:max-w-md" />
++        <span className="text-xs text-slate-400">{list.length} / {sets.length} 件</span>
++      </div>
++      <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
++        {list.map((s) => (
++          <li key={s.id}>
++            <button onClick={() => setSelected(s.id)} className="flex w-full items-center gap-2 rounded-xl border border-slate-100 bg-surface p-3 text-left hover:border-brand-200">
++              <span className="min-w-0 flex-1">
++                <span className="block truncate font-medium text-slate-700">{s.name}</span>
++                <span className="block truncate text-xs text-slate-400">オーナー：{names.get(s.ownerId) ?? s.ownerId}・メンバー {Object.keys(s.members).length}人</span>
++                <span className="block text-[11px] text-slate-300">更新：{fmt(s.updatedAt)}</span>
++              </span>
++              <ChevronRight size={16} className="shrink-0 text-slate-300" />
++            </button>
++          </li>
++        ))}
++      </ul>
++      {list.length === 0 && <p className="py-10 text-center text-sm text-slate-400">該当する問題セットがありません</p>}
++    </div>
++  );
++}
++
++function SetDetail({ set, names, onBack }: { set: QuestionSet; names: Map<string, string>; onBack: () => void }) {
++  const [qs, setQs] = useState<Question[] | null>(null);
++  const [error, setError] = useState("");
++  const [shown, setShown] = useState(PAGE);
++  const [open, setOpen] = useState<string | null>(null);
++
++  useEffect(() => {
++    let alive = true;
++    setQs(null); setError("");
++    loadQuestions(set.id).then((x) => alive && setQs(x)).catch((e) => { console.error(e); alive && setError("問題を読み込めませんでした"); });
++    return () => { alive = false; };
++  }, [set.id]);
++
++  const roundName = (id: string) => set.rounds.find((r) => r.id === id)?.name ?? "";
++  const genreName = (g: string, s: string) => {
++    const major = set.genreTree.find((x) => x.id === g);
++    return major ? `${major.name}${s ? ` / ${major.subs.find((x) => x.id === s)?.name ?? ""}` : ""}` : "";
++  };
++
++  return (
++    <div>
++      <button onClick={onBack} className="mb-3 flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600"><ArrowLeft size={12} />問題セットの一覧へ</button>
++      <h2 className="mb-1 text-lg font-semibold text-slate-800">{set.name}</h2>
++      <p className="mb-3 text-xs text-slate-400">作成：{fmt(set.createdAt)}・更新：{fmt(set.updatedAt)}</p>
++      <p className="mb-1 text-xs font-medium text-slate-500">メンバー（{Object.keys(set.members).length}）</p>
++      <ul className="mb-4 flex flex-wrap gap-1.5">
++        {Object.entries(set.members).map(([uid, role]) => (
++          <li key={uid} className="rounded-full border border-slate-200 bg-surface px-2.5 py-1 text-xs text-slate-600">{names.get(uid) ?? uid}<span className="ml-1.5 text-slate-400">{roleLabel[role] ?? role}{set.ownerId === uid && "・オーナー"}</span></li>
++        ))}
++      </ul>
++      <p className="mb-2 text-xs font-medium text-slate-500">問題{qs ? `（${qs.length}件・ゴミ箱を含む）` : ""}</p>
++      {error && <p role="alert" className="mb-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-danger">{error}</p>}
++      {!qs && !error && <p className="flex items-center gap-2 py-6 text-sm text-slate-400"><Loader2 size={14} className="animate-spin" />読み込み中</p>}
++      {qs && qs.length === 0 && <p className="py-6 text-sm text-slate-400">問題はありません</p>}
++      <ul className="space-y-2">
++        {qs?.slice(0, shown).map((x) => {
++          const isOpen = open === x.id;
++          return (
++            <li key={x.id} className={`rounded-xl border bg-surface p-3 ${x.deletedAt ? "border-dashed border-slate-200 opacity-70" : "border-slate-100"}`}>
++              <button onClick={() => setOpen(isOpen ? null : x.id)} aria-expanded={isOpen} className="w-full text-left">
++                <p className={`text-sm text-slate-700 ${isOpen ? "whitespace-pre-wrap break-words" : "line-clamp-2"}`}>{x.body || "（問題文なし）"}</p>
++                <p className="mt-1 text-sm font-medium text-accent-strong">{x.answer || "（解答なし）"}</p>
++                <p className="mt-1 flex flex-wrap gap-x-3 text-[11px] text-slate-400">
++                  <span>{x.deletedAt ? "ゴミ箱" : judgeLabel(x.status)}</span>
++                  <span>{names.get(x.authorUid) ?? x.authorName}</span>
++                  {genreName(x.genreId, x.subGenreId) && <span>{genreName(x.genreId, x.subGenreId)}</span>}
++                  {roundName(x.roundId) && <span>{roundName(x.roundId)}</span>}
++                </p>
++              </button>
++              {isOpen && (
++                <dl className="mt-3 space-y-1.5 border-t border-slate-100 pt-3 text-xs text-slate-500">
++                  {x.altAnswers.length > 0 && <Row k="別解" v={x.altAnswers.join("、")} />}
++                  {x.explanation && <Row k="解説" v={x.explanation} />}
++                  {x.judgingCriteria && <Row k="正誤判定基準" v={x.judgingCriteria} />}
++                  {x.memo && <Row k="備考" v={x.memo} />}
++                  {x.tags.length > 0 && <Row k="タグ" v={x.tags.join("、")} />}
++                  {(x.parallel || x.current) && <Row k="区分" v={[x.parallel && "パラレル", x.current && "時事"].filter(Boolean).join("、")} />}
++                  {x.sources.filter(Boolean).length > 0 && <Row k="出典" v={x.sources.filter(Boolean).join("\n")} />}
++                  <Row k="状態" v={`${statusLabel[x.status]}／裏どり：${proofreadLabel[x.proofreadStatus]}`} />
++                </dl>
++              )}
++            </li>
++          );
++        })}
++      </ul>
++      {qs && qs.length > shown && <button onClick={() => setShown((n) => n + PAGE)} className="mt-3 min-h-[40px] w-full rounded-lg border border-slate-200 bg-surface text-sm text-slate-600 hover:bg-slate-50">さらに表示（残り {qs.length - shown} 件）</button>}
++    </div>
++  );
++}
++
++function Row({ k, v }: { k: string; v: string }) {
++  return <div className="flex gap-3"><dt className="w-20 shrink-0 text-slate-400">{k}</dt><dd className="min-w-0 flex-1 whitespace-pre-wrap break-words text-slate-600">{v}</dd></div>;
++}
+diff --git a/src/app/admin/layout.tsx b/src/app/admin/layout.tsx
+new file mode 100644
+index 0000000..c559973
+--- /dev/null
++++ b/src/app/admin/layout.tsx
+@@ -0,0 +1,8 @@
++import type { Metadata } from "next";
++
++// ブラウザのタブに出るページ名
++export const metadata: Metadata = { title: "管理", robots: { index: false, follow: false } };
++
++export default function Layout({ children }: { children: React.ReactNode }) {
++  return <>{children}</>;
++}
+diff --git a/src/app/admin/page.tsx b/src/app/admin/page.tsx
+new file mode 100644
+index 0000000..67d97b6
+--- /dev/null
++++ b/src/app/admin/page.tsx
+@@ -0,0 +1,87 @@
++"use client";
++
++import { useCallback, useEffect, useState } from "react";
++import { useRouter } from "next/navigation";
++import Link from "next/link";
++import { ArrowLeft, RefreshCw } from "lucide-react";
++import { useAuth } from "@/lib/auth-context";
++import { useIsSiteAdmin } from "@/lib/siteAdmin";
++import { AdminUser, loadAccounts, loadSets } from "@/lib/adminData";
++import { QuestionSet } from "@/lib/types";
++import { PageSkeleton } from "@/components/Skeleton";
++import { AccountsTab } from "./AccountsTab";
++import { SetsTab } from "./SetsTab";
++import { ContactsTab } from "./ContactsTab";
++import { NoticesTab } from "./NoticesTab";
++
++type Tab = "accounts" | "sets" | "contacts" | "notices";
++const tabs: { id: Tab; label: string }[] = [
++  { id: "accounts", label: "アカウント" },
++  { id: "sets", label: "問題セット" },
++  { id: "contacts", label: "お問い合わせ" },
++  { id: "notices", label: "お知らせ" },
++];
++
++// 運営者だけの管理ページ。入れるのは、siteAdmins に登録された人だけ（データは、firestore.rules が守る）。
++export default function AdminPage() {
++  const { user, loading: authLoading } = useAuth();
++  const { isAdmin, loading } = useIsSiteAdmin();
++  const router = useRouter();
++  const [tab, setTab] = useState<Tab>("accounts");
++  const [accounts, setAccounts] = useState<AdminUser[]>([]);
++  const [sets, setSets] = useState<QuestionSet[]>([]);
++  const [loaded, setLoaded] = useState(false);
++  const [error, setError] = useState("");
++  const [focusSet, setFocusSet] = useState<string | null>(null);
++
++  useEffect(() => { if (!authLoading && !user) router.replace("/login"); }, [authLoading, user, router]);
++
++  const reload = useCallback(async () => {
++    setError("");
++    try {
++      const [a, s] = await Promise.all([loadAccounts(), loadSets()]);
++      setAccounts(a); setSets(s); setLoaded(true);
++    } catch (e) { console.error(e); setError("読み込めませんでした。ルールの公開と、運営者の登録（siteAdmins）を確認してください"); }
++  }, []);
++  useEffect(() => { if (isAdmin) reload(); }, [isAdmin, reload]);
++
++  const clearFocus = useCallback(() => setFocusSet(null), []);
++  if (authLoading || loading || !user) return <PageSkeleton />;
++  if (!isAdmin) {
++    return (
++      <div className="flex min-h-dvh flex-col items-center justify-center bg-slate-50 px-6 text-center">
++        <p className="mb-4 text-sm text-slate-500">このページを表示する権限がありません。</p>
++        <Link href="/dashboard" className="text-sm text-accent underline">ダッシュボードへ</Link>
++      </div>
++    );
++  }
++
++  const nameOf = (uid: string) => accounts.find((a) => a.uid === uid)?.displayName || uid;
++  return (
++    <div className="min-h-dvh bg-slate-50">
++      <div className="mx-auto max-w-[96rem] px-4 py-8 sm:px-6 lg:px-10">
++        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
++          <div>
++            <Link href="/dashboard" className="mb-1 flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600"><ArrowLeft size={12} />ダッシュボードへ</Link>
++            <h1 className="text-xl font-semibold text-slate-800">管理</h1>
++          </div>
++          <button onClick={reload} className="flex min-h-[40px] items-center gap-1.5 rounded-lg border border-slate-200 bg-surface px-3 text-sm text-slate-600 hover:bg-slate-50"><RefreshCw size={14} />再読み込み</button>
++        </div>
++        <div role="tablist" aria-label="管理メニュー" className="mb-5 flex gap-1 overflow-x-auto rounded-xl bg-slate-100 p-1">
++          {tabs.map((t) => (
++            <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)} className={`min-h-[40px] flex-1 whitespace-nowrap rounded-lg px-4 text-sm font-medium transition-colors ${tab === t.id ? "bg-surface text-accent shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>{t.label}</button>
++          ))}
++        </div>
++        {error && <p role="alert" className="mb-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-danger">{error}</p>}
++        {!loaded && !error && tab !== "contacts" && tab !== "notices" ? <p className="py-10 text-center text-sm text-slate-400">読み込み中…</p> : (
++          <>
++            {tab === "accounts" && <AccountsTab me={user.uid} accounts={accounts} sets={sets} onChanged={reload} onOpenSet={(id) => { setFocusSet(id); setTab("sets"); }} />}
++            {tab === "sets" && <SetsTab sets={sets} accounts={accounts} focusSetId={focusSet} onFocusDone={clearFocus} />}
++            {tab === "contacts" && <ContactsTab nameOf={nameOf} />}
++            {tab === "notices" && <NoticesTab />}
++          </>
++        )}
++      </div>
++    </div>
++  );
++}
+diff --git a/src/app/contact/layout.tsx b/src/app/contact/layout.tsx
+new file mode 100644
+index 0000000..6b6ab7d
+--- /dev/null
++++ b/src/app/contact/layout.tsx
+@@ -0,0 +1,8 @@
++import type { Metadata } from "next";
++
++// ブラウザのタブに出るページ名
++export const metadata: Metadata = { title: "お問い合わせ" };
++
++export default function Layout({ children }: { children: React.ReactNode }) {
++  return <>{children}</>;
++}
+diff --git a/src/app/contact/page.tsx b/src/app/contact/page.tsx
+new file mode 100644
+index 0000000..45bcaa8
+--- /dev/null
++++ b/src/app/contact/page.tsx
+@@ -0,0 +1,99 @@
++"use client";
++
++import { useState } from "react";
++import { addDoc, collection, serverTimestamp } from "firebase/firestore";
++import { Loader2 } from "lucide-react";
++import { db } from "@/lib/firebase";
++import { useAuth } from "@/lib/auth-context";
++import { LegalPage, P } from "@/components/LegalPage";
++
++const input = "w-full rounded-lg border border-slate-200 bg-surface p-2.5 text-base text-slate-700 placeholder:text-slate-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100";
++const label = "mb-1 block text-xs text-slate-500";
++const THROTTLE_KEY = "qraft:contact:last";
++const categories = [
++  { v: "service", t: "サービスについて" },
++  { v: "bug", t: "不具合の報告" },
++  { v: "account", t: "アカウントについて（停止・削除など）" },
++  { v: "legal", t: "利用規約・プライバシーポリシーについて" },
++  { v: "other", t: "その他" },
++];
++
++// お問い合わせ。ログインしていなくても送れる（停止中の人も送れるように）。内容は、運営者の管理画面で確認する。
++export default function ContactPage() {
++  const { user } = useAuth();
++  const [category, setCategory] = useState("service");
++  const [name, setName] = useState("");
++  const [email, setEmail] = useState("");
++  const [message, setMessage] = useState("");
++  const [trap, setTrap] = useState(""); // 人間には見えない欄。ここに入力があれば、自動の送信とみなす
++  const [busy, setBusy] = useState(false);
++  const [error, setError] = useState("");
++  const [done, setDone] = useState(false);
++
++  async function submit(e: React.FormEvent) {
++    e.preventDefault();
++    if (busy) return;
++    setError("");
++    const msg = message.trim();
++    if (!msg) return setError("お問い合わせの内容を入力してください");
++    if (msg.length > 3000) return setError("お問い合わせの内容は、3000文字以内にしてください");
++    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return setError("メールアドレスの形式を確認してください");
++    try {
++      const last = Number(localStorage.getItem(THROTTLE_KEY)) || 0;
++      if (Date.now() - last < 60_000) return setError("続けて送信するときは、1分ほどあけてください");
++    } catch { /* noop */ }
++    if (trap) { setDone(true); return; } // 自動の送信には、送ったように見せて、何も保存しない
++    setBusy(true);
++    try {
++      await addDoc(collection(db, "contacts"), {
++        name: name.trim().slice(0, 50),
++        email: email.trim().slice(0, 200),
++        category,
++        message: msg,
++        uid: user?.uid ?? "",
++        status: "new",
++        createdAt: serverTimestamp(),
++      });
++      try { localStorage.setItem(THROTTLE_KEY, String(Date.now())); } catch { /* noop */ }
++      setDone(true);
++    } catch (err) {
++      console.error("お問い合わせの送信に失敗しました", err);
++      setError("送信できませんでした。時間をおいて、もう一度お試しください");
++    } finally {
++      setBusy(false);
++    }
++  }
++
++  return (
++    <LegalPage title="お問い合わせ" updated={false}>
++      {done ? (
++        <div role="status">
++          <p className="mb-2 text-base font-semibold text-slate-800">送信しました</p>
++          <P>お問い合わせありがとうございます。内容を確認します。返信が必要な場合は、入力いただいたメールアドレス宛にご連絡します（メールアドレスを入力しなかった場合は、返信できません）。お返事には、お時間をいただくことがあります。</P>
++        </div>
++      ) : (
++        <form onSubmit={submit} noValidate>
++          <P>サービスについてのご質問、不具合のご報告、アカウントの停止・削除についてなど、こちらからお送りください。送信された内容は、運営者だけが確認できます。取り扱いは、プライバシーポリシーをご覧ください。</P>
++          <label className={label} htmlFor="c-cat">種別</label>
++          <select id="c-cat" value={category} onChange={(e) => setCategory(e.target.value)} className={`${input} mb-3`}>
++            {categories.map((c) => <option key={c.v} value={c.v}>{c.t}</option>)}
++          </select>
++          <label className={label} htmlFor="c-name">お名前（任意）</label>
++          <input id="c-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={50} autoComplete="name" className={`${input} mb-3`} />
++          <label className={label} htmlFor="c-mail">返信先のメールアドレス（任意。返信が必要な場合は、入力してください）</label>
++          <input id="c-mail" type="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={200} autoComplete="email" className={`${input} mb-3`} />
++          <label className={label} htmlFor="c-msg">お問い合わせの内容</label>
++          <textarea id="c-msg" value={message} onChange={(e) => setMessage(e.target.value)} rows={8} maxLength={3000} className={`${input} resize-y leading-relaxed`} />
++          <p className="mb-3 mt-1 text-right text-xs tabular-nums text-slate-400">{message.length}/3000</p>
++          <div aria-hidden="true" className="absolute -left-[9999px] h-0 w-0 overflow-hidden">
++            <label>ウェブサイト<input tabIndex={-1} autoComplete="off" value={trap} onChange={(e) => setTrap(e.target.value)} /></label>
++          </div>
++          {error && <p role="alert" className="mb-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-danger">{error}</p>}
++          <button type="submit" disabled={busy} className="flex min-h-[44px] items-center gap-1.5 rounded-lg bg-brand-600 px-6 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-40">
++            {busy && <Loader2 size={14} className="animate-spin" />}送信する
++          </button>
++        </form>
++      )}
++    </LegalPage>
++  );
++}
+diff --git a/src/app/dashboard/page.tsx b/src/app/dashboard/page.tsx
+index bde0f83..572f2dc 100644
+--- a/src/app/dashboard/page.tsx
++++ b/src/app/dashboard/page.tsx
+@@ -11,6 +11,8 @@ import { useQuestionSets } from "@/lib/useQuestionSets";
+ import { acceptLegacyInvite, acceptUserInvite, declineUserInvite, useMyInvites } from "@/lib/useInvites";
+ import { roleLabel } from "@/lib/permissions";
+ import { Avatar } from "@/components/Avatar";
++import { NoticeBell } from "@/components/NoticeBell";
++import { useIsSiteAdmin } from "@/lib/siteAdmin";
+ import { Modal } from "@/components/Modal";
+ import { Fab } from "@/components/Fab";
+ import { LinkGoogleBanner } from "@/components/LinkGoogleBanner";
+@@ -20,6 +22,7 @@ export default function DashboardPage() {
+   const router = useRouter();
+   const { sets, loading: setsLoading, createQuestionSet } = useQuestionSets();
+   const { invites, legacy } = useMyInvites();
++  const siteAdmin = useIsSiteAdmin();
+   const [showNew, setShowNew] = useState(false);
+   const [newSetName, setNewSetName] = useState("");
+   const [creating, setCreating] = useState(false);
+@@ -83,6 +86,8 @@ export default function DashboardPage() {
+             <h1 className="text-lg font-semibold text-slate-800">Qraft</h1>
+           </div>
+           <div className="flex items-center gap-3">
++            {siteAdmin.isAdmin && <Link href="/admin" className="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-500 hover:bg-slate-100">管理</Link>}
++            <NoticeBell />
+             <Link href="/account" aria-label="アカウント設定" className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700">
+               <Avatar name={me.displayName || me.email} photoURL={me.photoURL} size={22} /><UserCog size={14} />
+             </Link>
+@@ -93,19 +98,20 @@ export default function DashboardPage() {
+         <LinkGoogleBanner />
+         {error && <p role="alert" className="mb-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-danger">{error}</p>}
+ 
++        {(invites.length > 0 || legacy) && <p className="mb-2 text-sm font-medium text-slate-700">招待が届いています</p>}
+         {invites.map((inv) => (
+           <div key={inv.id} className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-brand-100 bg-brand-50 p-4 text-sm">
+             <span className="text-slate-700">{inv.inviterName && `${inv.inviterName}さんから`}「{inv.setName}」への招待（{roleLabel[inv.role] ?? inv.role}）</span>
+             <span className="flex gap-2">
+-              <button onClick={() => declineUserInvite(inv).catch(() => setError("辞退に失敗しました"))} disabled={busyId === inv.id} className="rounded-lg border border-slate-200 bg-surface px-3 py-1.5 text-slate-500 hover:bg-slate-50">辞退</button>
+-              <button onClick={() => accept(inv.id, () => acceptUserInvite(inv, me), inv.setId)} disabled={busyId === inv.id} className="rounded-lg bg-brand-600 px-3 py-1.5 text-white shadow-sm hover:bg-brand-700 disabled:opacity-50">参加する</button>
++              <button onClick={() => declineUserInvite(inv).catch(() => setError("辞退に失敗しました"))} disabled={busyId === inv.id} className="min-h-[40px] rounded-lg border border-slate-200 bg-surface px-3 py-1.5 text-slate-500 hover:bg-slate-50">参加しない</button>
++              <button onClick={() => accept(inv.id, () => acceptUserInvite(inv, me), inv.setId)} disabled={busyId === inv.id} className="min-h-[40px] rounded-lg bg-brand-600 px-3 py-1.5 text-white shadow-sm hover:bg-brand-700 disabled:opacity-50">参加する</button>
+             </span>
+           </div>
+         ))}
+         {legacy && (
+           <div className="mb-3 flex items-center justify-between rounded-xl border border-brand-100 bg-brand-50 p-4 text-sm">
+             <span className="text-slate-700">「{legacy.setName}」への招待があります（{roleLabel[legacy.role] ?? legacy.role}）</span>
+-            <button onClick={() => accept("legacy", () => acceptLegacyInvite(legacy, me), legacy.setId)} disabled={busyId === "legacy"} className="rounded-lg bg-brand-600 px-3 py-1.5 text-white shadow-sm hover:bg-brand-700 disabled:opacity-50">参加する</button>
++            <button onClick={() => accept("legacy", () => acceptLegacyInvite(legacy, me), legacy.setId)} disabled={busyId === "legacy"} className="min-h-[40px] rounded-lg bg-brand-600 px-3 py-1.5 text-white shadow-sm hover:bg-brand-700 disabled:opacity-50">参加する</button>
+           </div>
+         )}
+ 
+diff --git a/src/app/page.tsx b/src/app/page.tsx
+index 4542fe5..03e35c3 100644
+--- a/src/app/page.tsx
++++ b/src/app/page.tsx
+@@ -571,11 +571,11 @@ export default function Home() {
+           <div className="relative mx-auto max-w-[96rem] lg:px-12 px-4 pb-16 pt-12 sm:px-6 sm:pt-20 lg:pb-24">
+             <div className="mx-auto max-w-4xl text-center">
+               <h1 className="text-[2rem] font-bold leading-[1.2] tracking-[-0.02em] text-slate-900 sm:text-5xl lg:text-7xl" style={palt}>
+-                <HeadLine delay={0.05}>作問から本番まで、</HeadLine>
+-                <HeadLine delay={0.18}>ひとつのツールで。</HeadLine>
++                <HeadLine delay={0.05}>クイズ作りに、</HeadLine>
++                <HeadLine delay={0.18}>新しいスタンダードを。</HeadLine>
+               </h1>
+               <motion.p initial={reduce ? false : { opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.5, ease }} className="mx-auto mt-4 max-w-lg text-slate-500 sm:text-lg lg:max-w-2xl lg:text-xl" style={jp}>
+-                競技クイズの問題づくりに特化した、チームのための専用エディタ。
++                作問から本番まで、ひとつのツールで。競技クイズの問題づくりに特化した、チームのための専用エディタ。
+               </motion.p>
+               <motion.div initial={reduce ? false : { opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.62, ease }} className="mt-7 flex flex-wrap justify-center gap-3">
+                 <Link href="/signup" className="group flex min-h-[44px] items-center gap-1.5 rounded-lg bg-brand-600 px-5 text-sm font-medium text-white hover:bg-brand-700">
+@@ -625,6 +625,11 @@ export default function Home() {
+         <footer className="mx-auto flex max-w-[96rem] lg:px-12 items-center gap-2 px-4 pb-10 text-xs text-slate-400 sm:px-6">
+           <Logo size={16} />
+           <span>Qraft — クイズ作問エディタ</span>
++          <nav aria-label="規約など" className="ml-auto flex flex-wrap gap-x-4 gap-y-1">
++            <Link href="/terms" className="hover:text-slate-600">利用規約</Link>
++            <Link href="/privacy" className="hover:text-slate-600">プライバシーポリシー</Link>
++            <Link href="/contact" className="hover:text-slate-600">お問い合わせ</Link>
++          </nav>
+         </footer>
+       </div>
+     </MotionConfig>
+diff --git a/src/app/privacy/layout.tsx b/src/app/privacy/layout.tsx
+new file mode 100644
+index 0000000..2e7c774
+--- /dev/null
++++ b/src/app/privacy/layout.tsx
+@@ -0,0 +1,8 @@
++import type { Metadata } from "next";
++
++// ブラウザのタブに出るページ名
++export const metadata: Metadata = { title: "プライバシーポリシー" };
++
++export default function Layout({ children }: { children: React.ReactNode }) {
++  return <>{children}</>;
++}
+diff --git a/src/app/privacy/page.tsx b/src/app/privacy/page.tsx
+new file mode 100644
+index 0000000..3d32bab
+--- /dev/null
++++ b/src/app/privacy/page.tsx
+@@ -0,0 +1,73 @@
++import Link from "next/link";
++import { H2, LegalPage, P, UL } from "@/components/LegalPage";
++import { OPERATOR_NAME, SERVICE_NAME } from "@/lib/legal";
++
++export default function PrivacyPage() {
++  return (
++    <LegalPage title="プライバシーポリシー">
++      <P>{OPERATOR_NAME}（以下「運営者」）は、クイズの作問を支援するWebサービス「{SERVICE_NAME}」（以下「本サービス」）での、利用者の情報の取り扱いについて、次のとおり定めます。</P>
++
++      <H2>1. 取得する情報</H2>
++      <UL>
++        <li><b>アカウント情報：</b>Googleでログインするときに受け取る、メールアドレス。ログインの認証と、必要な場合のご連絡に使います。</li>
++        <li><b>プロフィール：</b>ユーザーID、表示名、アイコン（任意）。初めてログインしたときは、ランダムなユーザーIDと、それと同じ表示名が作られ、Googleの名前や写真は使いません。あとから、アカウント設定で変更できます。</li>
++        <li><b>コンテンツ：</b>利用者が作成・入力した、問題、解答、解説、出典、画像、コメント、問題セットの設定、作問ノルマなど。</li>
++        <li><b>お問い合わせの内容：</b>お問い合わせフォームに入力した、お名前（任意）、返信先のメールアドレス（任意）、種別、本文。</li>
++        <li><b>利用状況に関する情報：</b>本サービスの提供に使う外部サービス（下記5）が、仕組み上、アクセス元のIPアドレスなどを記録することがあります。運営者は、広告配信や、行動の分析のためのツールは、使っていません。</li>
++      </UL>
++
++      <H2>2. 利用目的</H2>
++      <UL>
++        <li>本サービスの提供・運営・維持・改善のため</li>
++        <li>ログインの認証と、利用者の識別のため</li>
++        <li>お問い合わせ・不具合への対応と、お知らせの表示のため</li>
++        <li>利用規約に反する行為の調査と対応、アカウントの停止のため</li>
++      </UL>
++
++      <H2>3. 他の利用者に見える情報</H2>
++      <UL>
++        <li>ユーザーID、表示名、アイコンは、ログインしている他の利用者から見えます。招待は、ユーザーIDの完全一致で探す仕組みです（表示名やメールアドレスでは探せません）。</li>
++        <li>メールアドレスは、他の利用者には表示しません。</li>
++        <li>コンテンツは、利用者が参加している問題セットのメンバーに、その問題セットでの権限の範囲で共有されます。</li>
++      </UL>
++
++      <H2>4. 運営者による確認</H2>
++      <P>運営者は、本サービスの運営、不具合への対応、お問い合わせへの対応、規約違反の調査のために、必要な範囲で、アカウント情報（メールアドレスを含む）と、問題セットの内容を確認することがあります。これらの確認は、運営者だけが使える管理画面から行い、目的以外には使いません。</P>
++
++      <H2>5. 外部サービスの利用と、情報の保管場所</H2>
++      <P>本サービスは、次の外部サービスを使っており、利用者の情報は、これらの事業者のサーバーで処理・保管されます。これらの事業者のサーバーは、日本国外にある場合があります。</P>
++      <UL>
++        <li>Google LLC：Firebase Authentication（ログイン）、Cloud Firestore（データの保存）</li>
++        <li>Vercel Inc.：Webサイトの配信</li>
++      </UL>
++
++      <H2>6. Cookie・ブラウザへの保存</H2>
++      <UL>
++        <li>ログイン状態を保つために、ブラウザに、ログインに関する情報が保存されます。</li>
++        <li>画面の設定（配色、一覧の絞り込み条件など）、書きかけの問題、お知らせを見た時刻を、ブラウザ内に保存します。これらは、運営者のサーバーには送られません。</li>
++        <li>広告のためのCookieは、使っていません。</li>
++      </UL>
++
++      <H2>7. 第三者への提供</H2>
++      <P>運営者は、法令に基づく場合を除き、本人の同意なく、利用者の個人情報を第三者に提供しません。ただし、上記5の外部サービスに、本サービスの提供に必要な範囲で処理を委ねることがあります。</P>
++
++      <H2>8. 保存期間と削除</H2>
++      <P>情報は、本サービスの提供に必要な期間、保存します。アカウントや情報の削除を希望する場合は、<Link href="/contact" className="underline hover:text-slate-800">お問い合わせ</Link>からご連絡ください。ご本人であることを確認したうえで、合理的な範囲で対応します。なお、他の利用者と共有している問題セットの内容は、その問題セットのメンバーの権利に配慮して対応します。</P>
++
++      <H2>9. 安全管理</H2>
++      <P>運営者は、情報への不正なアクセス、漏えい、改ざんを防ぐために、アクセス権限の設定など、合理的な安全管理を行います。ただし、インターネット上の通信や保存について、完全な安全性を保証するものではありません。</P>
++
++      <H2>10. 開示・訂正・利用停止などの請求</H2>
++      <P>利用者は、運営者が保有する自分の個人情報について、開示・訂正・利用停止・削除を請求できます。<Link href="/contact" className="underline hover:text-slate-800">お問い合わせ</Link>からご連絡ください。</P>
++
++      <H2>11. 未成年の利用</H2>
++      <P>未成年の方は、保護者の同意を得たうえで、本サービスを利用してください。</P>
++
++      <H2>12. 本ポリシーの変更</H2>
++      <P>運営者は、必要に応じて、本ポリシーを変更することがあります。変更後の内容は、本サービス上に掲載したときから効力を生じます。</P>
++
++      <H2>13. お問い合わせ窓口</H2>
++      <P>本ポリシーに関するお問い合わせは、<Link href="/contact" className="underline hover:text-slate-800">お問い合わせフォーム</Link>からお願いします。</P>
++    </LegalPage>
++  );
++}
+diff --git a/src/app/terms/layout.tsx b/src/app/terms/layout.tsx
+new file mode 100644
+index 0000000..3758dc1
+--- /dev/null
++++ b/src/app/terms/layout.tsx
+@@ -0,0 +1,8 @@
++import type { Metadata } from "next";
++
++// ブラウザのタブに出るページ名
++export const metadata: Metadata = { title: "利用規約" };
++
++export default function Layout({ children }: { children: React.ReactNode }) {
++  return <>{children}</>;
++}
+diff --git a/src/app/terms/page.tsx b/src/app/terms/page.tsx
+new file mode 100644
+index 0000000..9f6e7ea
+--- /dev/null
++++ b/src/app/terms/page.tsx
+@@ -0,0 +1,84 @@
++import Link from "next/link";
++import { H2, LegalPage, P, UL } from "@/components/LegalPage";
++import { OPERATOR_NAME, SERVICE_NAME } from "@/lib/legal";
++
++export default function TermsPage() {
++  return (
++    <LegalPage title="利用規約">
++      <P>この利用規約（以下「本規約」）は、{OPERATOR_NAME}（以下「運営者」）が提供する、クイズの作問を支援するWebサービス「{SERVICE_NAME}」（以下「本サービス」）の利用条件を定めるものです。本サービスを利用した時点で、本規約に同意したものとみなします。</P>
++
++      <H2>第1条（アカウント）</H2>
++      <UL>
++        <li>本サービスは、Googleアカウントでログインして利用します。</li>
++        <li>利用者は、自分のアカウントを自分の責任で管理するものとし、他の人に使わせたり、譲渡・貸与したりしてはいけません。</li>
++        <li>アカウントが第三者に使われた場合の損害について、運営者は、運営者に故意または重大な過失がある場合を除き、責任を負いません。</li>
++      </UL>
++
++      <H2>第2条（ユーザーIDと表示名）</H2>
++      <UL>
++        <li>初めてログインしたときに、ランダムなユーザーIDが自動で作られ、表示名もそのIDになります。ユーザーID・表示名・アイコンは、アカウント設定で変更できます。</li>
++        <li>ユーザーID・表示名・アイコンは、他の利用者から見えます。他人になりすます名前や、公序良俗に反する名前、他人の権利を侵害する画像は、使えません。</li>
++        <li>運営者は、前項に反するときは、変更を求めたり、運営者が変更したりすることがあります。</li>
++      </UL>
++
++      <H2>第3条（利用者が作成した内容）</H2>
++      <UL>
++        <li>利用者が本サービスに入力・保存した問題、解答、解説、出典、画像、コメントなど（以下「コンテンツ」）の権利は、その利用者（または正当な権利者）に帰属します。</li>
++        <li>利用者は、運営者が、本サービスの提供・運営・改善・不具合対応に必要な範囲で、コンテンツを保存・複製・表示することを許諾します。</li>
++        <li>利用者は、コンテンツが、第三者の著作権その他の権利を侵害しないことを、自分の責任で確認するものとします。</li>
++        <li>問題セットに参加している他のメンバーは、その問題セットの権限の範囲で、コンテンツを閲覧・編集できます。共有の範囲は、問題セットの管理者が決めます。</li>
++      </UL>
++
++      <H2>第4条（禁止事項）</H2>
++      <P>利用者は、次の行為をしてはいけません。</P>
++      <UL>
++        <li>法令または公序良俗に反する行為</li>
++        <li>他の人の権利（著作権、プライバシー、名誉など）を侵害する行為</li>
++        <li>他の人の個人情報を、本人の同意なく入力・公開する行為</li>
++        <li>本サービスや、ほかの利用者に迷惑をかける行為（嫌がらせ、スパム、過度な負荷をかける操作など）</li>
++        <li>本サービスの仕組みを不正に回避・改ざんする行為、不正アクセス</li>
++        <li>他人になりすます行為、虚偽の情報を使う行為</li>
++        <li>前各号を助長する行為、そのほか運営者が不適切と判断する行為</li>
++      </UL>
++
++      <H2>第5条（運営者による確認）</H2>
++      <P>運営者は、本サービスの運営、不具合への対応、お問い合わせへの対応、禁止事項への違反の調査のために、必要な範囲で、アカウント情報および問題セットの内容を確認することがあります。詳しくは、<Link href="/privacy" className="underline hover:text-slate-800">プライバシーポリシー</Link>をご覧ください。</P>
++
++      <H2>第6条（お知らせ）</H2>
++      <P>運営者は、本サービス上で、利用者にお知らせを表示することがあります。</P>
++
++      <H2>第7条（利用の停止・削除）</H2>
++      <UL>
++        <li>運営者は、利用者が本規約に違反したとき、またはそのおそれがあるときは、事前の通知なく、アカウントの利用の停止や、コンテンツの削除をすることがあります。</li>
++        <li>停止の内容に心当たりがない場合は、<Link href="/contact" className="underline hover:text-slate-800">お問い合わせ</Link>からご連絡ください。ログインできない場合も、お問い合わせは送れます。</li>
++        <li>アカウントの削除を希望する場合も、お問い合わせからご連絡ください。</li>
++      </UL>
++
++      <H2>第8条（サービスの変更・中断・終了）</H2>
++      <UL>
++        <li>運営者は、事前の通知なく、本サービスの内容を変更したり、一時的に中断したりすることがあります。保守、障害、外部サービスの停止などが理由になることがあります。</li>
++        <li>運営者は、相当の期間をおいて告知したうえで、本サービスを終了することがあります。</li>
++        <li>データの消失に備えて、大切な問題は、「入出力」のエクスポート機能で、定期的に手元に保存してください。</li>
++      </UL>
++
++      <H2>第9条（免責）</H2>
++      <UL>
++        <li>運営者は、本サービスについて、特定の目的への適合性、正確性、継続性、不具合がないことを保証しません。</li>
++        <li>運営者は、本サービスの利用または利用できなかったことによって生じた損害について、運営者に故意または重大な過失がある場合を除き、責任を負いません。</li>
++        <li>利用者どうしのトラブルは、利用者の間で解決するものとします。</li>
++      </UL>
++
++      <H2>第10条（料金）</H2>
++      <P>運営者が料金を定める場合は、事前に本サービス上で告知します。</P>
++
++      <H2>第11条（本規約の変更）</H2>
++      <P>運営者は、必要に応じて、本規約を変更することがあります。変更後の規約は、本サービス上に掲載したときから効力を生じます。変更後に本サービスを利用した場合は、変更に同意したものとみなします。</P>
++
++      <H2>第12条（準拠法・管轄）</H2>
++      <P>本規約は、日本法に従って解釈されます。本サービスに関して紛争が生じたときは、運営者の所在地を管轄する日本の裁判所を、第一審の管轄裁判所とします。</P>
++
++      <H2>お問い合わせ</H2>
++      <P>本規約に関するお問い合わせは、<Link href="/contact" className="underline hover:text-slate-800">お問い合わせフォーム</Link>からお願いします。</P>
++    </LegalPage>
++  );
++}
+diff --git a/src/components/AuthScreen.tsx b/src/components/AuthScreen.tsx
+index 526447d..b8fe3d6 100644
+--- a/src/components/AuthScreen.tsx
++++ b/src/components/AuthScreen.tsx
+@@ -201,7 +201,7 @@ export function AuthScreen({ mode }: { mode: "login" | "signup" }) {
+         </Link>
+         <div className="relative">
+           <motion.h2 initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="mb-8 max-w-sm text-3xl font-bold leading-tight tracking-[-0.02em] text-slate-900" style={{ fontFeatureSettings: '"palt"' }}>
+-            作問から本番まで、<br />ひとつのツールで。
++            クイズ作りに、<br />新しいスタンダードを。
+           </motion.h2>
+           <WritingLoop />
+         </div>
+@@ -223,7 +223,10 @@ export function AuthScreen({ mode }: { mode: "login" | "signup" }) {
+               </button>
+               {error && <p role="alert" className="mt-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-danger">{error}</p>}
+               <p className="mt-6 text-xs leading-relaxed text-slate-400" style={jp}>
+-                ログインすると、Googleアカウントの名前とアイコンが、ログインしている他の利用者から見えるようになります（招待の検索や、メンバーの表示に使われます）。メールアドレスは、画面には出ませんが、参加している問題セットのメンバーが読み取れる形で保存されます。
++                初めてログインすると、ランダムなユーザーIDが作られ、表示名もそのIDになります。Googleの名前や写真は、他の利用者には表示されません（表示名とアイコンは、アカウント設定で変えられます）。メールアドレスは、他の利用者には表示されません。
++              </p>
++              <p className="mt-3 text-xs leading-relaxed text-slate-400" style={jp}>
++                ログインすると、<Link href="/terms" className="underline hover:text-slate-600">利用規約</Link>と<Link href="/privacy" className="underline hover:text-slate-600">プライバシーポリシー</Link>に同意したものとみなされます。
+               </p>
+               <p className="mt-3 text-xs leading-relaxed text-slate-400" style={jp}>
+                 LINEなどのアプリ内ブラウザでは、Googleでログインできないことがあります。その場合は、ChromeやSafariで開いてください。
+diff --git a/src/components/BannedScreen.tsx b/src/components/BannedScreen.tsx
+new file mode 100644
+index 0000000..adc4889
+--- /dev/null
++++ b/src/components/BannedScreen.tsx
+@@ -0,0 +1,23 @@
++import Link from "next/link";
++import { Ban } from "lucide-react";
++
++// 停止されたアカウントに出す画面。アプリの他の画面は、見られない。
++export function BannedScreen({ onLogout }: { onLogout: () => void }) {
++  return (
++    <div className="flex min-h-dvh flex-col items-center justify-center bg-slate-50 px-6 text-center">
++      <Ban size={36} className="mb-4 text-slate-300" />
++      <h1 className="mb-2 text-lg font-semibold text-slate-800">このアカウントは停止されています</h1>
++      <p className="mb-6 max-w-sm text-sm leading-relaxed text-slate-500">
++        利用規約に反する利用などがあったため、このアカウントでの利用を停止しています。心当たりがない場合や、ご不明な点がある場合は、お問い合わせからご連絡ください。
++      </p>
++      <div className="flex flex-wrap items-center justify-center gap-3">
++        <Link href="/contact" className="flex min-h-[44px] items-center rounded-lg bg-brand-600 px-5 text-sm font-medium text-white hover:bg-brand-700">お問い合わせ</Link>
++        <button onClick={onLogout} className="min-h-[44px] rounded-lg border border-slate-200 bg-surface px-5 text-sm text-slate-600 hover:bg-slate-50">ログアウト</button>
++      </div>
++      <nav className="mt-8 flex gap-4 text-xs text-slate-400">
++        <Link href="/terms" className="hover:text-slate-600">利用規約</Link>
++        <Link href="/privacy" className="hover:text-slate-600">プライバシーポリシー</Link>
++      </nav>
++    </div>
++  );
++}
+diff --git a/src/components/LegalPage.tsx b/src/components/LegalPage.tsx
+new file mode 100644
+index 0000000..9345a73
+--- /dev/null
++++ b/src/components/LegalPage.tsx
+@@ -0,0 +1,36 @@
++import Link from "next/link";
++import { ArrowLeft } from "lucide-react";
++import { Logo } from "./Logo";
++import { LEGAL_UPDATED } from "@/lib/legal";
++
++// 利用規約・プライバシーポリシー・お問い合わせの、共通の枠
++export function LegalPage({ title, updated = true, children }: { title: string; updated?: boolean; children: React.ReactNode }) {
++  return (
++    <div className="min-h-dvh bg-slate-50">
++      <header className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4 sm:px-6">
++        <Link href="/" className="flex items-center gap-2 text-slate-800"><Logo size={26} /><span className="font-semibold">Qraft</span></Link>
++        <Link href="/" className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600"><ArrowLeft size={12} />トップへ</Link>
++      </header>
++      <main className="mx-auto max-w-3xl px-4 pb-16 pt-4 sm:px-6">
++        <h1 className="mb-2 text-2xl font-bold tracking-[-0.01em] text-slate-900">{title}</h1>
++        {updated && <p className="mb-8 text-xs text-slate-400">最終更新日：{LEGAL_UPDATED}</p>}
++        <div className="rounded-2xl border border-slate-100 bg-surface p-5 shadow-card sm:p-8">{children}</div>
++        <nav aria-label="規約など" className="mt-8 flex flex-wrap gap-x-5 gap-y-1 text-xs text-slate-400">
++          <Link href="/terms" className="hover:text-slate-600">利用規約</Link>
++          <Link href="/privacy" className="hover:text-slate-600">プライバシーポリシー</Link>
++          <Link href="/contact" className="hover:text-slate-600">お問い合わせ</Link>
++        </nav>
++      </main>
++    </div>
++  );
++}
++
++export function H2({ children }: { children: React.ReactNode }) {
++  return <h2 className="mb-2 mt-8 text-base font-semibold text-slate-800 first:mt-0">{children}</h2>;
++}
++export function P({ children }: { children: React.ReactNode }) {
++  return <p className="mb-3 text-sm leading-7 text-slate-600">{children}</p>;
++}
++export function UL({ children }: { children: React.ReactNode }) {
++  return <ul className="mb-3 list-disc space-y-1 pl-5 text-sm leading-7 text-slate-600">{children}</ul>;
++}
+diff --git a/src/components/NoticeBell.tsx b/src/components/NoticeBell.tsx
+new file mode 100644
+index 0000000..c5e1c81
+--- /dev/null
++++ b/src/components/NoticeBell.tsx
+@@ -0,0 +1,79 @@
++"use client";
++
++import { useEffect, useRef, useState } from "react";
++import { Bell } from "lucide-react";
++import { useAuth } from "@/lib/auth-context";
++import { fetchNotices, getSeen, Notice, setSeen } from "@/lib/notices";
++
++// 運営からのお知らせ。ベルを押すと、一覧が開く。開いたら、既読にする。
++export function NoticeBell() {
++  const { user } = useAuth();
++  const uid = user?.uid;
++  const [items, setItems] = useState<Notice[]>([]);
++  const [seen, setSeenState] = useState(0);
++  const [open, setOpen] = useState(false);
++  const box = useRef<HTMLDivElement>(null);
++
++  useEffect(() => {
++    if (!uid) return;
++    let alive = true;
++    setSeenState(getSeen(uid));
++    fetchNotices(uid).then((n) => alive && setItems(n)).catch((e) => console.error("お知らせを取得できませんでした", e));
++    return () => { alive = false; };
++  }, [uid]);
++
++  // 閉じたら、画面上の既読の印を更新する
++  useEffect(() => {
++    if (!open && uid) setSeenState(getSeen(uid));
++  }, [open, uid]);
++
++  // 外側を押す・Esc で閉じる
++  useEffect(() => {
++    if (!open) return;
++    const onDown = (e: MouseEvent) => { if (box.current && !box.current.contains(e.target as Node)) setOpen(false); };
++    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
++    document.addEventListener("mousedown", onDown);
++    document.addEventListener("keydown", onKey);
++    return () => { document.removeEventListener("mousedown", onDown); document.removeEventListener("keydown", onKey); };
++  }, [open]);
++
++  if (!uid) return null;
++  const unread = items.filter((n) => n.createdAt > seen).length;
++
++  function toggle() {
++    const next = !open;
++    setOpen(next);
++    // 開いたら、既読として記録する（画面上の「新着」の印は、閉じたときに消える）
++    if (next && items.length > 0) setSeen(uid!, Math.max(...items.map((n) => n.createdAt)));
++  }
++
++  return (
++    <div ref={box} className="relative">
++      <button onClick={toggle} aria-label={unread > 0 ? `お知らせ（未読${unread}件）` : "お知らせ"} aria-expanded={open} className="relative flex h-9 w-9 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-700">
++        <Bell size={18} />
++        {unread > 0 && <span className="absolute right-0.5 top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-medium text-white">{unread}</span>}
++      </button>
++      {open && (
++        <div role="dialog" aria-label="お知らせ" className="absolute right-0 z-40 mt-2 max-h-[70dvh] w-[min(22rem,calc(100vw-2rem))] overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-surface p-3 shadow-lg">
++          <p className="mb-2 px-1 text-xs font-medium text-slate-500">お知らせ</p>
++          {items.length === 0 ? (
++            <p className="px-1 py-6 text-center text-sm text-slate-400">お知らせはありません</p>
++          ) : (
++            <ul className="space-y-2">
++              {items.map((n) => (
++                <li key={`${n.scope}:${n.id}`} className="rounded-xl bg-slate-50 p-3">
++                  <p className="flex items-start justify-between gap-2 text-sm font-medium text-slate-700">
++                    <span>{n.title}</span>
++                    {n.createdAt > seen && <span className="mt-0.5 shrink-0 rounded-full bg-rose-100 px-1.5 text-[10px] text-rose-600">新着</span>}
++                  </p>
++                  {n.body && <p className="mt-1 whitespace-pre-wrap break-words text-xs leading-relaxed text-slate-500">{n.body}</p>}
++                  <p className="mt-1.5 text-[11px] text-slate-300">{n.createdAt ? new Date(n.createdAt).toLocaleString("ja-JP") : ""}{n.scope === "me" && "・あなた宛"}</p>
++                </li>
++              ))}
++            </ul>
++          )}
++        </div>
++      )}
++    </div>
++  );
++}
+diff --git a/src/components/QuestionEditor.tsx b/src/components/QuestionEditor.tsx
+index 36e150a..75019d9 100644
+--- a/src/components/QuestionEditor.tsx
++++ b/src/components/QuestionEditor.tsx
+@@ -118,7 +118,7 @@ export function QuestionEditor({ question, onClose, modal = false, allowJudge =
+     try {
+       // 問題統括・管理者による本文/答えの変更は、変更前を改訂履歴に残す
+       if ((patch.body !== undefined || patch.answer !== undefined) && shouldLogRevision(role) && user) {
+-        await saveRevisionOnce(set.id, question.id, base.current.body, base.current.answer, user.uid, user.displayName || user.email || "匿名");
++        await saveRevisionOnce(set.id, question.id, base.current.body, base.current.answer, user.uid, user.displayName || "匿名");
+       }
+       await store.updateQuestion(question.id, patch, logs, imgs.dirty ? imgs.change : undefined);
+       onClose();
+diff --git a/src/lib/QuestionsContext.tsx b/src/lib/QuestionsContext.tsx
+index 4f70741..74dcc0a 100644
+--- a/src/lib/QuestionsContext.tsx
++++ b/src/lib/QuestionsContext.tsx
+@@ -173,7 +173,7 @@ export function QuestionsProvider({ setId, children }: { setId: string; children
+   answerIndexRef.current = answerIndex;
+ 
+   const col = useCallback((...p: string[]) => collection(db, "questionSets", setId, "questions", ...p), [setId]);
+-  const nameOfMe = () => user?.displayName || user?.email || "匿名";
++  const nameOfMe = () => user?.displayName || "匿名";
+ 
+   const createQuestion = useCallback(
+     async (input: QuestionInput, newImages: NewImage[] = []) => {
+diff --git a/src/lib/adminData.ts b/src/lib/adminData.ts
+new file mode 100644
+index 0000000..140a988
+--- /dev/null
++++ b/src/lib/adminData.ts
+@@ -0,0 +1,80 @@
++import { collection, deleteDoc, doc, getDocs, limit, orderBy, query, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
++import { db } from "./firebase";
++import { toMillis } from "./time";
++import { QuestionSet, Question } from "./types";
++import { toSet } from "./useQuestionSets";
++import { normalizeQuestion } from "./QuestionsContext";
++
++// 運営者の管理ページ用の読み書き。ここで読めるのは、運営者だけ（firestore.rules が守っている）。
++export interface AdminUser {
++  uid: string;
++  email: string;
++  displayName: string;
++  handle: string;
++  createdAt: number;
++  banned: boolean;
++  banReason: string;
++}
++
++export async function loadAccounts(): Promise<AdminUser[]> {
++  const [users, profiles, bans] = await Promise.all([
++    getDocs(collection(db, "users")),
++    getDocs(collection(db, "publicProfiles")),
++    getDocs(collection(db, "bans")),
++  ]);
++  const prof = new Map(profiles.docs.map((d) => [d.id, d.data()]));
++  const ban = new Map(bans.docs.map((d) => [d.id, d.data()]));
++  return users.docs
++    .map((d) => {
++      const x = d.data();
++      const p = prof.get(d.id);
++      const b = ban.get(d.id);
++      return {
++        uid: d.id,
++        email: x.email ?? "",
++        displayName: p?.displayName ?? x.displayName ?? "",
++        handle: p?.handle ?? "",
++        createdAt: toMillis(x.createdAt),
++        banned: !!b,
++        banReason: b?.reason ?? "",
++      } as AdminUser;
++    })
++    .sort((a, b) => b.createdAt - a.createdAt);
++}
++
++export const banUser = (adminUid: string, uid: string, reason: string) =>
++  setDoc(doc(db, "bans", uid), { reason: reason.trim().slice(0, 500), bannedBy: adminUid, createdAt: serverTimestamp() });
++export const unbanUser = (uid: string) => deleteDoc(doc(db, "bans", uid));
++
++export async function loadSets(): Promise<QuestionSet[]> {
++  const snap = await getDocs(collection(db, "questionSets"));
++  return snap.docs.map((d) => toSet(d.id, d.data())).sort((a, b) => b.updatedAt - a.updatedAt);
++}
++
++export async function loadQuestions(setId: string): Promise<Question[]> {
++  const snap = await getDocs(query(collection(db, "questionSets", setId, "questions"), orderBy("order", "asc")));
++  return snap.docs.map((d) => normalizeQuestion(d.id, d.data()));
++}
++
++export interface AdminContact {
++  id: string;
++  name: string;
++  email: string;
++  category: string;
++  message: string;
++  uid: string;
++  status: "new" | "done";
++  createdAt: number;
++}
++export async function loadContacts(max = 200): Promise<AdminContact[]> {
++  const snap = await getDocs(query(collection(db, "contacts"), orderBy("createdAt", "desc"), limit(max)));
++  return snap.docs.map((d) => {
++    const x = d.data();
++    return { id: d.id, name: x.name ?? "", email: x.email ?? "", category: x.category ?? "other", message: x.message ?? "", uid: x.uid ?? "", status: x.status === "done" ? "done" : "new", createdAt: toMillis(x.createdAt) };
++  });
++}
++export const setContactStatus = (id: string, status: "new" | "done") => updateDoc(doc(db, "contacts", id), { status });
++export const deleteContact = (id: string) => deleteDoc(doc(db, "contacts", id));
++export const contactCategoryLabel: Record<string, string> = {
++  service: "サービスについて", bug: "不具合の報告", account: "アカウントについて", legal: "規約・ポリシー", other: "その他",
++};
+diff --git a/src/lib/auth-context.tsx b/src/lib/auth-context.tsx
+index ab41048..0626a9b 100644
+--- a/src/lib/auth-context.tsx
++++ b/src/lib/auth-context.tsx
+@@ -17,6 +17,8 @@ import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
+ import { auth, db } from "./firebase";
+ import { normalizeText } from "./search";
+ import { assignRandomHandle, createProfileWithRandomHandle } from "./handles";
++import { usePathname } from "next/navigation";
++import { BannedScreen } from "@/components/BannedScreen";
+ 
+ // Google でログインした結果。「needs-link」は、同じメールアドレスの、パスワードで作られたアカウントがすでにある場合。
+ export type GoogleSignInResult = { status: "ok" } | { status: "needs-link"; email: string; credential: AuthCredential };
+@@ -60,6 +62,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
+   const [user, setUser] = useState<User | null>(null);
+   const [loading, setLoading] = useState(true);
+   const profileSynced = useRef<string | null>(null);
++  const [banned, setBanned] = useState(false);
++  const pathname = usePathname();
++  const uid = user?.uid;
++
++  // 停止中のアカウントか（bans/{uid} があるか）。ログイン時と、そのあと5分ごとに確かめる。
++  // 停止中は、データの読み書きがルールで拒否される。ここは、その旨を画面に出すためのもの。
++  useEffect(() => {
++    if (!uid) { setBanned(false); return; }
++    let alive = true;
++    const check = () => getDoc(doc(db, "bans", uid)).then((s) => alive && setBanned(s.exists())).catch(() => { /* 確認できないときは、そのまま */ });
++    check();
++    const t = setInterval(check, 5 * 60 * 1000);
++    return () => { alive = false; clearInterval(t); };
++  }, [uid]);
+ 
+   useEffect(() => {
+     const unsub = onAuthStateChanged(auth, (u) => {
+@@ -144,7 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
+ 
+   return (
+     <AuthContext.Provider value={{ user, loading, signInWithGoogle, linkGoogleToPasswordAccount, linkGoogle, logOut, updateMyProfile }}>
+-      {children}
++      {banned && !["/contact", "/terms", "/privacy"].some((p) => pathname?.startsWith(p)) ? <BannedScreen onLogout={logOut} /> : children}
+     </AuthContext.Provider>
+   );
+ }
+diff --git a/src/lib/legal.ts b/src/lib/legal.ts
+new file mode 100644
+index 0000000..acb2ca0
+--- /dev/null
++++ b/src/lib/legal.ts
+@@ -0,0 +1,5 @@
++// 利用規約・プライバシーポリシー・お問い合わせに表示する、運営者の情報。
++// 【公開前に必ず、実際の内容に書き換える】。この文書は雛形で、法的な助言ではありません。必要に応じて、専門家の確認を受けてください。
++export const SERVICE_NAME = "Qraft";
++export const OPERATOR_NAME = "【運営者の名前または団体名】";
++export const LEGAL_UPDATED = "2026年11月15日";
+diff --git a/src/lib/notices.ts b/src/lib/notices.ts
+new file mode 100644
+index 0000000..6ef7548
+--- /dev/null
++++ b/src/lib/notices.ts
+@@ -0,0 +1,47 @@
++import { addDoc, collection, deleteDoc, doc, getDocs, limit, orderBy, query, serverTimestamp } from "firebase/firestore";
++import { db } from "./firebase";
++import { toMillis } from "./time";
++
++// お知らせ。全員向け（broadcasts）と、個人向け（userNotices/{uid}/items）がある。
++// 既読は、無料枠のために、サーバーには書かず、ブラウザに「最後に見た時刻」だけを残す。
++export interface Notice {
++  id: string;
++  title: string;
++  body: string;
++  createdAt: number;
++  scope: "all" | "me";
++}
++
++const toNotice = (id: string, d: Record<string, any>, scope: Notice["scope"]): Notice => ({
++  id, scope, title: d.title ?? "", body: d.body ?? "", createdAt: toMillis(d.createdAt),
++});
++
++export async function fetchNotices(uid: string, max = 15): Promise<Notice[]> {
++  const [all, mine] = await Promise.all([
++    getDocs(query(collection(db, "broadcasts"), orderBy("createdAt", "desc"), limit(max))),
++    getDocs(query(collection(db, "userNotices", uid, "items"), orderBy("createdAt", "desc"), limit(max))),
++  ]);
++  return [...all.docs.map((d) => toNotice(d.id, d.data(), "all")), ...mine.docs.map((d) => toNotice(d.id, d.data(), "me"))]
++    .sort((a, b) => b.createdAt - a.createdAt)
++    .slice(0, max);
++}
++
++const seenKey = (uid: string) => `qraft:notices:seen:${uid}`;
++export function getSeen(uid: string): number {
++  try { return Number(localStorage.getItem(seenKey(uid))) || 0; } catch { return 0; }
++}
++export function setSeen(uid: string, at: number) {
++  try { localStorage.setItem(seenKey(uid), String(at)); } catch { /* noop */ }
++}
++
++// 運営者が送る。target は "all"（全員）か、相手の uid
++export async function sendNotice(target: "all" | string, title: string, body: string) {
++  const data = { title: title.trim(), body: body.trim(), createdAt: serverTimestamp() };
++  if (!data.title) throw new Error("件名を入力してください");
++  if (data.title.length > 60) throw new Error("件名は60文字以内にしてください");
++  if (data.body.length > 1000) throw new Error("本文は1000文字以内にしてください");
++  if (target === "all") await addDoc(collection(db, "broadcasts"), data);
++  else await addDoc(collection(db, "userNotices", target, "items"), data);
++}
++
++export const deleteBroadcast = (id: string) => deleteDoc(doc(db, "broadcasts", id));
+diff --git a/src/lib/siteAdmin.ts b/src/lib/siteAdmin.ts
+new file mode 100644
+index 0000000..8288bc8
+--- /dev/null
++++ b/src/lib/siteAdmin.ts
+@@ -0,0 +1,23 @@
++import { useEffect, useState } from "react";
++import { doc, getDoc } from "firebase/firestore";
++import { db } from "./firebase";
++import { useAuth } from "./auth-context";
++
++// サイトの運営者（管理者ページに入れる人）かどうか。
++// siteAdmins/{uid} という文書があれば運営者。この文書は、Firebase コンソールからしか作れない（ルールで、アプリからは書けない）。
++// ここでの判定は、画面を出し分けるためのもの。データを守っているのは、firestore.rules。
++export function useIsSiteAdmin() {
++  const { user, loading: authLoading } = useAuth();
++  const [state, setState] = useState<{ uid: string | null; isAdmin: boolean }>({ uid: null, isAdmin: false });
++  const uid = user?.uid;
++  useEffect(() => {
++    if (!uid) return;
++    let alive = true;
++    getDoc(doc(db, "siteAdmins", uid))
++      .then((s) => alive && setState({ uid, isAdmin: s.exists() }))
++      .catch(() => alive && setState({ uid, isAdmin: false }));
++    return () => { alive = false; };
++  }, [uid]);
++  const loading = authLoading || (!!uid && state.uid !== uid);
++  return { isAdmin: !!uid && state.uid === uid && state.isAdmin, loading };
++}
+diff --git a/src/lib/useInvites.ts b/src/lib/useInvites.ts
+index 357c5d9..7c3b683 100644
+--- a/src/lib/useInvites.ts
++++ b/src/lib/useInvites.ts
+@@ -130,7 +130,7 @@ export function useMyInvites() {
+ export async function acceptUserInvite(inv: SetInvite, me: { uid: string; email: string; displayName: string; photoURL: string }) {
+   await updateDoc(doc(db, "questionSets", inv.setId), {
+     [`members.${me.uid}`]: inv.role,
+-    [`memberProfiles.${me.uid}`]: { email: me.email, displayName: me.displayName, photoURL: me.photoURL },
++    [`memberProfiles.${me.uid}`]: { email: "", displayName: me.displayName, photoURL: me.photoURL },
+     updatedAt: serverTimestamp(),
+   });
+   const batch = writeBatch(db);
+@@ -150,7 +150,7 @@ export function normalizeEmail(email: string) {
+ export async function acceptLegacyInvite(inv: Invite, me: { uid: string; email: string; displayName: string; photoURL: string }) {
+   await updateDoc(doc(db, "questionSets", inv.setId), {
+     [`members.${me.uid}`]: inv.role,
+-    [`memberProfiles.${me.uid}`]: { email: me.email, displayName: me.displayName, photoURL: me.photoURL },
++    [`memberProfiles.${me.uid}`]: { email: "", displayName: me.displayName, photoURL: me.photoURL },
+     updatedAt: serverTimestamp(),
+   });
+   const n = normalizeEmail(me.email);
+diff --git a/src/lib/useQuestionSets.ts b/src/lib/useQuestionSets.ts
+index d8c4653..24b1fbc 100644
+--- a/src/lib/useQuestionSets.ts
++++ b/src/lib/useQuestionSets.ts
+@@ -10,7 +10,7 @@ import { useAuth } from "./auth-context";
+ const LEGACY_ROLE_MAP: Record<string, string> = { owner: "admin", editor: "writer" };
+ 
+ 
+-function toSet(id: string, data: any): QuestionSet {
++export function toSet(id: string, data: any): QuestionSet {
+   return {
+     id,
+     name: data.name ?? "",
+@@ -65,7 +65,7 @@ export function useQuestionSets() {
+       ownerId: user.uid,
+       members: { [user.uid]: "admin" },
+       memberProfiles: {
+-        [user.uid]: { email: user.email ?? "", displayName: user.displayName ?? "", photoURL: user.photoURL ?? "" },
++        [user.uid]: { email: "", displayName: user.displayName ?? "", photoURL: user.photoURL ?? "" }, // メールは、他のメンバーが読める場所には置かない
+       },
+       genres: [],
+       genreTree: [],
+@@ -132,11 +132,11 @@ export function useQuestionSet(setId: string) {
+         const photo = user.photoURL ?? "";
+         if (
+           rawRole && !mapped && !profileRef.current && mine &&
+-          (mine.displayName !== name || (mine.photoURL ?? "") !== photo)
++          (mine.displayName !== name || (mine.photoURL ?? "") !== photo || (mine.email ?? "") !== "")
+         ) {
+           profileRef.current = true;
+           updateDoc(doc(db, "questionSets", setId), {
+-            [`memberProfiles.${user.uid}`]: { email: mine.email ?? user.email ?? "", displayName: name, photoURL: photo },
++            [`memberProfiles.${user.uid}`]: { email: "", displayName: name, photoURL: photo },
+             updatedAt: serverTimestamp(),
+           })
+             .catch((e) => console.error("プロフィール同期に失敗しました", e))
+diff --git a/src/lib/useRevisions.ts b/src/lib/useRevisions.ts
+index 9a4d11a..37201e5 100644
+--- a/src/lib/useRevisions.ts
++++ b/src/lib/useRevisions.ts
+@@ -56,7 +56,7 @@ export function useRevisions(setId: string, questionId: string | null) {
+         body,
+         answer,
+         editedByUid: user.uid,
+-        editedByName: user.displayName || user.email || "匿名",
++        editedByName: user.displayName || "匿名",
+         createdAt: serverTimestamp(),
+       }
+     );
