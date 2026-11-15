@@ -281,6 +281,7 @@ invites/{email}                          旧方式（メール宛）。新規に
     │   ├── RenameSet.tsx              問題セット名の変更
     │   ├── ScopeNav.tsx               「すべて／自分の問題／他の人の問題」の切り替え
     │   ├── ShareDialog.tsx            招待・権限のポップアップ
+    │   ├── SiteChrome.tsx            公開ページ（トップ・規約・ポリシー・お問い合わせ）の共通のヘッダーとフッター
     │   ├── Skeleton.tsx              読み込み中の、骨組みの表示
     │   └── ThemeSelector.tsx          ライト／ダークの切り替え
     └── lib

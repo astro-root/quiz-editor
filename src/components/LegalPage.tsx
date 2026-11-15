@@ -1,10 +1,9 @@
 "use client";
 
 import { ReactNode, useState } from "react";
-import Link from "next/link";
 import { MotionConfig, motion } from "framer-motion";
-import { ArrowLeft, ChevronDown } from "lucide-react";
-import { Logo } from "./Logo";
+import { ChevronDown } from "lucide-react";
+import { CHROME_X, SiteFooter, SiteHeader } from "./SiteChrome";
 import { LEGAL_UPDATED } from "@/lib/legal";
 
 export interface LegalSection {
@@ -24,13 +23,10 @@ export function LegalPage({ title, lead, updated = true, sections, children }: {
   const [tocOpen, setTocOpen] = useState(false);
   return (
     <MotionConfig reducedMotion="user">
-      <div className="min-h-dvh bg-slate-50">
-        <motion.header initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease }} className="mx-auto flex max-w-[96rem] items-center justify-between px-4 py-4 sm:px-6 lg:px-10">
-          <Link href="/" className="flex items-center gap-2 text-slate-800"><Logo size={26} /><span className="font-semibold">Qraft</span></Link>
-          <Link href="/" className="flex min-h-[36px] items-center gap-1 text-xs text-slate-400 hover:text-slate-600"><ArrowLeft size={12} />トップへ</Link>
-        </motion.header>
+      <div className="flex min-h-dvh flex-col bg-slate-50">
+        <SiteHeader />
 
-        <main className="mx-auto max-w-[96rem] px-4 pb-16 pt-2 sm:px-6 sm:pt-4 lg:px-10">
+        <main className={`${CHROME_X} flex-1 pb-12 pt-4 sm:pt-6`}>
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease, delay: 0.05 }} className="mb-6 sm:mb-8">
             <h1 className="text-2xl font-bold tracking-[-0.01em] text-slate-900 sm:text-3xl">{title}</h1>
             {updated && <p className="mt-2 text-xs text-slate-400">最終更新日：{LEGAL_UPDATED}</p>}
@@ -77,12 +73,8 @@ export function LegalPage({ title, lead, updated = true, sections, children }: {
             children
           )}
 
-          <motion.nav initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5, delay: 0.3 }} aria-label="規約など" className="mt-8 flex flex-wrap gap-x-5 gap-y-2 text-xs text-slate-400">
-            <Link href="/terms" className="flex min-h-[32px] items-center hover:text-slate-600">利用規約</Link>
-            <Link href="/privacy" className="flex min-h-[32px] items-center hover:text-slate-600">プライバシーポリシー</Link>
-            <Link href="/contact" className="flex min-h-[32px] items-center hover:text-slate-600">お問い合わせ</Link>
-          </motion.nav>
         </main>
+        <SiteFooter />
       </div>
     </MotionConfig>
   );
