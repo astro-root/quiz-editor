@@ -3,11 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AnimatePresence, MotionConfig, motion, useInView, useMotionValueEvent, useReducedMotion, useScroll, useTransform } from "framer-motion";
-import { AlertTriangle, ArrowRight, Check, ImageIcon, Moon, Sun } from "lucide-react";
+import { AnimatePresence, MotionConfig, motion, useInView, useReducedMotion, useScroll, useTransform } from "framer-motion";
+import { AlertTriangle, ArrowRight, Check, ImageIcon } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { useTheme } from "@/lib/theme";
 import { Logo } from "@/components/Logo";
+import { SiteFooter, SiteHeader } from "@/components/SiteChrome";
 
 const palt = { fontFeatureSettings: '"palt"' } as const;
 const jp = { wordBreak: "auto-phrase", textWrap: "pretty" } as unknown as React.CSSProperties;
@@ -495,24 +495,6 @@ function FaqItem({ q, a, id }: { q: string; a: string; id: string }) {
   );
 }
 
-function ThemeButton() {
-  const { resolved, setPreference } = useTheme();
-  return (
-    <button
-      type="button"
-      onClick={() => setPreference(resolved === "dark" ? "light" : "dark")}
-      aria-label={resolved === "dark" ? "ライトモードに切り替え" : "ダークモードに切り替え"}
-      className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-    >
-      <AnimatePresence mode="wait" initial={false}>
-        <motion.span key={resolved} initial={{ rotate: -60, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 60, opacity: 0 }} transition={{ duration: 0.18 }}>
-          {resolved === "dark" ? <Sun size={17} /> : <Moon size={17} />}
-        </motion.span>
-      </AnimatePresence>
-    </button>
-  );
-}
-
 // 見出しの1行。下から、行ごとに現れる
 function HeadLine({ children, delay }: { children: React.ReactNode; delay: number }) {
   const reduce = useReducedMotion();
@@ -527,9 +509,6 @@ export default function Home() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const reduce = useReducedMotion();
-  const { scrollY } = useScroll();
-  const [scrolled, setScrolled] = useState(false);
-  useMotionValueEvent(scrollY, "change", (v) => setScrolled(v > 12));
 
   useEffect(() => {
     if (loading || !user) return;
@@ -550,21 +529,7 @@ export default function Home() {
   return (
     <MotionConfig reducedMotion="user">
       <div className="min-h-dvh bg-slate-50">
-        <header className={`sticky top-0 z-40 border-b transition-colors duration-300 ${scrolled ? "border-slate-200 bg-slate-50/80 backdrop-blur-md" : "border-transparent"}`}>
-          <div className="mx-auto flex max-w-[96rem] lg:px-12 items-center justify-between px-4 py-3 sm:px-6">
-            <div className="flex items-center gap-2.5">
-              <Logo size={28} />
-              <span className="font-semibold text-slate-800">Qraft</span>
-            </div>
-            <nav className="flex items-center gap-1 sm:gap-2" aria-label="ページ内">
-              <a href="#features" className="hidden rounded-lg px-3 py-2 text-sm text-slate-500 hover:text-slate-800 sm:block">機能</a>
-              <a href="#faq" className="hidden rounded-lg px-3 py-2 text-sm text-slate-500 hover:text-slate-800 sm:block">よくある質問</a>
-              <ThemeButton />
-              <Link href="/login" className="rounded-lg px-3 py-2 text-sm text-slate-600 hover:text-slate-800">ログイン</Link>
-              <Link href="/signup" className="rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 sm:px-4">始める</Link>
-            </nav>
-          </div>
-        </header>
+        <SiteHeader landing />
 
         <section className="relative">
           <DotGrid />
@@ -622,15 +587,7 @@ export default function Home() {
           </Reveal>
         </section>
 
-        <footer className="mx-auto flex max-w-[96rem] lg:px-12 items-center gap-2 px-4 pb-10 text-xs text-slate-400 sm:px-6">
-          <Logo size={16} />
-          <span>Qraft — クイズ作問エディタ</span>
-          <nav aria-label="規約など" className="ml-auto flex flex-wrap gap-x-4 gap-y-1">
-            <Link href="/terms" className="hover:text-slate-600">利用規約</Link>
-            <Link href="/privacy" className="hover:text-slate-600">プライバシーポリシー</Link>
-            <Link href="/contact" className="hover:text-slate-600">お問い合わせ</Link>
-          </nav>
-        </footer>
+        <SiteFooter />
       </div>
     </MotionConfig>
   );
