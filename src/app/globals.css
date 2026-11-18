@@ -235,3 +235,14 @@ body {
     min-height: 44px;
   }
 }
+
+/* ---- キーボード操作のとき、どこにフォーカスがあるか分かるようにする ---- */
+:focus-visible {
+  outline: 2px solid rgb(var(--brand-500) / 0.9);
+  outline-offset: 2px;
+}
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none; /* 入力欄は、すでにフォーカスの枠が付いている */
+}

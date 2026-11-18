@@ -10,6 +10,7 @@ import { useIsSiteAdmin } from "@/lib/siteAdmin";
 import { AdminContact, AdminUser, loadAccounts, loadContacts, loadSets } from "@/lib/adminData";
 import { QuestionSet } from "@/lib/types";
 import { PageSkeleton } from "@/components/Skeleton";
+import { CHROME_X, SiteFooter, SiteHeader } from "@/components/SiteChrome";
 import { OverviewTab } from "./OverviewTab";
 import { AccountsTab } from "./AccountsTab";
 import { SetsTab } from "./SetsTab";
@@ -79,8 +80,9 @@ export default function AdminPage() {
   const newContacts = (contacts ?? []).filter((c) => c.status === "new").length;
   return (
     <MotionConfig reducedMotion="user">
-      <div className="min-h-dvh bg-slate-50">
-        <div className="mx-auto max-w-[96rem] px-4 py-6 sm:px-6 sm:py-8 lg:px-10">
+      <div className="flex min-h-dvh flex-col bg-slate-50">
+        <SiteHeader sticky={false} />
+        <div className={`${CHROME_X} flex-1 pb-10 pt-4 sm:pt-6`}>
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
             <div>
               <Link href="/dashboard" className="mb-1 flex min-h-[28px] items-center gap-1 text-xs text-slate-400 hover:text-slate-600"><ArrowLeft size={12} />ダッシュボードへ</Link>
@@ -119,6 +121,7 @@ export default function AdminPage() {
             )}
           </motion.div>
         </div>
+        <SiteFooter />
       </div>
     </MotionConfig>
   );

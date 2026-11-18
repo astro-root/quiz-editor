@@ -7,6 +7,8 @@ import { ArrowLeft, AtSign, LogOut, Mail, Palette, UserRound } from "lucide-reac
 import { useAuth } from "@/lib/auth-context";
 import { PageSkeleton } from "@/components/Skeleton";
 import { Avatar } from "@/components/Avatar";
+import { AccountDataSection } from "@/components/AccountDataSection";
+import { CHROME_X, SiteFooter, SiteHeader } from "@/components/SiteChrome";
 import { ThemeSelector } from "@/components/ThemeSelector";
 import { IMAGE_ACCEPT, packAvatar, Packed, toDataUrl } from "@/lib/imageTools";
 import { parseAvatarRef, removeAvatar, saveAvatar } from "@/lib/avatars";
@@ -132,8 +134,9 @@ export default function AccountPage() {
   }
 
   return (
-    <div className="min-h-dvh bg-slate-50">
-      <div className="mx-auto max-w-[96rem] px-4 py-8 sm:px-6 lg:px-10">
+    <div className="flex min-h-dvh flex-col bg-slate-50">
+      <SiteHeader sticky={false} />
+      <div className={`${CHROME_X} flex-1 pb-10 pt-4 sm:pt-6`}>
         <Link href="/dashboard" className="mb-1 flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600">
           <ArrowLeft size={12} /> 一覧へ戻る
         </Link>
@@ -202,11 +205,14 @@ export default function AccountPage() {
           </p>
         </section>
 
+        <AccountDataSection />
+
         <section className={card}>
           <button onClick={logOut} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700"><LogOut size={14} />ログアウト</button>
         </section>
         </div>
       </div>
+      <SiteFooter />
     </div>
   );
 }

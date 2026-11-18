@@ -21,8 +21,10 @@ for raw in m.group(1).splitlines()[1:]:
     stack = stack[:depth]
     path = "/".join([s for _, s in stack] + [name])
     is_dir = not re.search(r"\.[A-Za-z0-9]+$", name)
-    if name.startswith(".") and "." not in name[1:]:
-        is_dir = False
+    if name.startswith(".") and "." not in name[1:] and name not in (".github",):
+        is_dir = False  # .gitignore や .firebaserc は、ファイル（.github だけは、フォルダ）
+    if name == ".github":
+        is_dir = True
     if is_dir:
         stack.append((depth, name))
     else:

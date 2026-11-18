@@ -1,31 +1,28 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bell } from "lucide-react";
+import { Bell, Check, CheckCheck } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { fetchNotices, getSeen, Notice, setSeen } from "@/lib/notices";
+import { Markdown } from "./Markdown";
+import { fetchNotices, getReadState, isUnread, markAllRead, markRead, Notice, noticeKey } from "@/lib/notices";
 
-// 運営からのお知らせ。ベルを押すと、一覧が開く。開いたら、既読にする。
+// 運営からのお知らせ。ベルを押すと、一覧が開く。開いただけでは、既読にならない。
+// 「既読にする」（1件ずつ）と「すべて既読にする」で、既読にする。
 export function NoticeBell() {
   const { user } = useAuth();
   const uid = user?.uid;
   const [items, setItems] = useState<Notice[]>([]);
-  const [seen, setSeenState] = useState(0);
+  const [st, setSt] = useState({ before: 0, ids: [] as string[] });
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!uid) return;
     let alive = true;
-    setSeenState(getSeen(uid));
+    setSt(getReadState(uid));
     fetchNotices(uid).then((n) => alive && setItems(n)).catch((e) => console.error("お知らせを取得できませんでした", e));
     return () => { alive = false; };
   }, [uid]);
-
-  // 閉じたら、画面上の既読の印を更新する
-  useEffect(() => {
-    if (!open && uid) setSeenState(getSeen(uid));
-  }, [open, uid]);
 
   // 外側を押す・Esc で閉じる
   useEffect(() => {
@@ -38,38 +35,40 @@ export function NoticeBell() {
   }, [open]);
 
   if (!uid) return null;
-  const unread = items.filter((n) => n.createdAt > seen).length;
-
-  function toggle() {
-    const next = !open;
-    setOpen(next);
-    // 開いたら、既読として記録する（画面上の「新着」の印は、閉じたときに消える）
-    if (next && items.length > 0) setSeen(uid!, Math.max(...items.map((n) => n.createdAt)));
-  }
+  const unread = items.filter((n) => isUnread(n, st)).length;
 
   return (
     <div ref={box} className="relative">
-      <button onClick={toggle} aria-label={unread > 0 ? `お知らせ（未読${unread}件）` : "お知らせ"} aria-expanded={open} className="relative flex h-9 w-9 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-700">
+      <button onClick={() => setOpen((o) => !o)} aria-label={unread > 0 ? `お知らせ（未読${unread}件）` : "お知らせ"} aria-expanded={open} className="relative flex h-9 w-9 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-700">
         <Bell size={18} />
         {unread > 0 && <span className="absolute right-0.5 top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-medium text-white">{unread}</span>}
       </button>
       {open && (
-        <div role="dialog" aria-label="お知らせ" className="absolute right-0 z-40 mt-2 max-h-[70dvh] w-[min(22rem,calc(100vw-2rem))] overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-surface p-3 shadow-lg">
-          <p className="mb-2 px-1 text-xs font-medium text-slate-500">お知らせ</p>
+        <div role="dialog" aria-label="お知らせ" className="absolute right-0 z-40 mt-2 max-h-[70dvh] w-[min(24rem,calc(100vw-2rem))] overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-surface p-3 shadow-lg">
+          <div className="mb-2 flex items-center justify-between gap-2 px-1">
+            <p className="text-xs font-medium text-slate-500">お知らせ{unread > 0 && `（未読 ${unread}件）`}</p>
+            <button onClick={() => setSt(markAllRead(uid, items))} disabled={unread === 0} className="flex min-h-[32px] items-center gap-1 rounded-md px-2 text-xs text-accent hover:bg-brand-50 disabled:text-slate-300 disabled:hover:bg-transparent"><CheckCheck size={13} />すべて既読にする</button>
+          </div>
           {items.length === 0 ? (
             <p className="px-1 py-6 text-center text-sm text-slate-400">お知らせはありません</p>
           ) : (
             <ul className="space-y-2">
-              {items.map((n) => (
-                <li key={`${n.scope}:${n.id}`} className="rounded-xl bg-slate-50 p-3">
-                  <p className="flex items-start justify-between gap-2 text-sm font-medium text-slate-700">
-                    <span>{n.title}</span>
-                    {n.createdAt > seen && <span className="mt-0.5 shrink-0 rounded-full bg-rose-100 px-1.5 text-[10px] text-rose-600">新着</span>}
-                  </p>
-                  {n.body && <p className="mt-1 whitespace-pre-wrap break-words text-xs leading-relaxed text-slate-500">{n.body}</p>}
-                  <p className="mt-1.5 text-[11px] text-slate-300">{n.createdAt ? new Date(n.createdAt).toLocaleString("ja-JP") : ""}{n.scope === "me" && "・あなた宛"}</p>
-                </li>
-              ))}
+              {items.map((n) => {
+                const un = isUnread(n, st);
+                return (
+                  <li key={noticeKey(n)} className={`rounded-xl p-3 ${un ? "bg-brand-50 ring-1 ring-brand-100" : "bg-slate-50 opacity-70"}`}>
+                    <p className="flex items-start justify-between gap-2 text-sm font-medium text-slate-700">
+                      <span>{n.title}</span>
+                      {un && <span className="mt-0.5 shrink-0 rounded-full bg-rose-100 px-1.5 text-[10px] text-rose-600">未読</span>}
+                    </p>
+                    {n.body && <Markdown text={n.body} className="mt-1 text-xs leading-relaxed text-slate-500 [&>*:last-child]:mb-0" />}
+                    <div className="mt-1.5 flex items-center justify-between gap-2">
+                      <p className="text-[11px] text-slate-300">{n.createdAt ? new Date(n.createdAt).toLocaleString("ja-JP") : ""}{n.scope === "me" && "・あなた宛"}</p>
+                      {un && <button onClick={() => setSt(markRead(uid, n))} className="flex min-h-[32px] items-center gap-1 rounded-md px-2 text-xs text-accent hover:bg-brand-100"><Check size={13} />既読にする</button>}
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>

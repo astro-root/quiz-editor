@@ -3,26 +3,22 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LogOut, Plus, FolderOpen, UserCog, X, Loader2 } from "lucide-react";
-import { Logo } from "@/components/Logo";
+import { Plus, FolderOpen, X, Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { PageSkeleton } from "@/components/Skeleton";
 import { useQuestionSets } from "@/lib/useQuestionSets";
 import { acceptLegacyInvite, acceptUserInvite, declineUserInvite, useMyInvites } from "@/lib/useInvites";
 import { roleLabel } from "@/lib/permissions";
-import { Avatar } from "@/components/Avatar";
-import { NoticeBell } from "@/components/NoticeBell";
-import { useIsSiteAdmin } from "@/lib/siteAdmin";
+import { CHROME_X, SiteFooter, SiteHeader } from "@/components/SiteChrome";
 import { Modal } from "@/components/Modal";
 import { Fab } from "@/components/Fab";
 import { LinkGoogleBanner } from "@/components/LinkGoogleBanner";
 
 export default function DashboardPage() {
-  const { user, loading, logOut } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
   const { sets, loading: setsLoading, createQuestionSet } = useQuestionSets();
   const { invites, legacy } = useMyInvites();
-  const siteAdmin = useIsSiteAdmin();
   const [showNew, setShowNew] = useState(false);
   const [newSetName, setNewSetName] = useState("");
   const [creating, setCreating] = useState(false);
@@ -78,23 +74,9 @@ export default function DashboardPage() {
   const newBtn = "flex min-h-[40px] items-center gap-1.5 rounded-lg bg-brand-600 px-4 text-sm font-medium text-white shadow-sm hover:bg-brand-700";
 
   return (
-    <div className="min-h-dvh bg-slate-50">
-      <div className="mx-auto max-w-[96rem] px-4 py-8 sm:px-6 lg:px-10">
-        <div className="mb-8 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Logo size={32} />
-            <h1 className="text-lg font-semibold text-slate-800">Qraft</h1>
-          </div>
-          <div className="flex items-center gap-3">
-            {siteAdmin.isAdmin && <Link href="/admin" className="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-500 hover:bg-slate-100">管理</Link>}
-            <NoticeBell />
-            <Link href="/account" aria-label="アカウント設定" className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700">
-              <Avatar name={me.displayName || me.email} photoURL={me.photoURL} size={22} /><UserCog size={14} />
-            </Link>
-            <button onClick={logOut} className="flex items-center gap-1 text-sm text-slate-400 hover:text-slate-600"><LogOut size={14} />ログアウト</button>
-          </div>
-        </div>
-
+    <div className="flex min-h-dvh flex-col bg-slate-50">
+      <SiteHeader sticky={false} />
+      <div className={`${CHROME_X} flex-1 pb-10 pt-4 sm:pt-6`}>
         <LinkGoogleBanner />
         {error && <p role="alert" className="mb-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-danger">{error}</p>}
 
@@ -138,6 +120,7 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+      <SiteFooter />
 
       {showNew && (
         <Modal onRequestClose={() => setShowNew(false)} label="新しい問題セット" size="md">

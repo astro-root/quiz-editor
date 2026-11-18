@@ -9,6 +9,7 @@ import { deleteBroadcast, sendNotice } from "@/lib/notices";
 import { searchUsers } from "@/lib/useInvites";
 import { PublicProfile } from "@/lib/types";
 import { useConfirm } from "@/components/Confirm";
+import { Markdown } from "@/components/Markdown";
 import { fmt } from "./AccountsTab";
 
 interface Sent { id: string; title: string; body: string; createdAt: number }
@@ -21,6 +22,7 @@ export function NoticesTab() {
   const [target, setTarget] = useState<PublicProfile | null | undefined>(undefined); // undefined=未検索、null=見つからない
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  const [preview, setPreview] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [sent, setSent] = useState<Sent[]>([]);
@@ -84,7 +86,17 @@ export function NoticesTab() {
           <p className="mt-1 text-right text-xs tabular-nums text-slate-400">{title.length}/60</p>
         </div>
         <div>
-          <textarea value={body} onChange={(e) => setBody(e.target.value)} maxLength={1000} rows={7} placeholder="本文" aria-label="本文" className={`${input} resize-y leading-relaxed`} />
+          <div className="mb-1 flex items-center justify-between">
+            <p className="text-xs text-slate-400">マークダウンが使えます（# 見出し、**太字**、- リスト、[文字](URL) など）</p>
+            <button type="button" onClick={() => setPreview((v) => !v)} aria-pressed={preview} className={`min-h-[32px] rounded-md px-2 text-xs ${preview ? "bg-brand-50 text-accent" : "text-slate-500 hover:bg-slate-100"}`}>プレビュー</button>
+          </div>
+          {preview ? (
+            <div className="min-h-[11rem] rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm leading-relaxed text-slate-600">
+              {body.trim() ? <Markdown text={body} className="[&>*:last-child]:mb-0" /> : <p className="text-slate-300">本文がありません</p>}
+            </div>
+          ) : (
+            <textarea value={body} onChange={(e) => setBody(e.target.value)} maxLength={1000} rows={7} placeholder="本文" aria-label="本文" className={`${input} resize-y leading-relaxed`} />
+          )}
           <p className="mt-1 text-right text-xs tabular-nums text-slate-400">{body.length}/1000</p>
         </div>
         {msg && <p role="status" className={`rounded-lg px-3 py-2 text-sm ${msg.ok ? "bg-emerald-50 text-ok" : "bg-rose-50 text-danger"}`}>{msg.text}</p>}
@@ -101,7 +113,7 @@ export function NoticesTab() {
                   <p className="text-sm font-medium text-slate-700">{n.title}</p>
                   <button onClick={async () => { if (await ask({ title: "このお知らせを削除しますか？", body: "利用者の画面からも消えます。", confirmLabel: "削除する", danger: true })) { await deleteBroadcast(n.id).catch((e) => console.error(e)); reload(); } }} aria-label="削除" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-300 hover:bg-slate-50 hover:text-danger"><Trash2 size={14} /></button>
                 </div>
-                {n.body && <p className="mt-1 whitespace-pre-wrap break-words text-xs text-slate-500">{n.body}</p>}
+                {n.body && <Markdown text={n.body} className="mt-1 text-xs text-slate-500 [&>*:last-child]:mb-0" />}
                 <p className="mt-1 text-[11px] text-slate-300">{fmt(n.createdAt)}</p>
               </li>
             ))}

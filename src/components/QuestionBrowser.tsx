@@ -48,9 +48,10 @@ interface Props {
   emptyText?: string;
   onFilteredChange?: (list: Question[]) => void;
   allowJudge?: boolean; // 開く編集画面で、採用・却下を変更できるようにする（裏どり画面だけ）
+  stageTabs?: boolean; // 作問状況（下書き／作問完了）で分けて見られるタブを出す（作問画面）
 }
 
-export function QuestionBrowser({ base, storageKey, initialFilters, header, showAuthor = true, emptyText, onFilteredChange, allowJudge = false }: Props) {
+export function QuestionBrowser({ base, storageKey, initialFilters, header, showAuthor = true, emptyText, onFilteredChange, allowJudge = false, stageTabs = false }: Props) {
   const { user } = useAuth();
   const uid = user?.uid ?? "";
   const { set, tree, gi } = useSetContext();
@@ -120,6 +121,16 @@ export function QuestionBrowser({ base, storageKey, initialFilters, header, show
           </button>
         </div>
 
+        {stageTabs && (
+          <div role="tablist" aria-label="作問状況" className="mt-2 flex flex-wrap gap-1.5">
+            {([["", "すべて"], ["draft", "下書き"], ["completed", "作問完了"]] as const).map(([v, t]) => (
+              <button key={v} role="tab" aria-selected={filters.stage === v} onClick={() => patch({ stage: v })} className={`min-h-[36px] rounded-full border px-3 text-xs ${filters.stage === v ? "border-brand-300 bg-brand-50 text-accent" : "border-slate-200 bg-surface text-slate-500 hover:bg-slate-50"}`}>
+                {t} <span className="tabular-nums">{v ? base.filter((q) => q.status === v).length : base.length}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
         {showPanel && (
           <div className="mt-2 grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-surface p-3 sm:grid-cols-3 lg:grid-cols-4">
             <select value={filters.genreId} onChange={(e) => patch({ genreId: e.target.value, subGenreId: "" })} className={sel} aria-label="大ジャンル">
@@ -134,6 +145,11 @@ export function QuestionBrowser({ base, storageKey, initialFilters, header, show
               <option value="">Round：すべて</option>
               <option value="none">Round未指定</option>
               {set.rounds.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+            </select>
+            <select value={filters.stage} onChange={(e) => patch({ stage: e.target.value as Filters["stage"] })} className={sel} aria-label="作問状況">
+              <option value="">作問状況：すべて</option>
+              <option value="draft">下書きのみ</option>
+              <option value="completed">作問完了のみ</option>
             </select>
             <select value={filters.judge} onChange={(e) => patch({ judge: e.target.value as Filters["judge"] })} className={sel} aria-label="採用状態">
               <option value="">採用状態：すべて</option>

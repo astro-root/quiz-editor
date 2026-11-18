@@ -9,6 +9,9 @@ import { useAuth } from "@/lib/auth-context";
 import { useSetContext } from "@/lib/SetContext";
 import { Avatar } from "./Avatar";
 
+// 入力が止まってから、探し始めるまでの時間
+const SEARCH_DELAY_MS = 1500;
+
 export function ShareDialog({ set, isAdmin, onClose }: { set: QuestionSet; isAdmin: boolean; onClose: () => void }) {
   const { user } = useAuth();
   const { actions, personOf } = useSetContext();
@@ -21,8 +24,11 @@ export function ShareDialog({ set, isAdmin, onClose }: { set: QuestionSet; isAdm
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const seq = useRef(0);
+  const immediate = useRef(false);
+  const [nonce, setNonce] = useState(0);
 
-  // 入力のたびに検索するが、古い応答が新しい結果を上書きしないよう連番で破棄する
+  // 入力が止まってから、しばらく待って探す（打っている途中の文字が、たまたま別の人のIDと一致して、
+  // 関係のない人が表示されるのを防ぐため）。Enter を押すと、すぐに探す。古い応答が新しい結果を上書きしないよう、連番で破棄する。
   useEffect(() => {
     if (!text.trim()) {
       setResults([]);
@@ -31,6 +37,8 @@ export function ShareDialog({ set, isAdmin, onClose }: { set: QuestionSet; isAdm
     }
     const my = ++seq.current;
     setSearching(true);
+    const delay = immediate.current ? 0 : SEARCH_DELAY_MS;
+    immediate.current = false;
     const t = setTimeout(async () => {
       try {
         const r = await searchUsers(text);
@@ -41,9 +49,9 @@ export function ShareDialog({ set, isAdmin, onClose }: { set: QuestionSet; isAdm
       } finally {
         if (my === seq.current) setSearching(false);
       }
-    }, 250);
+    }, delay);
     return () => clearTimeout(t);
-  }, [text]);
+  }, [text, nonce]);
 
   const pendingUids = new Set(pending.map((p) => p.uid));
   function status(u: PublicProfile): string {
@@ -107,7 +115,8 @@ export function ShareDialog({ set, isAdmin, onClose }: { set: QuestionSet; isAdm
               <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 value={text}
-                onChange={(e) => { setText(e.target.value); setSelected(null); setMsg(null); }}
+                onChange={(e) => { setText(e.target.value); setResults([]); setSelected(null); setMsg(null); }}
+                onKeyDown={(e) => { if (e.key === "Enter" && text.trim()) { e.preventDefault(); immediate.current = true; setNonce((n) => n + 1); } }}
                 placeholder="相手のユーザーID（完全一致）"
                 autoFocus
                 className="w-full rounded-lg border border-slate-200 p-2 pl-9 text-sm focus:border-brand-400 focus:outline-none"
@@ -115,6 +124,7 @@ export function ShareDialog({ set, isAdmin, onClose }: { set: QuestionSet; isAdm
               {searching && <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-slate-300" />}
             </div>
 
+            {searching && <p className="mt-2 text-xs text-slate-400">入力が止まってから、探します（Enterで、すぐに探せます）</p>}
             {text.trim() && !searching && results.length === 0 && (
               <p className="mt-2 text-xs text-slate-400">該当するユーザーが見つかりません。相手のユーザーID（アカウント設定で確認できます）を、正確に入力してください。</p>
             )}
