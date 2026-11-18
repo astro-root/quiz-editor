@@ -16,7 +16,7 @@ service cloud.firestore {
     match /users/{uid} {
       allow read: if (request.auth != null && request.auth.uid == uid) || isSiteAdmin();
       allow create, update: if request.auth != null && request.auth.uid == uid && notBanned();
-      allow delete: if false;
+      allow delete: if request.auth != null && request.auth.uid == uid;
     }
 
     // ---- publicProfiles（招待のユーザー検索用。メールは含めない）----
@@ -41,7 +41,7 @@ service cloud.firestore {
                 && request.resource.data.handle.size() <= 20
                 && (request.resource.data.handle == ''
                     || getAfter(/databases/$(database)/documents/handles/$(request.resource.data.handle)).data.uid == request.auth.uid)));
-      allow delete: if false;
+      allow delete: if request.auth != null && request.auth.uid == uid;
     }
 
     // ---- handles（ユーザーID）----
@@ -83,6 +83,17 @@ service cloud.firestore {
       }
 
       // メンバー本人が自分の表示名・アイコンだけを更新（他人の欄は触れない）
+      // 問題セットから、自分だけが抜ける。オーナーは抜けられない（先にセットを削除する）。他のメンバーの役割は、変えられない。
+      function leavingSet() {
+        return request.auth != null
+          && resource.data.ownerId != request.auth.uid
+          && resource.data.members.get(request.auth.uid, null) != null
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'memberProfiles', 'updatedAt'])
+          && request.resource.data.members.keys().toSet() == resource.data.members.keys().toSet().difference([request.auth.uid].toSet())
+          && request.resource.data.members.diff(resource.data.members).changedKeys().size() == 0
+          && request.resource.data.memberProfiles.keys().toSet().hasOnly(resource.data.memberProfiles.keys().toSet().difference([request.auth.uid].toSet()));
+      }
+
       function syncingOwnProfile() {
         return isMember()
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberProfiles', 'updatedAt'])
@@ -142,6 +153,7 @@ service cloud.firestore {
       allow update: if notBanned() && ((isAdmin() && ownerKept())
         || supervisorEditsTaxonomy()
         || syncingOwnProfile()
+        || leavingSet()
         || acceptingUidInvite()
         || acceptingLegacyInvite()
         || migratingOwnLegacyRole());

@@ -3,6 +3,7 @@
 import { AdminContact, AdminUser, contactCategoryLabel } from "@/lib/adminData";
 import { QuestionSet } from "@/lib/types";
 import { fmt } from "./AccountsTab";
+import { BackupSection } from "./BackupSection";
 
 type Tab = "accounts" | "sets" | "contacts" | "notices";
 const DAY = 24 * 60 * 60 * 1000;
@@ -80,6 +81,7 @@ export function OverviewTab({ accounts, sets, contacts, go, openAccount, openSet
           </ul>
         </section>
       </div>
+      <BackupSection accounts={accounts} sets={sets} />
     </div>
   );
 }

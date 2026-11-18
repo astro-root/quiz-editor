@@ -1,0 +1,45 @@
+# PR と main への push で、型チェック・lint・ビルド・README の構成チェックを、自動で実行する。
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # ビルドが通るかを見るためのダミー。本物の値は、使わない（Vercel に設定してある）
+      NEXT_PUBLIC_FIREBASE_API_KEY: ci-dummy
+      NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ci-dummy.firebaseapp.com
+      NEXT_PUBLIC_FIREBASE_PROJECT_ID: ci-dummy
+      NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ci-dummy.appspot.com
+      NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "0"
+      NEXT_PUBLIC_FIREBASE_APP_ID: ci-dummy
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: 型チェック
+        run: npx tsc --noEmit
+      - name: lint
+        run: npm run lint
+      - name: ビルド
+        run: npm run build
+      - name: README のファイル構成が、実際のファイルと合っているか
+        run: python3 check_readme_tree.py
+      - name: パッチファイルが、リポジトリに残っていないか
+        run: |
+          if git ls-files | grep -E '\.patch$'; then
+            echo "取り込み用のパッチファイルが残っています。git rm で消してください。"
+            exit 1
+          fi

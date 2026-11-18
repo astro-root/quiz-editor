@@ -34,7 +34,7 @@ export function LegalPage({ title, lead, updated = true, sections, children }: {
 
           {sections ? (
             <div className="lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:items-start lg:gap-10">
-              <motion.aside initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5, delay: 0.15 }} className="mb-5 lg:sticky lg:top-6 lg:mb-0">
+              <motion.aside initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5, delay: 0.15 }} className="mb-5 lg:sticky lg:top-20 lg:mb-0">
                 {/* スマホ：折りたたみ */}
                 <div className="rounded-2xl border border-slate-100 bg-surface lg:hidden">
                   <button onClick={() => setTocOpen((o) => !o)} aria-expanded={tocOpen} className="flex min-h-[44px] w-full items-center justify-between px-4 text-sm font-medium text-slate-600">
@@ -45,7 +45,7 @@ export function LegalPage({ title, lead, updated = true, sections, children }: {
                 {/* PC：常に表示 */}
                 <div className="hidden rounded-2xl border border-slate-100 bg-surface p-3 lg:block">
                   <p className="mb-1 px-2 text-xs font-medium text-slate-400">目次</p>
-                  <TocList sections={sections} className="max-h-[calc(100dvh-9rem)] overflow-y-auto overscroll-contain" />
+                  <TocList sections={sections} className="max-h-[calc(100dvh-11rem)] overflow-y-auto overscroll-contain" />
                 </div>
               </motion.aside>
 
@@ -60,7 +60,7 @@ export function LegalPage({ title, lead, updated = true, sections, children }: {
                       whileInView={{ opacity: 1, y: 0 }}
                       viewport={{ once: true, margin: "0px 0px -40px 0px" }}
                       transition={{ duration: 0.45, ease, delay: Math.min(i, 3) * 0.04 }}
-                      className="mb-8 scroll-mt-6 last:mb-0"
+                      className="mb-8 scroll-mt-20 last:mb-0"
                     >
                       <h2 className="mb-2 text-base font-semibold text-slate-800 [break-after:avoid-column]">{s.title}</h2>
                       {s.body}

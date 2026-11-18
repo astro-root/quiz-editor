@@ -57,7 +57,8 @@ export default function WritePage() {
   const store = useQuestionStore();
   const canCreate = canCreateQuestion(role);
   const judge = canJudge(role);
-  const statusOptions = allowedStatusOptions(role);
+  // 採用・却下は、「裏どり」でだけ決める。ここでは、下書き／作問完了だけ
+  const statusOptions = allowedStatusOptions(role).filter((s) => s === "draft" || s === "completed");
   const draftKey = `qraft:draft:${set.id}`;
 
   const [open, setOpen] = useState(false);
@@ -169,7 +170,7 @@ export default function WritePage() {
       )}
 
       {mine.length > 0 ? (
-        <QuestionBrowser base={mine} storageKey={`qraft:f:${set.id}:write`} showAuthor={false} />
+        <QuestionBrowser base={mine} storageKey={`qraft:f:${set.id}:write`} showAuthor={false} stageTabs />
       ) : (
         !hasDraft && (
           <div className="rounded-2xl border border-dashed border-slate-200 bg-surface px-6 py-12 text-center">
@@ -245,7 +246,7 @@ export default function WritePage() {
             <p className={heading}>進行管理{!judge && "（Round・裏どり担当・裏どり状態は、問題統括と管理者が設定できます）"}</p>
             <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
-                <label className={label}>{judge ? "状態（採用・却下は、原則「裏どり」から）" : "作問状況"}</label>
+                <label className={label}>作問状況（採用・却下は、「裏どり」で決めます）</label>
                 <select value={f.status} onChange={(e) => up("status", e.target.value as QuestionStatus)} className={input}>
                   {statusOptions.map((s) => <option key={s} value={s}>{statusLabel[s]}</option>)}
                 </select>

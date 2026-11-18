@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { MotionConfig, motion } from "framer-motion";
-import { ArrowLeft, PencilLine, ListChecks, ShieldCheck, ListOrdered, Trash2, Users2, Megaphone, ArrowUpDown, Settings, Printer } from "lucide-react";
+import { ArrowLeft, PencilLine, ListChecks, ShieldCheck, ListOrdered, Trash2, Users2, Megaphone, ArrowUpDown, Settings, Printer, BarChart3 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useQuestionSet } from "@/lib/useQuestionSets";
 import { SetProvider, useSetContext } from "@/lib/SetContext";
@@ -13,6 +13,7 @@ import { canManageMembers } from "@/lib/permissions";
 import { ShareDialog } from "@/components/ShareDialog";
 import { usePageTitle } from "@/lib/usePageTitle";
 import { CardsSkeleton, SetShellSkeleton } from "@/components/Skeleton";
+import { CHROME_X, SiteFooter, SiteHeader } from "@/components/SiteChrome";
 
 const tabs = [
   { href: "", label: "お知らせ", icon: Megaphone, match: [""] },
@@ -22,6 +23,7 @@ const tabs = [
   { href: "/adopted", label: "出題順", icon: ListOrdered, match: ["/adopted"] },
   { href: "/trash", label: "ゴミ箱", icon: Trash2, match: ["/trash"] },
   { href: "/members", label: "メンバー", icon: Users2, match: ["/members"] },
+  { href: "/stats", label: "統計", icon: BarChart3, match: ["/stats"] },
   { href: "/io", label: "入出力", icon: ArrowUpDown, match: ["/io"] },
   { href: "/print", label: "印刷", icon: Printer, match: ["/print"] },
   { href: "/settings", label: "設定", icon: Settings, match: ["/settings"] },
@@ -38,8 +40,9 @@ function SetShell({ children }: { children: React.ReactNode }) {
   usePageTitle(`${set.name} - Qraft`);
 
   return (
-    <div className="min-h-dvh bg-slate-50 print:min-h-0 print:bg-surface">
-      <div className="mx-auto max-w-6xl px-3 pb-16 pt-4 sm:px-6 sm:pt-6 lg:px-8 print:max-w-none print:p-0">
+    <div className="flex min-h-dvh flex-col bg-slate-50 print:min-h-0 print:bg-surface">
+      <SiteHeader sticky={false} />
+      <div className={`${CHROME_X} flex-1 pb-12 pt-4 sm:pt-6 print:max-w-none print:p-0`}>
         <div className="mb-4 flex items-center justify-between gap-2 print:hidden">
           <div className="min-w-0">
             <Link href="/dashboard" className="mb-1 flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600">
@@ -53,7 +56,7 @@ function SetShell({ children }: { children: React.ReactNode }) {
           </button>
         </div>
 
-        <MotionConfig reducedMotion="user"><nav aria-label="セクション" className="-mx-3 mb-4 overflow-x-auto px-3 sm:mx-0 sm:px-0 print:hidden">
+        <MotionConfig reducedMotion="user"><nav aria-label="セクション" className="-mx-4 mb-4 overflow-x-auto px-4 sm:mx-0 sm:px-0 print:hidden">
           <div className="flex w-max min-w-full gap-1 rounded-xl bg-slate-100 p-1">
             {tabs.map((t) => {
               const active = t.match.includes(rel) || (t.href !== "" && t.match.some((m) => m && rel.startsWith(m + "/")));
@@ -77,6 +80,7 @@ function SetShell({ children }: { children: React.ReactNode }) {
 
         {showShare && <ShareDialog set={set} isAdmin={canManageMembers(role)} onClose={() => setShowShare(false)} />}
       </div>
+      <SiteFooter />
     </div>
   );
 }

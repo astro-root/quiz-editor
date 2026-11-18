@@ -14,6 +14,7 @@ export interface Filters {
   genreId: string; // "" = すべて
   subGenreId: string;
   roundId: string; // "" すべて / "none" 未指定
+  stage: "" | "draft" | "completed"; // 作問状況（採用・却下の判定が出る前の、下書き／作問完了）
   judge: "" | "undecided" | "adopted" | "rejected";
   proofread: "" | "unchecked" | "assigned" | "in_review" | "approved" | "needs_fix" | "on_hold";
   author: string; // uid
@@ -23,7 +24,7 @@ export interface Filters {
   to: string;
 }
 export const EMPTY_FILTERS: Filters = {
-  text: "", genreId: "", subGenreId: "", roundId: "", judge: "", proofread: "",
+  text: "", genreId: "", subGenreId: "", roundId: "", stage: "", judge: "", proofread: "",
   author: "", assignee: "", source: "", from: "", to: "",
 };
 
@@ -56,6 +57,7 @@ export function applyFilters(
     if (f.genreId && q.genreId !== f.genreId) return false;
     if (f.subGenreId && q.subGenreId !== f.subGenreId) return false;
     if (f.roundId === "none" ? q.roundId !== "" : f.roundId && q.roundId !== f.roundId) return false;
+    if (f.stage && q.status !== f.stage) return false;
     if (f.judge === "undecided" && (q.status === "adopted" || q.status === "rejected")) return false;
     if ((f.judge === "adopted" || f.judge === "rejected") && q.status !== f.judge) return false;
     if (f.proofread === "assigned") {

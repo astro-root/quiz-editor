@@ -3,7 +3,6 @@ import { db } from "./firebase";
 import { toMillis } from "./time";
 
 // お知らせ。全員向け（broadcasts）と、個人向け（userNotices/{uid}/items）がある。
-// 既読は、無料枠のために、サーバーには書かず、ブラウザに「最後に見た時刻」だけを残す。
 export interface Notice {
   id: string;
   title: string;
@@ -26,12 +25,33 @@ export async function fetchNotices(uid: string, max = 15): Promise<Notice[]> {
     .slice(0, max);
 }
 
-const seenKey = (uid: string) => `qraft:notices:seen:${uid}`;
-export function getSeen(uid: string): number {
-  try { return Number(localStorage.getItem(seenKey(uid))) || 0; } catch { return 0; }
+// 既読は、ブラウザに記録する（サーバーには書かない）。「すべて既読」にした時刻 before と、個別に既読にした印 ids の2つ。
+const readKey = (uid: string) => `qraft:notices:read:${uid}`;
+export const noticeKey = (n: Notice) => `${n.scope}:${n.id}`;
+interface ReadState { before: number; ids: string[] }
+
+export function getReadState(uid: string): ReadState {
+  try {
+    const raw = JSON.parse(localStorage.getItem(readKey(uid)) ?? "null");
+    if (raw && typeof raw.before === "number" && Array.isArray(raw.ids)) return { before: raw.before, ids: raw.ids.filter((x: unknown) => typeof x === "string") };
+  } catch { /* noop */ }
+  return { before: 0, ids: [] };
 }
-export function setSeen(uid: string, at: number) {
-  try { localStorage.setItem(seenKey(uid), String(at)); } catch { /* noop */ }
+function saveReadState(uid: string, st: ReadState) {
+  try { localStorage.setItem(readKey(uid), JSON.stringify({ before: st.before, ids: st.ids.slice(-300) })); } catch { /* noop */ }
+}
+export const isUnread = (n: Notice, st: ReadState) => n.createdAt > st.before && !st.ids.includes(noticeKey(n));
+
+export function markRead(uid: string, n: Notice): ReadState {
+  const st = getReadState(uid);
+  if (!st.ids.includes(noticeKey(n))) st.ids.push(noticeKey(n));
+  saveReadState(uid, st);
+  return st;
+}
+export function markAllRead(uid: string, items: Notice[]): ReadState {
+  const st: ReadState = { before: Math.max(getReadState(uid).before, ...items.map((n) => n.createdAt)), ids: [] };
+  saveReadState(uid, st);
+  return st;
 }
 
 // 運営者が送る。target は "all"（全員）か、相手の uid

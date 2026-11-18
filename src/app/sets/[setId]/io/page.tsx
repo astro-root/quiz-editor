@@ -8,6 +8,7 @@ import { canCreateQuestion, canJudge, canManageGenres } from "@/lib/permissions"
 import { downloadQuestions, downloadTemplate, ExportCtx, ImportResult, parseImportFile } from "@/lib/io";
 import { normalizeText } from "@/lib/search";
 import { Question } from "@/lib/types";
+import { SetBackup } from "@/components/SetBackup";
 
 const card = "mb-5 rounded-2xl border border-slate-100 bg-surface p-5 shadow-card";
 const btn = "flex items-center gap-1.5 rounded-lg border border-slate-200 bg-surface px-3 py-1.5 text-sm text-slate-600 hover:border-brand-300 hover:text-accent disabled:opacity-40";
@@ -107,6 +108,8 @@ export default function IoPage() {
           <button disabled={!exportList.length} onClick={() => downloadQuestions(exportList, ctx, "csv", label)} className={btn}><Download size={14} />CSV</button>
         </div>
       </section>
+
+      <SetBackup set={set} />
 
       <section className={card}>
         <h2 className="mb-3 flex items-center gap-1.5 text-sm font-medium text-slate-600"><FileUp size={15} />インポート（Excel / CSV）</h2>

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Sans_JP } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
@@ -13,6 +13,13 @@ export const metadata: Metadata = {
   description: DESCRIPTION,
   applicationName: "Qraft",
   openGraph: { title: "Qraft — クイズ作問エディタ", description: DESCRIPTION, siteName: "Qraft", locale: "ja_JP", type: "website" },
+  twitter: { card: "summary", title: "Qraft — クイズ作問エディタ", description: DESCRIPTION },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: [{ media: "(prefers-color-scheme: light)", color: "#f8fafc" }, { media: "(prefers-color-scheme: dark)", color: "#0f172a" }],
 };
 
 export default function RootLayout({
