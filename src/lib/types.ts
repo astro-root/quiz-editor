@@ -151,3 +151,23 @@ export interface PublicProfile {
   photoURL: string;
   handle?: string; // ユーザーID（小文字）。未設定の人もいる
 }
+
+// 修正案。誰でも（閲覧者も）出せる。問題の作成者、または、問題統括・管理者が、採用・却下する。
+export type SuggestionField = "body" | "answer" | "explanation";
+export type SuggestionStatus = "open" | "accepted" | "rejected" | "withdrawn";
+export const suggestionFieldLabel: Record<SuggestionField, string> = { body: "問題文", answer: "解答", explanation: "解説" };
+export const suggestionStatusLabel: Record<SuggestionStatus, string> = { open: "未対応", accepted: "採用", rejected: "却下", withdrawn: "取り下げ" };
+export interface Suggestion {
+  id: string;
+  questionId: string;
+  field: SuggestionField;
+  before: string; // 提案した時点の、元の内容
+  proposed: string; // 提案する内容
+  reason: string;
+  status: SuggestionStatus;
+  authorUid: string;
+  authorName: string;
+  createdAt: number;
+  resolvedBy: string;
+  resolvedAt: number;
+}

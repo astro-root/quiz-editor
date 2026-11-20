@@ -19,6 +19,9 @@ import { charCount } from "@/lib/text";
 import { ImageField, imageFilesFrom, useImageDraft } from "./ImageField";
 import { ListInput } from "./ListInput";
 import { AnswerDupNotice } from "./AnswerDupNotice";
+import { suggestionFieldLabel } from "@/lib/types";
+import { SuggestionCard } from "./SuggestionCard";
+import { useSuggestions } from "@/lib/suggestions";
 import { useQuestionImages } from "@/lib/questionImages";
 
 const input =
@@ -58,6 +61,14 @@ export function QuestionEditor({ question, onClose, modal = false, allowJudge = 
   const canDel = canDeleteQuestion(role, question, uid);
   const judge = canJudge(role);
   const proof = canProofread(role, question, uid);
+
+  // 直接は編集できない人（閲覧者、他の人の問題を見ている作問者・裏どり担当など）は、問題文・解答・解説を直すと、修正案として送られる
+  const suggest = !canEdit && !!role && !!user;
+  const { open: openSuggestions, create: createSuggestion } = useSuggestions();
+  const mySuggestions = openSuggestions.filter((s) => s.questionId === question.id);
+  const [reason, setReason] = useState("");
+  const [sentMsg, setSentMsg] = useState("");
+  const TEXT_FIELDS = ["body", "answer", "explanation"] as const;
   const statusOptions = allowedStatusOptions(role).filter((s) => allowJudge || s === "draft" || s === "completed");
   const judged = draft.status === "adopted" || draft.status === "rejected";
 
@@ -70,6 +81,7 @@ export function QuestionEditor({ question, onClose, modal = false, allowJudge = 
     return (Object.keys(draft) as (keyof Draft)[]).some((k) => !same(draft[k], b[k]));
   }, [draft]);
   const dirty = draftDirty || imgs.dirty;
+  const textChanged = TEXT_FIELDS.some((k) => !same(draft[k], toDraft(base.current)[k])); // 問題文・解答・解説のどれかを直した
 
   // 未保存の変更があるまま閉じる／リロードする場合にブラウザの確認を出す
   useEffect(() => {
@@ -96,6 +108,30 @@ export function QuestionEditor({ question, onClose, modal = false, allowJudge = 
       if (!same(draft[k], b[k])) (patch as any)[k] = draft[k];
     });
     if (Object.keys(patch).length === 0 && !imgs.dirty) return onClose();
+
+    // 直接編集できない人：問題文・解答・解説の変更は、修正案として送る。それ以外の変更は、権限のある項目（裏どり状態）だけを保存する
+    if (suggest) {
+      const fields = TEXT_FIELDS.filter((k) => patch[k] !== undefined);
+      for (const k of TEXT_FIELDS) delete patch[k];
+      if (fields.length > 0) {
+        if (!draft.body.trim() && !draft.answer.trim()) return setError("問題文か解答のどちらかは必要です");
+        const tooLong = fields.find((k) => draft[k].length > 5000);
+        if (tooLong) return setError(`${suggestionFieldLabel[tooLong]}が長すぎます（5000文字まで）`);
+        setSaving(true);
+        try {
+          for (const k of fields) await createSuggestion({ questionId: question.id, field: k, before: b[k], proposed: draft[k], reason });
+        } catch (e: any) {
+          console.error("修正案の送信に失敗しました", e);
+          setSaving(false);
+          return setError(e?.code === "permission-denied" ? "修正案を送る権限がありません" : "修正案を送れませんでした。通信状況を確認して、もう一度お試しください");
+        }
+        setSaving(false);
+        setSentMsg(`${fields.map((k) => suggestionFieldLabel[k]).join("・")}の修正案を送りました。「修正案」タブで確認できます。`);
+        base.current = { ...base.current };
+        if (Object.keys(patch).length === 0) return;
+      }
+      if (Object.keys(patch).length === 0) return onClose();
+    }
     const nextBody = (patch.body ?? b.body).trim();
     const nextAnswer = (patch.answer ?? b.answer).trim();
     if (!nextBody && !nextAnswer) return setError("問題文か答えのどちらかは必須です（空にする場合は削除してください）");
@@ -163,7 +199,7 @@ export function QuestionEditor({ question, onClose, modal = false, allowJudge = 
     <div className={modal ? "p-4 sm:p-5" : "rounded-2xl border-2 border-brand-200 bg-surface p-4 shadow-pop"} role="group" aria-label="問題の編集">
       <div className="mb-3 flex items-center justify-between">
         <span className="text-sm font-medium text-accent">問題を編集</span>
-        {!canEdit && <span className="flex items-center gap-1 text-xs text-slate-400"><Lock size={12} />内容は閲覧のみ</span>}
+        {!canEdit && <span className="flex items-center gap-1 text-xs text-slate-400"><Lock size={12} />{suggest ? "直接は編集できません。問題文・解答・解説を直すと、修正案として送られます" : "内容は閲覧のみ"}</span>}
         {modal && <button type="button" onClick={handleCancel} aria-label="閉じる" className="-mr-1 ml-auto flex h-9 w-9 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600"><X size={18} /></button>}
       </div>
 
@@ -174,12 +210,12 @@ export function QuestionEditor({ question, onClose, modal = false, allowJudge = 
       )}
 
       <label className={label}>問題文</label>
-      <textarea ref={bodyRef} onPaste={(e) => pasteImg("body", e)} value={draft.body} onChange={(e) => set_("body", e.target.value)} disabled={!canEdit} rows={3} className={`${input} mb-1 resize-y leading-relaxed`} />
+      <textarea ref={bodyRef} onPaste={(e) => pasteImg("body", e)} value={draft.body} onChange={(e) => set_("body", e.target.value)} disabled={!(canEdit || suggest)} rows={3} className={`${input} mb-1 resize-y leading-relaxed`} />
       <p className="mb-2 text-right text-xs tabular-nums text-slate-500" title="前後の空白を除いた文字数">{charCount(draft.body)}文字</p>
       <ImageField field="body" draft={imgs} loaded={loaded} disabled={!canEdit} />
 
       <label className={label}>解答</label>
-      <textarea onPaste={(e) => pasteImg("answer", e)} value={draft.answer} onChange={(e) => set_("answer", e.target.value)} disabled={!canEdit} rows={1} className={`${input} mb-3 resize-y font-medium text-accent-strong`} />
+      <textarea onPaste={(e) => pasteImg("answer", e)} value={draft.answer} onChange={(e) => set_("answer", e.target.value)} disabled={!(canEdit || suggest)} rows={1} className={`${input} mb-3 resize-y font-medium text-accent-strong`} />
       <ImageField field="answer" draft={imgs} loaded={loaded} disabled={!canEdit} />
 
       <label className={label}>別解・表記揺れ（「,」「、」か改行で区切る）</label>
@@ -190,8 +226,15 @@ export function QuestionEditor({ question, onClose, modal = false, allowJudge = 
       <textarea disabled={!canEdit} value={draft.judgingCriteria} onChange={(e) => set_("judgingCriteria", e.target.value)} rows={4} className={`${input} mb-3 resize-y leading-relaxed`} />
 
       <label className={label}>解説</label>
-      <textarea disabled={!canEdit} onPaste={(e) => pasteImg("explanation", e)} value={draft.explanation} onChange={(e) => set_("explanation", e.target.value)} rows={2} className={`${input} mb-3 resize-y`} />
+      <textarea disabled={!(canEdit || suggest)} onPaste={(e) => pasteImg("explanation", e)} value={draft.explanation} onChange={(e) => set_("explanation", e.target.value)} rows={2} className={`${input} mb-3 resize-y`} />
       <ImageField field="explanation" draft={imgs} loaded={loaded} disabled={!canEdit} />
+
+      {mySuggestions.length > 0 && (
+        <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50/40 p-3">
+          <p className="mb-2 text-xs font-medium text-warn-strong">この問題への修正案（未対応 {mySuggestions.length}件）</p>
+          <div className="space-y-2">{mySuggestions.map((s) => <SuggestionCard key={s.id} s={s} question={question} />)}</div>
+        </div>
+      )}
 
       <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
@@ -279,14 +322,23 @@ export function QuestionEditor({ question, onClose, modal = false, allowJudge = 
         </div>
       </div>
 
+      {suggest && textChanged && !sentMsg && (
+        <div className="mb-3">
+          <label className={label}>修正の理由（任意）</label>
+          <textarea value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} rows={2} placeholder="なぜ、この修正が必要か（出典など）" className={`${input} resize-y`} />
+        </div>
+      )}
+      {sentMsg && <p role="status" className="mb-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-ok">{sentMsg}</p>}
       {imgs.error && <p role="alert" className="mb-2 rounded-lg bg-rose-50 px-3 py-2 text-sm text-danger">{imgs.error}</p>}
       {error && <p role="alert" className="mb-2 rounded-lg bg-rose-50 px-3 py-2 text-sm text-danger">{error}</p>}
 
       <div className={modal ? "sticky bottom-0 -mx-4 -mb-4 mt-2 flex flex-wrap items-center gap-2 border-t border-slate-100 bg-surface px-4 py-3 sm:-mx-5 sm:-mb-5 sm:px-5" : "flex flex-wrap items-center gap-2"}>
-        <button onClick={handleSave} disabled={saving || !dirty} className="flex min-h-[40px] items-center gap-1.5 rounded-lg bg-brand-600 px-5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-40">
-          {saving && <Loader2 size={14} className="animate-spin" />}保存
-        </button>
-        <button onClick={handleCancel} disabled={saving} className="min-h-[40px] rounded-lg border border-slate-200 px-4 text-sm text-slate-600 hover:bg-slate-50">
+        {sentMsg ? (
+          <button onClick={onClose} className="flex min-h-[40px] items-center gap-1.5 rounded-lg bg-brand-600 px-5 text-sm font-medium text-white hover:bg-brand-700">閉じる</button>
+        ) : <button onClick={handleSave} disabled={saving || !dirty} className="flex min-h-[40px] items-center gap-1.5 rounded-lg bg-brand-600 px-5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-40">
+          {saving && <Loader2 size={14} className="animate-spin" />}{suggest && textChanged ? "修正案として送る" : "保存"}
+        </button>}
+        <button onClick={handleCancel} disabled={saving || !!sentMsg} className="min-h-[40px] rounded-lg border border-slate-200 px-4 text-sm text-slate-600 hover:bg-slate-50">
           キャンセル
         </button>
         <button onClick={() => setShowLog((v) => !v)} className="ml-auto flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600">

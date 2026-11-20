@@ -49,8 +49,8 @@ export const roleDescription: Record<Role, string> = {
   viewer: "閲覧とコメントのみ",
 };
 export const statusLabel: Record<QuestionStatus, string> = {
-  draft: "未判定（下書き）",
-  completed: "未判定（作問完了）",
+  draft: "下書き",
+  completed: "作問完了",
   adopted: "採用",
   rejected: "却下",
 };

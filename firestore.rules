@@ -265,6 +265,42 @@ service cloud.firestore {
         }
       }
 
+      // 修正案。メンバーなら誰でも（閲覧者も）出せる。採否を決められるのは、問題の作成者と、問題統括・管理者。
+      // 提案した本人は、未対応のうちなら、取り下げ・削除できる。内容（提案文）は、あとから書き換えられない。
+      match /suggestions/{sid} {
+        function sugRole() {
+          return !notBanned() ? null : get(/databases/$(database)/documents/questionSets/$(setId)).data.members.get(request.auth.uid, null);
+        }
+        function questionAuthor() {
+          return get(/databases/$(database)/documents/questionSets/$(setId)/questions/$(resource.data.questionId)).data.authorUid;
+        }
+        allow read: if sugRole() != null;
+        allow create: if sugRole() != null
+          && request.resource.data.keys().hasOnly(['questionId', 'field', 'before', 'proposed', 'reason', 'status', 'authorUid', 'authorName', 'resolvedBy', 'resolvedAt', 'createdAt'])
+          && request.resource.data.field in ['body', 'answer', 'explanation']
+          && request.resource.data.before is string && request.resource.data.before.size() <= 5000
+          && request.resource.data.proposed is string && request.resource.data.proposed.size() <= 5000
+          && request.resource.data.proposed != request.resource.data.before
+          && request.resource.data.reason is string && request.resource.data.reason.size() <= 500
+          && request.resource.data.status == 'open'
+          && request.resource.data.authorUid == request.auth.uid
+          && request.resource.data.authorName is string && request.resource.data.authorName.size() <= 60
+          && request.resource.data.resolvedBy == ''
+          && request.resource.data.resolvedAt == null
+          && request.resource.data.createdAt == request.time
+          && exists(/databases/$(database)/documents/questionSets/$(setId)/questions/$(request.resource.data.questionId));
+        allow update: if sugRole() != null
+          && resource.data.status == 'open'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'resolvedBy', 'resolvedAt'])
+          && request.resource.data.resolvedBy == request.auth.uid
+          && request.resource.data.resolvedAt == request.time
+          && ((request.resource.data.status in ['accepted', 'rejected']
+                && (sugRole() in ['admin', 'supervisor'] || questionAuthor() == request.auth.uid))
+              || (request.resource.data.status == 'withdrawn' && resource.data.authorUid == request.auth.uid));
+        allow delete: if sugRole() in ['admin', 'supervisor']
+          || (sugRole() != null && resource.data.authorUid == request.auth.uid && resource.data.status == 'open');
+      }
+
       // 招待中一覧（管理者のみ閲覧）。新方式のドキュメントIDは招待された人のuid。
       match /pendingInvites/{pid} {
         // ここでの resource は招待中の文書そのもの（セットではない）ので、isAdmin() は使えない。親のセットを引いて確かめる。

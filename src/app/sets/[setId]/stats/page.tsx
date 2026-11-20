@@ -11,14 +11,15 @@ import { usePageTitle } from "@/lib/usePageTitle";
 const card = "rounded-2xl border border-slate-100 bg-surface p-5 shadow-card";
 const grow = { duration: 0.5, ease: "easeOut" as const };
 
-// 採用・却下・未判定を、色分けした1本の棒で見せる
+// 採用・却下・作問完了・下書きを、色分けした1本の棒で見せる
 function Bar({ row, max }: { row: CountRow; max: number }) {
   const w = (n: number) => (max > 0 ? `${(n / max) * 100}%` : "0%");
   return (
-    <div className="flex h-3 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-50" role="img" aria-label={`${row.name}：${row.total}問（採用${row.adopted}、却下${row.rejected}、未判定${row.undecided}）`}>
+    <div className="flex h-3 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-50" role="img" aria-label={`${row.name}：${row.total}問（採用${row.adopted}、却下${row.rejected}、作問完了${row.completed}、下書き${row.draft}）`}>
       <motion.div className="h-full bg-brand-500" initial={{ width: 0 }} animate={{ width: w(row.adopted) }} transition={grow} />
       <motion.div className="h-full bg-rose-300" initial={{ width: 0 }} animate={{ width: w(row.rejected) }} transition={grow} />
-      <motion.div className="h-full bg-slate-200" initial={{ width: 0 }} animate={{ width: w(row.undecided) }} transition={grow} />
+      <motion.div className="h-full bg-sky-300" initial={{ width: 0 }} animate={{ width: w(row.completed) }} transition={grow} />
+      <motion.div className="h-full bg-slate-200" initial={{ width: 0 }} animate={{ width: w(row.draft) }} transition={grow} />
     </div>
   );
 }
@@ -30,7 +31,7 @@ function Row({ row, max, indent, strong, chevron }: { row: CountRow; max: number
       <span className={`w-28 shrink-0 truncate text-sm sm:w-44 ${strong ? "font-medium text-slate-700" : "text-slate-500"}`} title={row.name}>{row.name}</span>
       <Bar row={row} max={max} />
       <span className="w-14 shrink-0 text-right text-sm tabular-nums text-slate-700">{row.total}問</span>
-      <span className="hidden w-44 shrink-0 text-right text-xs tabular-nums text-slate-400 md:block">採用 {row.adopted}・却下 {row.rejected}・未判定 {row.undecided}</span>
+      <span className="hidden w-56 shrink-0 text-right text-xs tabular-nums text-slate-400 md:block">採用 {row.adopted}・却下 {row.rejected}・完了 {row.completed}・下書き {row.draft}</span>
     </div>
   );
 }
@@ -40,7 +41,8 @@ function Legend() {
     <p className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400">
       <span className="flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm bg-brand-500" />採用</span>
       <span className="flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm bg-rose-300" />却下</span>
-      <span className="flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm bg-slate-200" />未判定</span>
+      <span className="flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm bg-sky-300" />作問完了</span>
+      <span className="flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm bg-slate-200" />下書き</span>
     </p>
   );
 }
