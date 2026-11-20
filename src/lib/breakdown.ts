@@ -7,7 +7,8 @@ export interface CountRow {
   total: number;
   adopted: number;
   rejected: number;
-  undecided: number;
+  completed: number; // 作問完了（採用・却下の前）
+  draft: number; // 下書き
 }
 export interface GenreRow extends CountRow {
   subs: CountRow[];
@@ -30,12 +31,13 @@ export interface Breakdown {
   matrix: { cols: { key: string; name: string }[]; rows: MatrixRow[] }; // 採用された問題のみ
 }
 
-const blank = (key: string, name: string): CountRow => ({ key, name, total: 0, adopted: 0, rejected: 0, undecided: 0 });
+const blank = (key: string, name: string): CountRow => ({ key, name, total: 0, adopted: 0, rejected: 0, completed: 0, draft: 0 });
 function add(r: CountRow, q: Question) {
   r.total++;
   if (q.status === "adopted") r.adopted++;
   else if (q.status === "rejected") r.rejected++;
-  else r.undecided++;
+  else if (q.status === "completed") r.completed++;
+  else r.draft++;
 }
 
 export function computeBreakdown(live: Question[], tree: GenreNode[], rounds: Round[]): Breakdown {

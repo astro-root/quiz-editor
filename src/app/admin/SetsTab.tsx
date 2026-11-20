@@ -4,12 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ChevronRight, Loader2 } from "lucide-react";
 import { AdminUser, loadQuestions } from "@/lib/adminData";
 import { Question, QuestionSet } from "@/lib/types";
-import { judgeLabel, proofreadLabel, roleLabel, statusLabel } from "@/lib/permissions";
+import { proofreadLabel, roleLabel, statusLabel } from "@/lib/permissions";
 import { fmt } from "./AccountsTab";
 
 const PAGE = 50;
 type SetSort = "updated" | "name" | "members";
-type QFilter = "all" | "adopted" | "rejected" | "undecided" | "trash";
+type QFilter = "all" | "adopted" | "rejected" | "completed" | "draft" | "trash";
 
 // 問題セットの一覧と、その中身（読み取り専用）。運営者は、ここから編集はできない。
 export function SetsTab({ sets, accounts, focusSetId, onFocusDone, onOpenAccount }: {
@@ -81,10 +81,10 @@ function SetDetail({ set, names, onBack, onOpenAccount }: { set: QuestionSet; na
   };
 
   const counts = useMemo(() => {
-    const c = { all: 0, adopted: 0, rejected: 0, undecided: 0, trash: 0 };
+    const c = { all: 0, adopted: 0, rejected: 0, completed: 0, draft: 0, trash: 0 };
     for (const x of qs ?? []) {
       if (x.deletedAt) c.trash++;
-      else { c.all++; if (x.status === "adopted") c.adopted++; else if (x.status === "rejected") c.rejected++; else c.undecided++; }
+      else { c.all++; if (x.status === "adopted") c.adopted++; else if (x.status === "rejected") c.rejected++; else if (x.status === "completed") c.completed++; else c.draft++; }
     }
     return c;
   }, [qs]);
@@ -95,14 +95,15 @@ function SetDetail({ set, names, onBack, onOpenAccount }: { set: QuestionSet; na
       if (filter === "trash" ? !x.deletedAt : x.deletedAt) return false;
       if (filter === "adopted" && x.status !== "adopted") return false;
       if (filter === "rejected" && x.status !== "rejected") return false;
-      if (filter === "undecided" && (x.status === "adopted" || x.status === "rejected")) return false;
+      if (filter === "completed" && x.status !== "completed") return false;
+      if (filter === "draft" && x.status !== "draft") return false;
       return !t || [x.body, x.answer, ...x.altAnswers, x.explanation, x.authorName].some((s) => s.toLowerCase().includes(t));
     });
   }, [qs, text, filter]);
 
   const chips: { id: QFilter; label: string; n: number }[] = [
     { id: "all", label: "すべて", n: counts.all }, { id: "adopted", label: "採用", n: counts.adopted },
-    { id: "rejected", label: "却下", n: counts.rejected }, { id: "undecided", label: "未判定", n: counts.undecided }, { id: "trash", label: "ゴミ箱", n: counts.trash },
+    { id: "rejected", label: "却下", n: counts.rejected }, { id: "completed", label: "作問完了", n: counts.completed }, { id: "draft", label: "下書き", n: counts.draft }, { id: "trash", label: "ゴミ箱", n: counts.trash },
   ];
 
   return (
@@ -141,7 +142,7 @@ function SetDetail({ set, names, onBack, onOpenAccount }: { set: QuestionSet; na
                     <p className={`text-sm text-slate-700 ${isOpen ? "whitespace-pre-wrap break-words" : "line-clamp-2"}`}>{x.body || "（問題文なし）"}</p>
                     <p className="mt-1 text-sm font-medium text-accent-strong">{x.answer || "（解答なし）"}</p>
                     <p className="mt-1 flex flex-wrap gap-x-3 text-[11px] text-slate-400">
-                      <span>{x.deletedAt ? "ゴミ箱" : judgeLabel(x.status)}</span>
+                      <span>{x.deletedAt ? "ゴミ箱" : statusLabel[x.status]}</span>
                       <span>{names.get(x.authorUid) ?? x.authorName}</span>
                       {genreName(x.genreId, x.subGenreId) && <span>{genreName(x.genreId, x.subGenreId)}</span>}
                       {roundName(x.roundId) && <span>{roundName(x.roundId)}</span>}

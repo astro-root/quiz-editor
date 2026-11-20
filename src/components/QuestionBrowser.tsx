@@ -9,16 +9,18 @@ import { useAuth } from "@/lib/auth-context";
 import { useSetContext } from "@/lib/SetContext";
 import { useQuestionStore } from "@/lib/QuestionsContext";
 import { applyFilters, activeFilterCount, buildSearchText, EMPTY_FILTERS, Filters } from "@/lib/search";
-import { canJudge, judgeLabel, proofreadDisplay } from "@/lib/permissions";
+import { canJudge, proofreadDisplay, statusLabel } from "@/lib/permissions";
 import { PersonChip } from "./Avatar";
 import { QuestionEditor } from "./QuestionEditor";
 
 const sel = "rounded-lg border border-slate-200 bg-surface p-2 text-sm text-slate-600 focus:border-brand-400 focus:outline-none";
 
+// カードの状態の表示。「未判定」とまとめず、下書き／作問完了／採用／却下を、そのまま出す
 const judgeStyle: Record<string, string> = {
   adopted: "bg-emerald-50 text-ok",
   rejected: "bg-rose-50 text-danger",
-  undecided: "bg-slate-100 text-slate-500",
+  completed: "bg-sky-50 text-info",
+  draft: "bg-slate-100 text-slate-500",
 };
 const proofStyle: Record<string, string> = {
   unchecked: "bg-amber-50 text-warn",
@@ -153,7 +155,6 @@ export function QuestionBrowser({ base, storageKey, initialFilters, header, show
             </select>
             <select value={filters.judge} onChange={(e) => patch({ judge: e.target.value as Filters["judge"] })} className={sel} aria-label="採用状態">
               <option value="">採用状態：すべて</option>
-              <option value="undecided">未判定のみ</option>
               <option value="adopted">採用のみ</option>
               <option value="rejected">却下のみ</option>
             </select>
@@ -211,7 +212,7 @@ export function QuestionBrowser({ base, storageKey, initialFilters, header, show
               style={{ position: "absolute", top: 0, left: 0, width: "100%", transform: `translateY(${v.start - virt.options.scrollMargin}px)` }}
               className="pb-2"
             >
-              <Row q={q} index={v.index} showAuthor={showAuthor} onOpen={toggle} />
+              <Row q={q} index={v.index} showAuthor={showAuthor} onOpen={toggle} allowJudge={allowJudge} />
             </div>
           );
         })}
@@ -222,7 +223,7 @@ export function QuestionBrowser({ base, storageKey, initialFilters, header, show
   );
 }
 
-const Row = memo(function Row({ q, index, showAuthor, onOpen }: { q: Question; index: number; showAuthor: boolean; onOpen: (id: string) => void }) {
+const Row = memo(function Row({ q, index, showAuthor, onOpen, allowJudge }: { q: Question; index: number; showAuthor: boolean; onOpen: (id: string) => void; allowJudge: boolean }) {
   const { set, role, gi, personOf } = useSetContext();
   const store = useQuestionStore();
   const [busy, setBusy] = useState(false);
@@ -233,7 +234,6 @@ const Row = memo(function Row({ q, index, showAuthor, onOpen }: { q: Question; i
   const round = q.roundId ? set.rounds.find((r) => r.id === q.roundId)?.name ?? "（削除済みRound）" : "";
   const sources = q.sources.filter((s) => s.trim());
   const firstUrl = sources.find((s) => /^https?:\/\//.test(s.trim()));
-  const judgeKey = q.status === "adopted" ? "adopted" : q.status === "rejected" ? "rejected" : "undecided";
 
   // 一覧から採用/却下/未判定を直接変更する
   async function setJudge(next: "adopted" | "rejected" | "undecided") {
@@ -269,7 +269,7 @@ const Row = memo(function Row({ q, index, showAuthor, onOpen }: { q: Question; i
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs sm:shrink-0 sm:flex-col sm:items-end sm:gap-x-0">
           {showAuthor && <PersonChip name={author.name} photoURL={author.photoURL} muted={!author.known} />}
           <span className="flex flex-wrap justify-end gap-1">
-            <span className={`rounded-full px-2 py-0.5 ${judgeStyle[judgeKey]}`}>{judgeLabel(q.status)}</span>
+            <span className={`rounded-full px-2 py-0.5 ${judgeStyle[q.status]}`}>{statusLabel[q.status]}</span>
             <span className={`rounded-full px-2 py-0.5 ${proofStyle[q.proofreadStatus]}`}>{proofreadDisplay(q)}</span>
           </span>
           {assignee && <span className="text-slate-400">担当：{assignee.name}</span>}
@@ -284,12 +284,12 @@ const Row = memo(function Row({ q, index, showAuthor, onOpen }: { q: Question; i
           )}
         </div>
       </div>
-      {judge && (
+      {judge && allowJudge && (
         <div className="flex items-center gap-1.5 border-t border-slate-100 px-3 py-1.5">
           <button disabled={busy} onClick={() => setJudge("adopted")} className={`flex items-center gap-1 rounded-md px-3 py-2 text-xs sm:px-2 sm:py-1 ${q.status === "adopted" ? "bg-emerald-600 text-white" : "text-ok hover:bg-emerald-50"}`}><Check size={12} />採用</button>
           <button disabled={busy} onClick={() => setJudge("rejected")} className={`flex items-center gap-1 rounded-md px-3 py-2 text-xs sm:px-2 sm:py-1 ${q.status === "rejected" ? "bg-rose-500 text-white" : "text-danger hover:bg-rose-50"}`}><Ban size={12} />却下</button>
           {(q.status === "adopted" || q.status === "rejected") && (
-            <button disabled={busy} onClick={() => setJudge("undecided")} className="flex items-center gap-1 rounded-md px-3 py-2 text-xs sm:px-2 sm:py-1 text-slate-400 hover:bg-slate-50"><RotateCcw size={12} />未判定に戻す</button>
+            <button disabled={busy} onClick={() => setJudge("undecided")} className="flex items-center gap-1 rounded-md px-3 py-2 text-xs sm:px-2 sm:py-1 text-slate-400 hover:bg-slate-50"><RotateCcw size={12} />作問完了に戻す</button>
           )}
           {err && <span className="text-xs text-danger">{err}</span>}
           <ChevronDown size={14} className="ml-auto text-slate-300" />

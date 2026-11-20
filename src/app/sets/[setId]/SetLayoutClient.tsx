@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { MotionConfig, motion } from "framer-motion";
-import { ArrowLeft, PencilLine, ListChecks, ShieldCheck, ListOrdered, Trash2, Users2, Megaphone, ArrowUpDown, Settings, Printer, BarChart3 } from "lucide-react";
+import { ArrowLeft, PencilLine, ListChecks, ShieldCheck, ListOrdered, Trash2, Users2, Megaphone, ArrowUpDown, Settings, Printer, BarChart3, MessageSquarePlus } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useQuestionSet } from "@/lib/useQuestionSets";
 import { SetProvider, useSetContext } from "@/lib/SetContext";
@@ -13,13 +13,15 @@ import { canManageMembers } from "@/lib/permissions";
 import { ShareDialog } from "@/components/ShareDialog";
 import { usePageTitle } from "@/lib/usePageTitle";
 import { CardsSkeleton, SetShellSkeleton } from "@/components/Skeleton";
-import { CHROME_X, SiteFooter, SiteHeader } from "@/components/SiteChrome";
+import { CHROME_X } from "@/components/SiteChrome";
+import { SuggestionsProvider, useSuggestions } from "@/lib/suggestions";
 
 const tabs = [
   { href: "", label: "お知らせ", icon: Megaphone, match: [""] },
   { href: "/write", label: "作問", icon: PencilLine, match: ["/write"] },
   { href: "/manage", label: "問題", icon: ListChecks, match: ["/manage", "/mine", "/others"] },
   { href: "/proofread", label: "裏どり", icon: ShieldCheck, match: ["/proofread"] },
+  { href: "/suggestions", label: "修正案", icon: MessageSquarePlus, match: ["/suggestions"] },
   { href: "/adopted", label: "出題順", icon: ListOrdered, match: ["/adopted"] },
   { href: "/trash", label: "ゴミ箱", icon: Trash2, match: ["/trash"] },
   { href: "/members", label: "メンバー", icon: Users2, match: ["/members"] },
@@ -32,6 +34,7 @@ const tabs = [
 function SetShell({ children }: { children: React.ReactNode }) {
   const { set, role } = useSetContext();
   const store = useQuestionStore();
+  const sug = useSuggestions();
   const pathname = usePathname();
   const [showShare, setShowShare] = useState(false);
   const base = `/sets/${set.id}`;
@@ -40,9 +43,8 @@ function SetShell({ children }: { children: React.ReactNode }) {
   usePageTitle(`${set.name} - Qraft`);
 
   return (
-    <div className="flex min-h-dvh flex-col bg-slate-50 print:min-h-0 print:bg-surface">
-      <SiteHeader sticky={false} />
-      <div className={`${CHROME_X} flex-1 pb-12 pt-4 sm:pt-6 print:max-w-none print:p-0`}>
+    <div className="min-h-dvh bg-slate-50 print:min-h-0 print:bg-surface">
+      <div className={`${CHROME_X} pb-16 pt-4 sm:pt-6 print:max-w-none print:p-0`}>
         <div className="mb-4 flex items-center justify-between gap-2 print:hidden">
           <div className="min-w-0">
             <Link href="/dashboard" className="mb-1 flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600">
@@ -67,6 +69,7 @@ function SetShell({ children }: { children: React.ReactNode }) {
                   <span className="relative z-10 flex items-center gap-1.5">
                     <t.icon size={15} />
                     {t.label}
+                    {t.href === "/suggestions" && sug.open.length > 0 && <span className="rounded-full bg-amber-100 px-1.5 text-[10px] text-warn-strong">{sug.open.length}</span>}
                     {t.href === "/trash" && store.trash.length > 0 && <span className="rounded-full bg-slate-200 px-1.5 text-[10px] text-slate-500">{store.trash.length}</span>}
                   </span>
                 </Link>
@@ -80,7 +83,6 @@ function SetShell({ children }: { children: React.ReactNode }) {
 
         {showShare && <ShareDialog set={set} isAdmin={canManageMembers(role)} onClose={() => setShowShare(false)} />}
       </div>
-      <SiteFooter />
     </div>
   );
 }
@@ -98,7 +100,9 @@ export function SetLayoutClient({ children }: { children: React.ReactNode }) {
   // 問題の購読は、セットの読み込みを待たずに、同時に始める（待つと、読み込みが2段階になる）
   return (
     <QuestionsProvider setId={setId}>
-      <SetGate authLoading={authLoading} setLoading={setLoading} error={error} set={set} actions={actions}>{children}</SetGate>
+      <SuggestionsProvider setId={setId}>
+        <SetGate authLoading={authLoading} setLoading={setLoading} error={error} set={set} actions={actions}>{children}</SetGate>
+      </SuggestionsProvider>
     </QuestionsProvider>
   );
 }

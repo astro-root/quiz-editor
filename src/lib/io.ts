@@ -2,7 +2,7 @@ import * as XLSX from "xlsx";
 import { GenreNode, MAX_SOURCES, Question, QuestionSet, Round } from "./types";
 import { normalizeText } from "./search";
 import { newId } from "./genres";
-import { judgeLabel, proofreadLabel } from "./permissions";
+import { proofreadLabel, statusLabel } from "./permissions";
 import { QuestionInput } from "./QuestionsContext";
 
 // ---------------- エクスポート ----------------
@@ -32,7 +32,7 @@ export function questionsToRows(list: Question[], ctx: ExportCtx): (string | num
     ctx.personName(q.authorUid, q.authorName),
     q.assigneeUid ? ctx.personName(q.assigneeUid, "") : "",
     q.playOrder ?? "",
-    judgeLabel(q.status),
+    statusLabel[q.status],
     proofreadLabel[q.proofreadStatus],
   ]);
 }
